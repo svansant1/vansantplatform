@@ -20,33 +20,33 @@ import requests
 from sentence_transformers import SentenceTransformer
 
 from app.core.ai_logic import SVANSAI
-from services.debugger import read_process_memory
-from services.shield import (
+from app.services.debugger import read_process_memory
+from app.services.shield import (
     scan_folder,
     scan_all_quick_targets,
     get_quick_scan_targets,
     quarantine_file,
 )
-from services.sentry import (
+from app.services.sentry import (
     get_system_stats,
     get_suspicious_processes,
     generate_intel_feed,
 )
-from services.intelligence_core import build_answer
-from services.learning_engine import learn_daily_topics
-from services.model_router import route_response
-from services.retrieval_engine import extract_topic
-from services.svansai_orchestrator import (
+from app.services.intelligence_core import build_answer
+from app.services.learning_engine import learn_daily_topics
+from app.services.model_router import route_response
+from app.services.retrieval_engine import extract_topic
+from app.services.svansai_orchestrator import (
     orchestrate_svansai_response,
     validate_learned_entry,
 )
-from services.debugger_pairing import (
+from app.services.debugger_pairing import (
     create_pair_session,
     get_pair_session,
     mark_pair_connected,
 )
-from services.knowledge_store import load_knowledge_entries, merge_knowledge_entries
-from api.debug_routes import router as debug_router
+from app.services.knowledge_store import load_knowledge_entries, merge_knowledge_entries
+from app.api.debug_routes import router as debug_router
 
 app = FastAPI()
 
