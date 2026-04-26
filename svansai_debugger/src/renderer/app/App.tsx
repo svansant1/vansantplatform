@@ -438,7 +438,7 @@ Instructions:
             onMouseDown={handleMouseDown}
           >
             <img
-              src="/svdebugger.png"
+              src="/public/svdebugger.png"
               alt="SV Inspector mascot"
               className="floating-mascot__img"
               draggable={false}
