@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+sentence-transformers
+numpy
+pydantic
+python-dotenv
+chromadb
+faiss-cpu
+rank-bm25

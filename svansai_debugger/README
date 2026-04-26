@@ -1,0 +1,18 @@
+SVANSAI Debugger Agent Full Bundle
+This bundle gives you a single-pass file set so you do not have to keep updating the same files repeatedly.
+Included
+Electron app files for Apps + Network + Files + Sites bridge
+Browser extension for real open-tab site scanning
+FastAPI route file for the browser bridge
+Put your existing assets here
+`src/renderer/public/svdebugger.png`
+`assets/icon.ico`
+Backend router registration
+
+```python
+from browser_bridge_routes import router as browser_bridge_router
+app.include_router(browser_bridge_router)
+```
+
+Load the browser extension
+Open Chrome or Edge extensions page, enable Developer Mode, then load the `browser_extension` folder as an unpacked extension.

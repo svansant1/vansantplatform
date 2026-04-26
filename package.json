@@ -1,0 +1,23 @@
+{
+  "name": "vansant-platform",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"cd frontend && npx next dev --webpack\" \"cd backend/app && python -m uvicorn main:app --reload\" \"wait-on http://localhost:3000 && electron ./electron/main.js\""
+  },
+  "dependencies": {
+    "autoprefixer": "^10.4.19",
+    "concurrently": "^9.2.1",
+    "electron": "^41.2.0",
+    "next": "^16.2.2",
+    "postcss": "^8.4.38",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "tailwindcss": "^4.0.0",
+    "wait-on": "^7.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3"
+  }
+}

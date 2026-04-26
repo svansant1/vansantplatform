@@ -1,0 +1,22 @@
+Vansant Sandbox
+A standalone Electron + React + Monaco desktop workspace for building projects planned in VansantPlatform.
+Features in v1
+Open folder
+File explorer
+Open files in tabs
+Edit and save files
+Create files and folders
+Monaco editor
+Run Python, JavaScript, TypeScript, and Java files
+Output panel
+Install
+npm install
+Run in dev
+npm run dev
+Build
+npm run dist:win
+Notes
+Python must be available as `python` on PATH.
+Node must be available for JS/TS run actions.
+TypeScript run uses `npx tsx`.
+Java run expects `javac` and `java` on PATH.

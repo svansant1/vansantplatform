@@ -1,0 +1,33 @@
+version: "3.9"
+services:
+  backend:
+    build: ../backend-node
+    env_file:
+      - ../backend-node/.env.example
+    ports:
+      - "3001:3001"
+    depends_on:
+      - redis
+      - python-brain
+
+  python-brain:
+    build: ../python-brain
+    ports:
+      - "8001:8001"
+    volumes:
+      - brain-data:/data
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+
+  prometheus:
+    image: prom/prometheus
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+
+volumes:
+  brain-data:

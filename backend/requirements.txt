@@ -1,0 +1,84 @@
+# ================================
+# Core Backend (Required)
+# ================================
+# FastAPI backend framework
+fastapi
+
+# Server runner with better performance + reload
+uvicorn[standard]
+
+# Data validation and request models
+pydantic
+
+# API calls to external services
+requests
+
+# Load environment variables (.env file)
+python-dotenv
+
+
+# ================================
+# AI / SVANSAI Intelligence
+# ================================
+# AI analysis / debugging
+openai
+
+# Async API calls (faster than requests)
+httpx
+
+# Token counting for AI prompts
+tiktoken
+
+
+# ================================
+# Debugger / System Tools
+# ================================
+# Scan running programs / process monitoring
+psutil
+
+
+# ================================
+# File Handling / Source Loading
+# ================================
+# File uploads
+python-multipart
+
+# Async file reading
+aiofiles
+
+
+# ================================
+# Frontend Communication / CORS
+# ================================
+# CORS, websockets, improved FastAPI support
+fastapi[all]
+
+
+# ================================
+# Logging / Debug Output
+# ================================
+# Better terminal output
+rich
+
+# Better logging system
+loguru
+
+
+# ================================
+# Performance / Dev Tools
+# ================================
+# Auto reload / file watching
+watchfiles
+
+# Faster JSON parsing
+orjson
+
+
+# ================================
+# OPTIONAL (Recommended for Future Growth)
+# ================================
+# Faster async event loop (Linux/Mac mainly but safe to include)
+uvloop
+
+# Faster HTTP server performance
+httptools
