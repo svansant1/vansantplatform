@@ -4,7 +4,7 @@
   "description": "Sends currently open tabs to the local SVANSAI debugger backend.",
   "version": "1.0.0",
   "permissions": ["tabs"],
-  "host_permissions": ["http://127.0.0.1:8001/*"],
+  "host_permissions": ["https://vansant-backend.onrender.com"],
   "background": {
     "service_worker": "background.js"
   },

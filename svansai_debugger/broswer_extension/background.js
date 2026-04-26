@@ -16,7 +16,7 @@ async function sendTabs() {
 
     console.log("Filtered tabs:", filteredTabs);
 
-    const response = await fetch("http://127.0.0.1:8001/browser/tabs", {
+    const response = await fetch("https://vansant-backend.onrender.com", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

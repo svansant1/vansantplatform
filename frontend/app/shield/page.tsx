@@ -28,7 +28,7 @@ export default function ShieldPage() {
   useEffect(() => {
     const loadQuickTargets = async () => {
       try {
-        const res = await fetch("http://127.0.0.1:8000/shield/quick-targets");
+        const res = await fetch("process.env.NEXT_PUBLIC_API_BASE_URL");
         const data = await res.json();
 
         if (data.ok) {
@@ -55,7 +55,7 @@ export default function ShieldPage() {
     setFindings([]);
 
     try {
-      const res = await fetch("http://127.0.0.1:8000/shield/scan-folder", {
+      const res = await fetch("process.env.NEXT_PUBLIC_API_BASE_URL", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -89,7 +89,7 @@ export default function ShieldPage() {
     setFindings([]);
 
     try {
-      const res = await fetch("http://127.0.0.1:8000/shield/scan-all");
+      const res = await fetch("process.env.NEXT_PUBLIC_API_BASE_URL");
       const data = await res.json();
 
       if (data.ok) {
@@ -110,7 +110,7 @@ export default function ShieldPage() {
 
   const quarantineFinding = async (filePath: string) => {
     try {
-      const res = await fetch("http://127.0.0.1:8000/shield/quarantine", {
+      const res = await fetch("process.env.NEXT_PUBLIC_API_BASE_URL", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
