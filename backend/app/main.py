@@ -19,7 +19,7 @@ import pypdf
 import requests
 from sentence_transformers import SentenceTransformer
 
-from core.ai_logic import SVANSAI
+from app.core.ai_logic import SVANSAI
 from services.debugger import read_process_memory
 from services.shield import (
     scan_folder,
