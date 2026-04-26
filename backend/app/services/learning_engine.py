@@ -11,7 +11,7 @@ from urllib.parse import urlparse
 import requests
 from bs4 import BeautifulSoup
 
-from services.knowledge_store import add_knowledge_entries, load_knowledge_entries
+from app.services.knowledge_store import add_knowledge_entries, load_knowledge_entries
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 DATA_DIR = BASE_DIR / "data"

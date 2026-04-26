@@ -1,8 +1,8 @@
 from typing import Any, Dict, List
 
-from services.deep_topic_engine import build_topic_cluster
-from services.deep_answer_engine import build_deep_answer
-from services.knowledge_validation import validate_knowledge_entry
+from app.services.deep_topic_engine import build_topic_cluster
+from app.services.deep_answer_engine import build_deep_answer
+from app.services.knowledge_validation import validate_knowledge_entry
 
 
 def orchestrate_svansai_response(

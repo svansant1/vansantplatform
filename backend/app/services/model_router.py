@@ -1,8 +1,8 @@
 from typing import Any, Dict, List, Optional
 
-from services.fallback_engine import build_local_fallback_response
-from services.retrieval_engine import extract_topic, retrieve_relevant_knowledge
-from services.system_prompt import build_system_prompt
+from app.services.fallback_engine import build_local_fallback_response
+from app.services.retrieval_engine import extract_topic, retrieve_relevant_knowledge
+from app.services.system_prompt import build_system_prompt
 
 
 def build_prompt_context(

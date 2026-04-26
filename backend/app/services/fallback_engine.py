@@ -1,7 +1,7 @@
 import re
 from typing import Any, Dict, List, Optional
 
-from services.response_schema import build_response
+from app.services.response_schema import build_response
 
 
 def generate_basic_suggestions(prompt: str) -> List[str]:
