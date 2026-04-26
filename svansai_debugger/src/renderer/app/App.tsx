@@ -4,6 +4,7 @@ import {
   PLATFORM_API_BASE_URL,
   SVANSAI_API_BASE_URL,
 } from "../../shared/constants/api";
+import svDebuggerMascot from "../public/svdebugger.png";
 
 type ScanMode = "game" | "network" | "sites" | "apps" | "files";
 
@@ -438,7 +439,7 @@ Instructions:
             onMouseDown={handleMouseDown}
           >
             <img
-              src="/public/svdebugger.png"
+              src={svDebuggerMascot}
               alt="SV Inspector mascot"
               className="floating-mascot__img"
               draggable={false}
