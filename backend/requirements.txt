@@ -82,3 +82,6 @@ uvloop
 httptools
 chromadb
 pypdf
+sentence-transformers
+torch==2.2.2
+transformers
