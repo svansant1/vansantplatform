@@ -79,7 +79,6 @@ orjson
 # ================================
 # Faster async event loop (Linux/Mac mainly but safe to include)
 uvloop
-
-# Faster HTTP server performance
 httptools
 chromadb
+pypdf
