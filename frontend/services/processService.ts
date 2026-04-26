@@ -1,7 +1,7 @@
 import type { ProcessListResponse, RunningProcess } from "../types/process";
 
 const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ?? "https://vansant-backend.onrender.com";
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://vansant-backend.onrender.com";
 
 function normalizeProcess(
   payload: Partial<RunningProcess> | null | undefined,
