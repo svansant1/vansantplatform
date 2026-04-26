@@ -15,7 +15,7 @@ function createMainWindow() {
     },
   });
 
-  mainWindow.loadURL("http://localhost:3000");
+  mainWindow.loadURL("https://vansantplatform.com");
 }
 
 function createDebugConsoleWindow() {
