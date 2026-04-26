@@ -9,7 +9,7 @@ type LiveLogMessage = {
   intel_feed?: unknown;
 };
 
-const WS_BASE_URL = "ws://127.0.0.1:8000/ws/svansai";
+const WS_BASE_URL = "wss://vansant-backend.onrender.com";
 
 export function useLiveLogs() {
   const [messages, setMessages] = useState<LiveLogMessage[]>([]);
