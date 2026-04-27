@@ -81,7 +81,7 @@ export async function scanSites(): Promise<ScanResult> {
 
   const payload = await fetchBrowserTabs();
 
-  if (!payload.ok || !Array.isArray(payload.tabs)) {
+  if (!Array.isArray(payload.tabs)) {
     logs.push(
       "[SITES] Browser extension bridge unavailable or returned invalid data.",
     );

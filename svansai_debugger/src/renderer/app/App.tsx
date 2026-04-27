@@ -16,6 +16,7 @@ type ClaimResponse = {
 };
 
 type ChatApiResponse = {
+  answer?: string;
   response?: string;
   source?: string;
 };
@@ -328,6 +329,7 @@ Instructions:
       const data = (await response.json()) as ChatApiResponse;
       console.log("SVANSAI response:", data);
       const answer =
+        data.answer?.trim() ||
         data.response?.trim() ||
         "I could not generate a guided fix response right now.";
 
