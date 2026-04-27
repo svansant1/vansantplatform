@@ -118,6 +118,10 @@ class DebugAnalyzeRequest(BaseModel):
     file_path: str | None = None
 
 
+class SandboxRunRequest(BaseModel):
+    code: str
+
+
 # =========================
 # COUNT HELPERS
 # =========================
@@ -1746,3 +1750,37 @@ async def receive_tabs(data: dict = Body(...)):
 @app.get("/browser/tabs")
 async def get_tabs():
     return {"tabs": browser_tabs_store}
+
+
+@app.post("/sandbox/run")
+def sandbox_run(data: SandboxRunRequest):
+    if not data.code.strip():
+        return {"ok": False, "output": "No code provided."}
+
+    blocked = [
+        "import os",
+        "import subprocess",
+        "open(",
+        "__import__",
+        "eval(",
+        "exec(",
+    ]
+    if any(token in data.code for token in blocked):
+        return {"ok": False, "output": "Blocked unsafe code."}
+
+    try:
+        result = subprocess.run(
+            ["python", "-c", data.code],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+
+        return {
+            "ok": result.returncode == 0,
+            "output": result.stdout or result.stderr or "No output.",
+        }
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "output": "Execution timed out."}
+    except Exception as error:
+        return {"ok": False, "output": str(error)}
