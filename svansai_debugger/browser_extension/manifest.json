@@ -1,10 +1,12 @@
 {
   "manifest_version": 3,
   "name": "SVANSAI Debugger Site Bridge",
-  "description": "Sends currently open tabs to the local SVANSAI debugger backend.",
+  "description": "Sends currently open tabs to the SVANSAI backend.",
   "version": "1.0.0",
   "permissions": ["tabs"],
-  "host_permissions": ["https://vansant-backend.onrender.com"],
+  "host_permissions": [
+    "https://vansant-backend.onrender.com/*"
+  ],
   "background": {
     "service_worker": "background.js"
   },

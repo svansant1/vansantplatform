@@ -1,10 +1,10 @@
 console.log("SVANSAI extension starting...");
 
+const API_BASE_URL = "https://vansant-backend.onrender.com";
+
 async function sendTabs() {
   try {
     const tabs = await chrome.tabs.query({});
-
-    console.log("Raw tabs:", tabs);
 
     const filteredTabs = tabs
       .filter((tab) => tab.url && /^https?:/i.test(tab.url))
@@ -14,9 +14,7 @@ async function sendTabs() {
         url: tab.url || "",
       }));
 
-    console.log("Filtered tabs:", filteredTabs);
-
-    const response = await fetch("https://vansant-backend.onrender.com", {
+    const response = await fetch(`${API_BASE_URL}/browser/tabs`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -24,7 +22,7 @@ async function sendTabs() {
       body: JSON.stringify({ tabs: filteredTabs }),
     });
 
-    console.log("POST status:", response.status);
+    console.log("POST /browser/tabs:", response.status, filteredTabs.length);
   } catch (err) {
     console.error("Extension error:", err);
   }
@@ -32,3 +30,18 @@ async function sendTabs() {
 
 sendTabs();
 setInterval(sendTabs, 5000);
+
+chrome.runtime.onInstalled.addListener(() => {
+  console.log("Extension installed → sending tabs");
+  sendTabs();
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  console.log("Browser startup → sending tabs");
+  sendTabs();
+});
+
+chrome.tabs.onCreated.addListener(sendTabs);
+chrome.tabs.onUpdated.addListener(sendTabs);
+chrome.tabs.onRemoved.addListener(sendTabs);
+chrome.tabs.onActivated.addListener(sendTabs);
