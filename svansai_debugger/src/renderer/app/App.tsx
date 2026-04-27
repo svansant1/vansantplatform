@@ -310,13 +310,15 @@ Instructions:
       }
 
       console.log("Sending to SVANSAI:", guidedInput);
-      const response = await fetch(`${SVANSAI_API_BASE_URL}/api`, {
+      const response = await fetch(`${SVANSAI_API_BASE_URL}/ask`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          message: guidedInput,
+          prompt: payloadMessage,
+          config: {},
+          knowledge: [],
         }),
       });
       if (!response.ok) {

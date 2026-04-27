@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, UploadFile, File, WebSocket, WebSocketDisconnect, Body
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -53,6 +53,8 @@ app = FastAPI()
 app.include_router(debug_router)
 
 conversation_memory = deque(maxlen=6)
+
+browser_tabs_store: list[dict] = []
 
 load_dotenv()
 
@@ -1732,3 +1734,15 @@ def learning_status():
         "knowledge_entries": len(entries),
         "message": "SVANSAI backend knowledge store is active.",
     }
+
+
+@app.post("/browser/tabs")
+async def receive_tabs(data: dict = Body(...)):
+    global browser_tabs_store
+    browser_tabs_store = data.get("tabs", [])
+    return {"status": "received", "count": len(browser_tabs_store)}
+
+
+@app.get("/browser/tabs")
+async def get_tabs():
+    return {"tabs": browser_tabs_store}
