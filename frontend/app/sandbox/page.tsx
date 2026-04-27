@@ -1,75 +1,98 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ??
   "https://vansant-backend.onrender.com";
 
-const lessons = [
-  {
-    title: "Print",
-    code: `print("Hello, SVANSAI Sandbox")`,
-    input: "",
-  },
-  {
-    title: "Variables",
-    code: `name = "Shawn"\nage = 35\nprint(name)\nprint(age)`,
-    input: "",
-  },
-  {
-    title: "Input",
-    code: `name = input("Enter your name: ")\nprint("Hello", name)`,
-    input: "Shawn",
-  },
-  {
-    title: "If Statement",
-    code: `score = 85\nif score >= 70:\n    print("Pass")\nelse:\n    print("Try again")`,
-    input: "",
-  },
-  {
-    title: "Loop",
-    code: `for i in range(1, 6):\n    print("Round", i)`,
-    input: "",
-  },
-  {
-    title: "Function",
-    code: `def add(a, b):\n    return a + b\n\nprint(add(10, 5))`,
-    input: "",
-  },
-];
+const WS_BASE_URL = API_BASE_URL.replace("https://", "wss://").replace(
+  "http://",
+  "ws://",
+);
 
 export default function SandboxPage() {
-  const [code, setCode] = useState(lessons[0].code);
-  const [stdin, setStdin] = useState("");
-  const [output, setOutput] = useState("Terminal ready.");
-  const [loading, setLoading] = useState(false);
+  const [code, setCode] = useState(
+    `name = input("Enter your name: ")\nprint("Hello", name)`,
+  );
+  const [terminal, setTerminal] = useState("Terminal ready.\n");
+  const [command, setCommand] = useState("");
+  const [running, setRunning] = useState(false);
 
-  async function runCode() {
-    setLoading(true);
-    setOutput("Running...");
+  const socketRef = useRef<WebSocket | null>(null);
 
-    try {
-      const res = await fetch(`${API_BASE_URL}/sandbox/run`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, input: stdin }),
-      });
-
-      const data = await res.json();
-      setOutput(data.output || "No output.");
-    } catch {
-      setOutput("Error running code. Check backend connection.");
-    } finally {
-      setLoading(false);
-    }
+  function appendTerminal(value: string) {
+    setTerminal((current) => current + value);
   }
 
-  function loadLesson(index: number) {
-    setCode(lessons[index].code);
-    setStdin(lessons[index].input);
-    setOutput(`Loaded lesson: ${lessons[index].title}`);
+  function runCode() {
+    if (socketRef.current) {
+      socketRef.current.close();
+      socketRef.current = null;
+    }
+
+    setTerminal("");
+    setRunning(true);
+
+    const socket = new WebSocket(`${WS_BASE_URL}/sandbox/ws`);
+    socketRef.current = socket;
+
+    socket.onopen = () => {
+      socket.send(JSON.stringify({ code }));
+    };
+
+    socket.onmessage = (event) => {
+      const message = JSON.parse(event.data);
+
+      if (message.type === "output" || message.type === "error") {
+        appendTerminal(message.data);
+      }
+
+      if (message.type === "done") {
+        appendTerminal(message.data);
+        setRunning(false);
+        socket.close();
+      }
+    };
+
+    socket.onerror = () => {
+      appendTerminal("\nTerminal connection error.\n");
+      setRunning(false);
+    };
+
+    socket.onclose = () => {
+      socketRef.current = null;
+      setRunning(false);
+    };
+  }
+
+  function sendInput() {
+    if (!command.trim()) return;
+
+    appendTerminal(command + "\n");
+
+    if (socketRef.current && running) {
+      socketRef.current.send(
+        JSON.stringify({
+          type: "input",
+          data: command,
+        }),
+      );
+    }
+
+    setCommand("");
+  }
+
+  function stopCode() {
+    if (socketRef.current) {
+      socketRef.current.send(JSON.stringify({ type: "stop" }));
+      socketRef.current.close();
+      socketRef.current = null;
+    }
+
+    setRunning(false);
+    appendTerminal("\n[Stopped]\n");
   }
 
   return (
@@ -77,25 +100,32 @@ export default function SandboxPage() {
       <div>
         <h1 className="text-3xl font-bold">Python Sandbox</h1>
         <p className="mt-2 text-zinc-400">
-          Practice Python with code execution, input support, and terminal
-          output.
+          Practice Python with an interactive terminal.
         </p>
       </div>
 
       <div className="flex flex-wrap gap-3">
         <button
           onClick={runCode}
-          disabled={loading}
+          disabled={running}
           className="rounded-xl bg-green-500 px-5 py-3 text-sm font-semibold text-white hover:bg-green-600 disabled:opacity-50"
         >
-          {loading ? "Running..." : "Run Code"}
+          {running ? "Running..." : "Run Code"}
+        </button>
+
+        <button
+          onClick={stopCode}
+          disabled={!running}
+          className="rounded-xl bg-red-500 px-5 py-3 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-50"
+        >
+          Stop
         </button>
 
         <button
           onClick={() => {
             setCode("");
-            setStdin("");
-            setOutput("Terminal cleared.");
+            setTerminal("Terminal cleared.\n");
+            setCommand("");
           }}
           className="rounded-xl border border-zinc-700 px-5 py-3 text-sm font-semibold text-zinc-300 hover:bg-zinc-900"
         >
@@ -118,62 +148,57 @@ export default function SandboxPage() {
         </Link>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[260px_1fr]">
-        <aside className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
-          <h2 className="mb-3 text-lg font-semibold text-white">Lessons</h2>
-
-          <div className="space-y-2">
-            {lessons.map((lesson, index) => (
-              <button
-                key={lesson.title}
-                onClick={() => loadLesson(index)}
-                className="w-full rounded-xl border border-zinc-800 px-4 py-3 text-left text-sm text-zinc-200 hover:border-purple-500 hover:bg-zinc-900"
-              >
-                {lesson.title}
-              </button>
-            ))}
+      <section className="space-y-4">
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
+          <div className="mb-2 text-sm font-semibold uppercase tracking-widest text-purple-400">
+            Python Editor
           </div>
-        </aside>
 
-        <section className="space-y-4">
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
-            <div className="mb-2 text-sm font-semibold uppercase tracking-widest text-purple-400">
-              Python Editor
-            </div>
+          <textarea
+            value={code}
+            onChange={(event) => setCode(event.target.value)}
+            spellCheck={false}
+            className="h-80 w-full resize-y rounded-xl border border-zinc-800 bg-black p-4 font-mono text-sm text-green-300 outline-none focus:border-purple-500"
+          />
+        </div>
 
-            <textarea
-              value={code}
-              onChange={(event) => setCode(event.target.value)}
-              spellCheck={false}
-              className="h-80 w-full resize-y rounded-xl border border-zinc-800 bg-black p-4 font-mono text-sm text-green-300 outline-none focus:border-purple-500"
+        <div className="rounded-2xl border border-zinc-800 bg-black p-4">
+          <div className="mb-2 text-sm font-semibold uppercase tracking-widest text-green-400">
+            Interactive Terminal
+          </div>
+
+          <pre className="min-h-72 max-h-96 overflow-auto whitespace-pre-wrap rounded-xl bg-black p-3 font-mono text-sm text-green-300">
+            {terminal}
+          </pre>
+
+          <div className="mt-3 flex items-center gap-2">
+            <span className="font-mono text-green-400">&gt;</span>
+            <input
+              value={command}
+              onChange={(event) => setCommand(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  sendInput();
+                }
+              }}
+              placeholder={
+                running
+                  ? "Type terminal input here..."
+                  : "Run code first, then type input here."
+              }
+              disabled={!running}
+              className="w-full rounded-xl border border-zinc-800 bg-black px-4 py-3 font-mono text-sm text-green-300 outline-none focus:border-green-500 disabled:opacity-50"
             />
+            <button
+              onClick={sendInput}
+              disabled={!running}
+              className="rounded-xl bg-green-500 px-4 py-3 text-sm font-semibold text-white hover:bg-green-600 disabled:opacity-50"
+            >
+              Send
+            </button>
           </div>
-
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
-            <div className="mb-2 text-sm font-semibold uppercase tracking-widest text-orange-400">
-              Program Input
-            </div>
-
-            <textarea
-              value={stdin}
-              onChange={(event) => setStdin(event.target.value)}
-              placeholder="Input for input() goes here. Example: Shawn"
-              spellCheck={false}
-              className="h-24 w-full resize-y rounded-xl border border-zinc-800 bg-black p-4 font-mono text-sm text-yellow-300 outline-none focus:border-orange-500"
-            />
-          </div>
-
-          <div className="rounded-2xl border border-zinc-800 bg-black p-4">
-            <div className="mb-2 text-sm font-semibold uppercase tracking-widest text-green-400">
-              Terminal Output
-            </div>
-
-            <pre className="min-h-64 overflow-auto whitespace-pre-wrap rounded-xl bg-black font-mono text-sm text-green-300">
-              {output}
-            </pre>
-          </div>
-        </section>
-      </div>
+        </div>
+      </section>
     </div>
   );
 }

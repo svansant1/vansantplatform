@@ -1802,3 +1802,111 @@ def sandbox_run(data: SandboxRunRequest):
         return {"ok": False, "output": "Execution timed out after 5 seconds."}
     except Exception as error:
         return {"ok": False, "output": str(error)}
+
+
+@app.websocket("/sandbox/ws")
+async def sandbox_terminal(websocket: WebSocket):
+    await websocket.accept()
+
+    process = None
+
+    blocked_tokens = [
+        "import os",
+        "import subprocess",
+        "import socket",
+        "import shutil",
+        "open(",
+        "__import__",
+        "eval(",
+        "exec(",
+        "compile(",
+        "globals(",
+        "locals(",
+        "pip",
+        "install",
+    ]
+
+    try:
+        init_payload = await websocket.receive_json()
+        code = (init_payload.get("code") or "").strip()
+
+        if not code:
+            await websocket.send_json({"type": "output", "data": "No code provided.\n"})
+            await websocket.close()
+            return
+
+        lowered = code.lower()
+        if any(token in lowered for token in blocked_tokens):
+            await websocket.send_json(
+                {
+                    "type": "output",
+                    "data": "Blocked unsafe code. This sandbox only allows safe beginner Python.\n",
+                }
+            )
+            await websocket.close()
+            return
+
+        process = await asyncio.create_subprocess_exec(
+            "python",
+            "-u",
+            "-c",
+            code,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+
+        async def read_stream(stream, stream_type: str):
+            while True:
+                chunk = await stream.read(1024)
+                if not chunk:
+                    break
+                await websocket.send_json(
+                    {
+                        "type": stream_type,
+                        "data": chunk.decode(errors="replace"),
+                    }
+                )
+
+        stdout_task = asyncio.create_task(read_stream(process.stdout, "output"))
+        stderr_task = asyncio.create_task(read_stream(process.stderr, "error"))
+
+        while process.returncode is None:
+            message = await websocket.receive_json()
+
+            if message.get("type") == "input":
+                value = message.get("data", "")
+
+                if process.stdin:
+                    process.stdin.write((value + "\n").encode())
+                    await process.stdin.drain()
+
+            elif message.get("type") == "stop":
+                process.terminate()
+                break
+
+        await stdout_task
+        await stderr_task
+
+        await websocket.send_json(
+            {
+                "type": "done",
+                "data": "\n[Process finished]\n",
+            }
+        )
+
+    except WebSocketDisconnect:
+        if process and process.returncode is None:
+            process.terminate()
+
+    except Exception as error:
+        await websocket.send_json(
+            {
+                "type": "error",
+                "data": f"\nSandbox error: {error}\n",
+            }
+        )
+
+    finally:
+        if process and process.returncode is None:
+            process.terminate()
