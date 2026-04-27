@@ -5,6 +5,7 @@ import {
   SVANSAI_API_BASE_URL,
 } from "../../shared/constants/api";
 import svDebuggerMascot from "../public/svdebugger.png";
+console.log("Mascot path:", svDebuggerMascot);
 
 type ScanMode = "game" | "network" | "sites" | "apps" | "files";
 
@@ -443,6 +444,8 @@ Instructions:
               alt="SV Inspector mascot"
               className="floating-mascot__img"
               draggable={false}
+              onError={() => console.error("Mascot failed:", svDebuggerMascot)}
+              onLoad={() => console.log("Mascot loaded:", svDebuggerMascot)}
             />
           </div>
 
