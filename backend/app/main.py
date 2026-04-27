@@ -120,6 +120,7 @@ class DebugAnalyzeRequest(BaseModel):
 
 class SandboxRunRequest(BaseModel):
     code: str
+    input: str | None = ""
 
 
 # =========================
@@ -1754,23 +1755,39 @@ async def get_tabs():
 
 @app.post("/sandbox/run")
 def sandbox_run(data: SandboxRunRequest):
-    if not data.code.strip():
+    code = data.code.strip()
+    stdin = data.input or ""
+
+    if not code:
         return {"ok": False, "output": "No code provided."}
 
-    blocked = [
+    blocked_tokens = [
         "import os",
         "import subprocess",
+        "import socket",
+        "import shutil",
         "open(",
         "__import__",
         "eval(",
         "exec(",
+        "compile(",
+        "globals(",
+        "locals(",
+        "input.__class__",
     ]
-    if any(token in data.code for token in blocked):
-        return {"ok": False, "output": "Blocked unsafe code."}
+
+    lowered = code.lower()
+
+    if any(token in lowered for token in blocked_tokens):
+        return {
+            "ok": False,
+            "output": "Blocked unsafe code. This training sandbox only allows safe beginner Python.",
+        }
 
     try:
         result = subprocess.run(
-            ["python", "-c", data.code],
+            ["python", "-c", code],
+            input=stdin,
             capture_output=True,
             text=True,
             timeout=5,
@@ -1780,7 +1797,8 @@ def sandbox_run(data: SandboxRunRequest):
             "ok": result.returncode == 0,
             "output": result.stdout or result.stderr or "No output.",
         }
+
     except subprocess.TimeoutExpired:
-        return {"ok": False, "output": "Execution timed out."}
+        return {"ok": False, "output": "Execution timed out after 5 seconds."}
     except Exception as error:
         return {"ok": False, "output": str(error)}
