@@ -12,11 +12,13 @@ loader.config({ monaco });
 function flattenFirstFile(nodes: FileNode[]): string | null {
   for (const node of nodes) {
     if (node.type === "file") return node.path;
+
     if (node.children?.length) {
       const found = flattenFirstFile(node.children);
       if (found) return found;
     }
   }
+
   return null;
 }
 
@@ -27,6 +29,7 @@ function basename(filePath: string): string {
 
 function getLanguage(filePath: string): string {
   const lower = filePath.toLowerCase();
+
   if (lower.endsWith(".py")) return "python";
   if (lower.endsWith(".ts") || lower.endsWith(".tsx")) return "typescript";
   if (
@@ -34,14 +37,26 @@ function getLanguage(filePath: string): string {
     lower.endsWith(".jsx") ||
     lower.endsWith(".mjs") ||
     lower.endsWith(".cjs")
-  )
+  ) {
     return "javascript";
+  }
+
   if (lower.endsWith(".json")) return "json";
   if (lower.endsWith(".java")) return "java";
   if (lower.endsWith(".md")) return "markdown";
   if (lower.endsWith(".css")) return "css";
   if (lower.endsWith(".html")) return "html";
+
   return "plaintext";
+}
+
+function buildSiblingPath(targetPath: string, nextName: string): string {
+  const normalized = targetPath.replace(/\\/g, "/");
+  const parent = normalized.slice(0, normalized.lastIndexOf("/"));
+
+  if (!parent) return nextName;
+
+  return `${parent}/${nextName}`;
 }
 
 export default function App() {
@@ -91,7 +106,9 @@ export default function App() {
   async function openWorkspace() {
     try {
       setBusy(true);
+
       const result = await window.sandboxApi.openFolder();
+
       if (!result) {
         setStatusMessage("Open folder canceled.");
         return;
@@ -117,12 +134,14 @@ export default function App() {
   async function openFile(filePath: string) {
     try {
       const existing = openTabs.find((tab) => tab.path === filePath);
+
       if (existing) {
         setActivePath(filePath);
         return;
       }
 
       const result = await window.sandboxApi.readFile(filePath);
+
       const tab: OpenTab = {
         path: result.path,
         name: basename(result.path),
@@ -164,12 +183,15 @@ export default function App() {
 
     try {
       await window.sandboxApi.writeFile(activeTab.path, activeTab.content);
+
       setOpenTabs((prev) =>
         prev.map((tab) =>
           tab.path === activeTab.path ? { ...tab, isDirty: false } : tab,
         ),
       );
+
       setStatusMessage(`Saved file: ${activeTab.path}`);
+
       if (workspacePath) {
         await refreshTree(workspacePath);
       }
@@ -180,7 +202,10 @@ export default function App() {
     }
   }
 
-  async function createEntry(type: "file" | "directory") {
+  async function createEntry(
+    type: "file" | "directory",
+    parentOverride?: string | null,
+  ) {
     if (!workspacePath) {
       setStatusMessage("Open a workspace first.");
       return;
@@ -188,10 +213,13 @@ export default function App() {
 
     const label = type === "file" ? "file" : "folder";
     const name = window.prompt(`Enter ${label} name:`);
-    if (!name) return;
+
+    if (!name?.trim()) return;
+
+    const parentDir = parentOverride ?? workspacePath;
 
     try {
-      await window.sandboxApi.createEntry(workspacePath, name.trim(), type);
+      await window.sandboxApi.createEntry(parentDir, name.trim(), type);
       await refreshTree(workspacePath);
       setStatusMessage(`Created ${label}: ${name.trim()}`);
     } catch (error) {
@@ -201,8 +229,78 @@ export default function App() {
     }
   }
 
+  async function renameEntry(node: FileNode) {
+    if (!workspacePath) return;
+
+    const nextName = window.prompt("Enter new name:", node.name);
+
+    if (!nextName?.trim() || nextName.trim() === node.name) return;
+
+    try {
+      const nextPath = buildSiblingPath(node.path, nextName.trim());
+
+      await window.sandboxApi.renameEntry(node.path, nextPath);
+      await refreshTree(workspacePath);
+
+      setOpenTabs((prev) =>
+        prev.map((tab) =>
+          tab.path === node.path
+            ? {
+                ...tab,
+                path: nextPath,
+                name: basename(nextPath),
+              }
+            : tab,
+        ),
+      );
+
+      if (activePath === node.path) {
+        setActivePath(nextPath);
+      }
+
+      setStatusMessage(`Renamed: ${node.name} → ${nextName.trim()}`);
+    } catch (error) {
+      setStatusMessage(
+        error instanceof Error ? error.message : "Failed to rename item.",
+      );
+    }
+  }
+
+  async function deleteEntry(node: FileNode) {
+    if (!workspacePath) return;
+
+    const confirmed = window.confirm(
+      `Delete ${node.type === "directory" ? "folder" : "file"} "${node.name}"?`,
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await window.sandboxApi.deleteEntry(node.path);
+      await refreshTree(workspacePath);
+
+      setOpenTabs((prev) =>
+        prev.filter(
+          (tab) =>
+            tab.path !== node.path && !tab.path.startsWith(`${node.path}/`),
+        ),
+      );
+
+      if (activePath === node.path || activePath?.startsWith(`${node.path}/`)) {
+        setActivePath(null);
+      }
+
+      setStatusMessage(`Deleted: ${node.name}`);
+    } catch (error) {
+      setStatusMessage(
+        error instanceof Error ? error.message : "Failed to delete item.",
+      );
+    }
+  }
+
   function closeTab(filePath: string) {
     setOpenTabs((prev) => prev.filter((tab) => tab.path !== filePath));
+
     if (activePath === filePath) {
       const remaining = openTabs.filter((tab) => tab.path !== filePath);
       setActivePath(
@@ -220,11 +318,14 @@ export default function App() {
     try {
       setRunning(true);
       setStatusMessage(`Running ${activeTab.name}...`);
+
       const result = await window.sandboxApi.runFile(
         activeTab.path,
         workspacePath ?? undefined,
       );
+
       setRunResult(result);
+
       setStatusMessage(
         result.ok
           ? `Run complete: ${activeTab.name}`
@@ -247,6 +348,7 @@ export default function App() {
           <div className="eyebrow">Vansant Sandbox</div>
           <h1>Web-scale editor, desktop-grade workspace</h1>
         </div>
+
         <div className="toolbar">
           <button
             className="primary-btn"
@@ -255,6 +357,7 @@ export default function App() {
           >
             {busy ? "Opening..." : "Open Folder"}
           </button>
+
           <button
             className="secondary-btn"
             onClick={() => createEntry("file")}
@@ -262,6 +365,7 @@ export default function App() {
           >
             New File
           </button>
+
           <button
             className="secondary-btn"
             onClick={() => createEntry("directory")}
@@ -269,6 +373,7 @@ export default function App() {
           >
             New Folder
           </button>
+
           <button
             className="secondary-btn"
             onClick={saveActiveFile}
@@ -276,6 +381,7 @@ export default function App() {
           >
             Save
           </button>
+
           <button
             className="accent-btn"
             onClick={runActiveFile}
@@ -294,13 +400,18 @@ export default function App() {
               {workspacePath ? "Open" : "Closed"}
             </span>
           </div>
+
           <div className="workspace-path" title={workspacePath ?? ""}>
             {workspacePath ?? "No folder opened yet."}
           </div>
+
           <FileTree
             nodes={tree}
             activePath={activePath}
             onOpenFile={openFile}
+            onCreateEntry={(parentDir, type) => createEntry(type, parentDir)}
+            onRenameEntry={renameEntry}
+            onDeleteEntry={deleteEntry}
           />
         </aside>
 
@@ -311,6 +422,7 @@ export default function App() {
             onSelect={setActivePath}
             onClose={closeTab}
           />
+
           <div className="editor-wrapper">
             {activeTab ? (
               <Editor
@@ -337,6 +449,7 @@ export default function App() {
                   Use the explorer to open files, edit code, and run Python,
                   JavaScript, TypeScript, or Java files.
                 </p>
+
                 <button className="primary-btn" onClick={openWorkspace}>
                   Open Workspace
                 </button>
@@ -358,6 +471,7 @@ export default function App() {
         workspacePath={workspacePath}
         height={terminalHeight}
       />
+
       <StatusBar
         workspacePath={workspacePath}
         activeFilePath={activePath}

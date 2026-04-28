@@ -39,7 +39,14 @@
     },
     "files": [
       "out/**/*",
+      "assets/**/*",
       "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "assets",
+        "to": "assets"
+      }
     ],
     "asar": true,
     "win": {

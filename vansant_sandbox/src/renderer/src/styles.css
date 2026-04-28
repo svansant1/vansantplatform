@@ -345,3 +345,44 @@ button, input, textarea { font: inherit; }
 .terminal-resize-handle:hover {
   background: #27272a;
 }
+
+.context-menu {
+  position: fixed;
+  z-index: 9999;
+  min-width: 160px;
+  padding: 6px;
+  background: #1f2937;
+  border: 1px solid #374151;
+  border-radius: 8px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+}
+
+.context-menu button {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: #f9fafb;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.context-menu button:hover {
+  background: #374151;
+}
+
+.context-menu-divider {
+  height: 1px;
+  background: #374151;
+  margin: 6px 0;
+}
+
+.context-menu .danger-context-item {
+  color: #fca5a5;
+}
+
+.context-menu .danger-context-item:hover {
+  background: rgba(239, 68, 68, 0.15);
+}

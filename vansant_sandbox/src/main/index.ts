@@ -99,6 +99,7 @@ type ManagedTerminal = {
 };
 
 const terminals = new Map<string, ManagedTerminal>();
+const iconPath = path.resolve(app.getAppPath(), "assets", "icon.ico");
 
 async function pathExists(targetPath: string): Promise<boolean> {
   try {
