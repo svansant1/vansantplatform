@@ -46,8 +46,14 @@ export default function Sidebar() {
                 key={item.name}
                 type="button"
                 onClick={() => {
-                  if (window.ipcRenderer) {
-                    window.ipcRenderer.send("open-debugger");
+                  const w = window as typeof window & {
+                    ipcRenderer?: {
+                      send: (channel: string) => void;
+                    };
+                  };
+
+                  if (w.ipcRenderer) {
+                    w.ipcRenderer.send("open-debugger");
                   } else {
                     window.location.href = item.href;
                   }
