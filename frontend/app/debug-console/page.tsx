@@ -368,12 +368,18 @@ export default function DebugConsolePage() {
   }, [processes, processSearch]);
 
   const pickFile = async () => {
-    if (!window.ipcRenderer?.invoke) {
+    const w = window as typeof window & {
+      ipcRenderer?: {
+        invoke: (channel: string, ...args: unknown[]) => Promise<unknown>;
+      };
+    };
+
+    if (!w.ipcRenderer?.invoke) {
       alert("File picker is only available in the Electron app.");
       return;
     }
 
-    const selected = (await window.ipcRenderer.invoke("pick-source-file")) as
+    const selected = (await w.ipcRenderer.invoke("pick-source-file")) as
       | string
       | null;
 
