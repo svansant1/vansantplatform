@@ -44,3 +44,16 @@ docs/
 **/release/
 **/dist/
 **/build/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Standalone local Shield project
+svans_shield/
+
+# Local desktop packaging leftovers
+*.blockmap
+*.yml
