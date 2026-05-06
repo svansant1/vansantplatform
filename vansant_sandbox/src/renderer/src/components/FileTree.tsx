@@ -42,11 +42,62 @@ function TreeNode({
 
   const isFile = node.type === "file";
 
+  const extension = node.name.split(".").pop()?.toLowerCase();
+
+  function getFileIcon() {
+    if (!isFile) {
+      return expanded ? "📂" : "📁";
+    }
+
+    switch (extension) {
+      case "ts":
+        return "📘";
+
+      case "tsx":
+        return "⚛️";
+
+      case "js":
+      case "jsx":
+        return "📙";
+
+      case "json":
+        return "🟨";
+
+      case "css":
+        return "🎨";
+
+      case "html":
+        return "🌐";
+
+      case "md":
+        return "📝";
+
+      case "py":
+        return "🐍";
+
+      case "java":
+        return "☕";
+
+      case "png":
+      case "jpg":
+      case "jpeg":
+      case "gif":
+      case "svg":
+      case "ico":
+        return "🖼️";
+
+      default:
+        return "📄";
+    }
+  }
+
   return (
     <div>
       <button
         type="button"
-        className={`tree-node ${activePath === node.path ? "tree-node-active" : ""}`}
+        className={`tree-node ${
+          activePath === node.path ? "tree-node-active" : ""
+        }`}
         style={{ paddingLeft: `${depth * 14 + 12}px` }}
         onClick={() => {
           if (isFile) {
@@ -59,9 +110,12 @@ function TreeNode({
         onContextMenu={(event) => onContextMenu(event, node)}
         title={node.path}
       >
-        <span className="tree-icon">
-          {isFile ? "📄" : expanded ? "📂" : "📁"}
+        <span className="tree-arrow">
+          {!isFile ? (expanded ? "▼" : "▶") : ""}
         </span>
+
+        <span className="tree-icon">{getFileIcon()}</span>
+
         <span className="tree-label">{node.name}</span>
       </button>
 
@@ -94,6 +148,7 @@ export default function FileTree({
 
   React.useEffect(() => {
     const close = () => setContextTarget(null);
+
     window.addEventListener("click", close);
     window.addEventListener("keydown", close);
 
@@ -126,7 +181,9 @@ export default function FileTree({
   }
 
   function getCreateParent(): string | null {
-    if (!contextTarget || contextTarget.kind === "empty") return null;
+    if (!contextTarget || contextTarget.kind === "empty") {
+      return null;
+    }
 
     return contextTarget.node.type === "directory"
       ? contextTarget.node.path
@@ -134,7 +191,14 @@ export default function FileTree({
   }
 
   return (
-    <div className="tree-root" onContextMenu={openEmptyMenu}>
+    <div
+      className="tree-root"
+      onContextMenu={(event) => {
+        if (event.target === event.currentTarget) {
+          openEmptyMenu(event);
+        }
+      }}
+    >
       {nodes.length === 0 ? (
         <div className="empty-pane">No files in this folder.</div>
       ) : (

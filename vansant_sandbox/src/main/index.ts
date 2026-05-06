@@ -7,6 +7,7 @@ import os from "node:os";
 import * as pty from "node-pty";
 
 const APP_NAME = "Vansant Sandbox";
+
 const ALLOWED_RUN_EXTENSIONS = new Set([
   ".py",
   ".js",
@@ -16,8 +17,28 @@ const ALLOWED_RUN_EXTENSIONS = new Set([
   ".java",
 ]);
 
+const HIDDEN_EXPLORER_ITEMS = new Set([
+  ".DS_Store",
+  ".git",
+  "node_modules",
+  "out",
+  "release",
+  "dist",
+  "build",
+  ".next",
+  "coverage",
+]);
+
 function isDev(): boolean {
   return !app.isPackaged;
+}
+
+function getIconPath(): string {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, "assets", "icon.ico");
+  }
+
+  return path.resolve(app.getAppPath(), "assets", "icon.ico");
 }
 
 type FileNode = {
@@ -99,7 +120,6 @@ type ManagedTerminal = {
 };
 
 const terminals = new Map<string, ManagedTerminal>();
-const iconPath = path.resolve(app.getAppPath(), "assets", "icon.ico");
 
 async function pathExists(targetPath: string): Promise<boolean> {
   try {
@@ -113,7 +133,11 @@ async function pathExists(targetPath: string): Promise<boolean> {
 async function buildFileTree(dirPath: string): Promise<FileNode[]> {
   const entries = await fs.readdir(dirPath, { withFileTypes: true });
 
-  const visible = entries.filter((entry) => entry.name !== ".DS_Store");
+  const visible = entries.filter(
+    (entry) =>
+      !HIDDEN_EXPLORER_ITEMS.has(entry.name) &&
+      !entry.name.toLowerCase().includes("backup"),
+  );
 
   visible.sort((a, b) => {
     if (a.isDirectory() && !b.isDirectory()) return -1;
@@ -149,20 +173,25 @@ function getRunCommand(filePath: string): { command: string; args: string[] } {
   switch (ext) {
     case ".py":
       return { command: "python", args: [filePath] };
+
     case ".js":
     case ".mjs":
     case ".cjs":
       return { command: "node", args: [filePath] };
+
     case ".ts":
       return { command: "npx", args: ["tsx", filePath] };
+
     case ".java": {
       const cwd = path.dirname(filePath);
       const baseName = path.basename(filePath, ".java");
+
       return {
         command: "cmd",
         args: ["/c", `javac "${filePath}" && java -cp "${cwd}" ${baseName}`],
       };
     }
+
     default:
       throw new Error(`Unsupported run target: ${ext || "unknown extension"}`);
   }
@@ -313,7 +342,7 @@ function createTerminal(
     env: {
       ...process.env,
       TERM: "xterm-256color",
-      POWERSHELL_UPDATECHECK: "OFF"
+      POWERSHELL_UPDATECHECK: "OFF",
     },
   });
 
@@ -339,6 +368,7 @@ function createTerminal(
       terminalId,
       exitCode,
     });
+
     terminals.delete(terminalId);
   });
 
@@ -352,6 +382,8 @@ function createTerminal(
 }
 
 function createMainWindow(): BrowserWindow {
+  const iconPath = getIconPath();
+
   const win = new BrowserWindow({
     width: 1600,
     height: 980,
@@ -360,6 +392,7 @@ function createMainWindow(): BrowserWindow {
     backgroundColor: "#0a0b10",
     title: APP_NAME,
     autoHideMenuBar: true,
+    icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
       contextIsolation: true,
@@ -423,46 +456,81 @@ app.whenReady().then(() => {
     async (_event, payload: WriteFilePayload) => {
       const normalizedPath = path.normalize(payload.path);
       await fs.writeFile(normalizedPath, payload.content, "utf8");
-      return { ok: true, path: normalizedPath };
+
+      return {
+        ok: true,
+        path: normalizedPath,
+      };
     },
   );
 
   ipcMain.handle(
     "workspace:create-entry",
     async (_event, payload: CreateEntryPayload) => {
-      const targetPath = path.join(payload.parentDir, payload.name);
+      const safeName = payload.name.trim();
+
+      if (!safeName) {
+        throw new Error("Name cannot be empty.");
+      }
+
+      if (safeName.includes("..") || safeName.includes("/") || safeName.includes("\\")) {
+        throw new Error("Name cannot contain path separators or traversal.");
+      }
+
+      const targetPath = path.join(payload.parentDir, safeName);
 
       if (await pathExists(targetPath)) {
         throw new Error(`An entry already exists at ${targetPath}`);
       }
 
       if (payload.type === "directory") {
-        await fs.mkdir(targetPath, { recursive: true });
+        await fs.mkdir(targetPath, { recursive: false });
       } else {
-        await fs.writeFile(targetPath, "", "utf8");
+        await fs.writeFile(targetPath, "", { encoding: "utf8", flag: "wx" });
       }
 
-      return { ok: true, path: targetPath };
+      return {
+        ok: true,
+        path: targetPath,
+      };
     },
   );
 
   ipcMain.handle(
     "workspace:rename-entry",
     async (_event, payload: RenameEntryPayload) => {
-      await fs.rename(payload.oldPath, payload.newPath);
-      return { ok: true, path: payload.newPath };
+      const oldPath = path.normalize(payload.oldPath);
+      const newPath = path.normalize(payload.newPath);
+
+      if (await pathExists(newPath)) {
+        throw new Error(`An entry already exists at ${newPath}`);
+      }
+
+      await fs.rename(oldPath, newPath);
+
+      return {
+        ok: true,
+        path: newPath,
+      };
     },
   );
 
   ipcMain.handle("workspace:delete-entry", async (_event, targetPath: string) => {
     const normalizedPath = path.normalize(targetPath);
     await fs.rm(normalizedPath, { recursive: true, force: true });
-    return { ok: true };
+
+    return {
+      ok: true,
+    };
   });
 
   ipcMain.handle("workspace:refresh-tree", async (_event, folderPath: string) => {
     const tree = await buildFileTree(folderPath);
-    return { folderPath, tree };
+
+    return {
+      folderPath,
+      tree,
+    };
   });
 
   ipcMain.handle("runner:run-file", async (_event, payload: RunFilePayload) => {
@@ -476,40 +544,66 @@ app.whenReady().then(() => {
     }));
   });
 
-  ipcMain.handle("terminal:create", async (_event, payload: CreateTerminalPayload) => {
-    return createTerminal(mainWindow, payload);
-  });
+  ipcMain.handle(
+    "terminal:create",
+    async (_event, payload: CreateTerminalPayload) => {
+      return createTerminal(mainWindow, payload);
+    },
+  );
 
-  ipcMain.handle("terminal:write", async (_event, payload: WriteTerminalPayload) => {
-    const terminal = terminals.get(payload.terminalId);
-    if (!terminal) {
-      throw new Error(`Terminal not found: ${payload.terminalId}`);
-    }
+  ipcMain.handle(
+    "terminal:write",
+    async (_event, payload: WriteTerminalPayload) => {
+      const terminal = terminals.get(payload.terminalId);
 
-    terminal.ptyProcess.write(payload.data);
-    return { ok: true };
-  });
+      if (!terminal) {
+        throw new Error(`Terminal not found: ${payload.terminalId}`);
+      }
 
-  ipcMain.handle("terminal:resize", async (_event, payload: ResizeTerminalPayload) => {
-    const terminal = terminals.get(payload.terminalId);
-    if (!terminal) {
-      throw new Error(`Terminal not found: ${payload.terminalId}`);
-    }
+      terminal.ptyProcess.write(payload.data);
 
-    terminal.ptyProcess.resize(payload.cols, payload.rows);
-    return { ok: true };
-  });
+      return {
+        ok: true,
+      };
+    },
+  );
 
-  ipcMain.handle("terminal:kill", async (_event, payload: KillTerminalPayload) => {
-    const terminal = terminals.get(payload.terminalId);
-    if (!terminal) {
-      return { ok: true };
-    }
+  ipcMain.handle(
+    "terminal:resize",
+    async (_event, payload: ResizeTerminalPayload) => {
+      const terminal = terminals.get(payload.terminalId);
 
-    terminal.ptyProcess.kill();
-    terminals.delete(payload.terminalId);
-    return { ok: true };
-  });
+      if (!terminal) {
+        throw new Error(`Terminal not found: ${payload.terminalId}`);
+      }
+
+      terminal.ptyProcess.resize(payload.cols, payload.rows);
+
+      return {
+        ok: true,
+      };
+    },
+  );
+
+  ipcMain.handle(
+    "terminal:kill",
+    async (_event, payload: KillTerminalPayload) => {
+      const terminal = terminals.get(payload.terminalId);
+
+      if (!terminal) {
+        return {
+          ok: true,
+        };
+      }
+
+      terminal.ptyProcess.kill();
+      terminals.delete(payload.terminalId);
+
+      return {
+        ok: true,
+      };
+    },
+  );
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
