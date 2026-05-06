@@ -21,12 +21,6 @@ from sentence_transformers import SentenceTransformer
 
 from app.core.ai_logic import SVANSAI
 from app.services.debugger import read_process_memory
-from app.services.shield import (
-    scan_folder,
-    scan_all_quick_targets,
-    get_quick_scan_targets,
-    quarantine_file,
-)
 from app.services.sentry import (
     get_system_stats,
     get_suspicious_processes,
@@ -1606,28 +1600,6 @@ Current Source Code:
         )
 
     return {"ok": True, "draft_fix": fallback_fix}
-
-
-@app.get("/shield/quick-targets")
-def shield_quick_targets():
-    return {"ok": True, "targets": get_quick_scan_targets()}
-
-
-@app.post("/shield/scan-folder")
-def shield_scan_folder(data: ShieldScanRequest):
-    return scan_folder(data.folder_path)
-
-
-@app.post("/shield/quarantine")
-def shield_quarantine(data: ShieldQuarantineRequest):
-    project_root = Path(__file__).resolve().parents[2]
-    quarantine_root = str(project_root / "quarantine")
-    return quarantine_file(data.file_path, quarantine_root)
-
-
-@app.get("/shield/scan-all")
-def shield_scan_all():
-    return scan_all_quick_targets()
 
 
 @app.get("/sentry/system-snapshot")
