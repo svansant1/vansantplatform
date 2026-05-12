@@ -1,10 +1,12 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 from .critic import should_save
+from .mythos_engine import SVANSAIMythosEngine
 from .scribe import write_entry
 from .vector_store import add_memory, search
 
 app = FastAPI(title="svansai-python-brain")
+mythos_engine = SVANSAIMythosEngine()
 
 
 class RetrieveRequest(BaseModel):
@@ -17,6 +19,11 @@ class LearnRequest(BaseModel):
     answer: str
     provider: str
     confidence: float = 0.78
+
+
+class MythosUpdateRequest(BaseModel):
+    attemptSuccess: bool = False
+    note: str = ""
 
 
 @app.get("/health")
@@ -52,3 +59,20 @@ def learn(payload: LearnRequest):
         "archive_id": archive_entry["id"],
         "memory_id": memory_entry["id"],
     }
+
+
+@app.post("/mythos/reset")
+def mythos_reset():
+    mythos_engine.reset()
+    return mythos_engine.snapshot()
+
+
+@app.get("/mythos/state")
+def mythos_state():
+    return mythos_engine.snapshot()
+
+
+@app.post("/mythos/update")
+def mythos_update(payload: MythosUpdateRequest):
+    mythos_engine.update_state(payload.attemptSuccess, payload.note)
+    return mythos_engine.snapshot()
