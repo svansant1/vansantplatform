@@ -3,7 +3,7 @@ import path from "node:path";
 import fs from "node:fs/promises";
 import { constants as fsConstants, existsSync } from "node:fs";
 import { spawn } from "node:child_process";
-import os from "node:os";
+import { deflateSync } from "node:zlib";
 import * as pty from "node-pty";
 
 const APP_NAME = "Vansant Sandbox";
@@ -20,6 +20,7 @@ const ALLOWED_RUN_EXTENSIONS = new Set([
 const HIDDEN_EXPLORER_ITEMS = new Set([
   ".DS_Store",
   ".git",
+  ".sandbox-trash",
   "node_modules",
   "out",
   "release",
@@ -27,6 +28,28 @@ const HIDDEN_EXPLORER_ITEMS = new Set([
   "build",
   ".next",
   "coverage",
+]);
+
+const TRASH_FOLDER_NAME = ".sandbox-trash";
+const MAX_EDITOR_FILE_BYTES = 2 * 1024 * 1024;
+const MAX_IMAGE_PREVIEW_BYTES = 20 * 1024 * 1024;
+const BINARY_SNIFF_BYTES = 4096;
+
+const IMAGE_MIME_TYPES = new Map([
+  [".apng", "image/apng"],
+  [".avif", "image/avif"],
+  [".bmp", "image/bmp"],
+  [".gif", "image/gif"],
+  [".ico", "image/x-icon"],
+  [".jpe", "image/jpeg"],
+  [".jfif", "image/jpeg"],
+  [".jpeg", "image/jpeg"],
+  [".jpg", "image/jpeg"],
+  [".pjp", "image/jpeg"],
+  [".pjpeg", "image/jpeg"],
+  [".png", "image/png"],
+  [".svg", "image/svg+xml"],
+  [".webp", "image/webp"],
 ]);
 
 function isDev(): boolean {
@@ -48,9 +71,31 @@ type FileNode = {
   children?: FileNode[];
 };
 
+type TrashEntry = {
+  name: string;
+  path: string;
+  originalName: string;
+  deletedAt: string | null;
+  type: "file" | "directory";
+};
+
 type ReadFileResult = {
   path: string;
   content: string;
+};
+
+type ReadImageResult = {
+  path: string;
+  dataUrl: string;
+  mimeType: string;
+};
+
+type IcoFrame = {
+  width: number;
+  height: number;
+  bitCount: number;
+  size: number;
+  offset: number;
 };
 
 type WriteFilePayload = {
@@ -111,6 +156,11 @@ type KillTerminalPayload = {
   terminalId: string;
 };
 
+type RestoreTrashPayload = {
+  trashPath: string;
+  restoreName?: string;
+};
+
 type ManagedTerminal = {
   id: string;
   profileId: string;
@@ -120,6 +170,63 @@ type ManagedTerminal = {
 };
 
 const terminals = new Map<string, ManagedTerminal>();
+let currentWorkspaceRoot: string | null = null;
+
+function killAllTerminals(): number {
+  const terminalCount = terminals.size;
+
+  for (const terminal of terminals.values()) {
+    terminal.ptyProcess.kill();
+  }
+
+  terminals.clear();
+
+  return terminalCount;
+}
+
+function normalizeForCompare(targetPath: string): string {
+  const normalized = path.resolve(targetPath);
+  return process.platform === "win32" ? normalized.toLowerCase() : normalized;
+}
+
+function isInsideWorkspace(targetPath: string, workspaceRoot: string): boolean {
+  const target = normalizeForCompare(targetPath);
+  const root = normalizeForCompare(workspaceRoot);
+
+  return target === root || target.startsWith(`${root}${path.sep}`);
+}
+
+function getWorkspaceRoot(): string {
+  if (!currentWorkspaceRoot) {
+    throw new Error("Open a workspace before using sandbox file actions.");
+  }
+
+  return currentWorkspaceRoot;
+}
+
+function assertInsideWorkspace(targetPath: string, label = "Path"): string {
+  const workspaceRoot = getWorkspaceRoot();
+  const resolvedPath = path.resolve(targetPath);
+
+  if (!isInsideWorkspace(resolvedPath, workspaceRoot)) {
+    throw new Error(`${label} is outside the opened workspace.`);
+  }
+
+  return resolvedPath;
+}
+
+async function assertExistingPathInsideWorkspace(
+  targetPath: string,
+  label = "Path",
+): Promise<string> {
+  const resolvedPath = assertInsideWorkspace(targetPath, label);
+
+  if (!(await pathExists(resolvedPath))) {
+    throw new Error(`${label} does not exist: ${resolvedPath}`);
+  }
+
+  return resolvedPath;
+}
 
 async function pathExists(targetPath: string): Promise<boolean> {
   try {
@@ -130,8 +237,427 @@ async function pathExists(targetPath: string): Promise<boolean> {
   }
 }
 
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function looksBinary(buffer: Buffer): boolean {
+  const sample = buffer.subarray(0, BINARY_SNIFF_BYTES);
+
+  return sample.includes(0);
+}
+
+function makeCrcTable(): number[] {
+  const table: number[] = [];
+
+  for (let i = 0; i < 256; i += 1) {
+    let c = i;
+
+    for (let j = 0; j < 8; j += 1) {
+      c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    }
+
+    table[i] = c >>> 0;
+  }
+
+  return table;
+}
+
+const CRC_TABLE = makeCrcTable();
+
+function crc32(buffer: Buffer): number {
+  let crc = 0xffffffff;
+
+  for (const byte of buffer) {
+    crc = CRC_TABLE[(crc ^ byte) & 0xff] ^ (crc >>> 8);
+  }
+
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function createPngChunk(type: string, data: Buffer): Buffer {
+  const typeBuffer = Buffer.from(type, "ascii");
+  const lengthBuffer = Buffer.alloc(4);
+  const crcBuffer = Buffer.alloc(4);
+
+  lengthBuffer.writeUInt32BE(data.length, 0);
+  crcBuffer.writeUInt32BE(crc32(Buffer.concat([typeBuffer, data])), 0);
+
+  return Buffer.concat([lengthBuffer, typeBuffer, data, crcBuffer]);
+}
+
+function encodeRgbaPng(width: number, height: number, rgba: Buffer): Buffer {
+  const signature = Buffer.from([
+    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+  ]);
+  const header = Buffer.alloc(13);
+
+  header.writeUInt32BE(width, 0);
+  header.writeUInt32BE(height, 4);
+  header[8] = 8;
+  header[9] = 6;
+  header[10] = 0;
+  header[11] = 0;
+  header[12] = 0;
+
+  const stride = width * 4;
+  const scanlines = Buffer.alloc((stride + 1) * height);
+
+  for (let y = 0; y < height; y += 1) {
+    const rowStart = y * (stride + 1);
+    scanlines[rowStart] = 0;
+    rgba.copy(scanlines, rowStart + 1, y * stride, y * stride + stride);
+  }
+
+  return Buffer.concat([
+    signature,
+    createPngChunk("IHDR", header),
+    createPngChunk("IDAT", deflateSync(scanlines)),
+    createPngChunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+
+function parseIcoFrames(content: Buffer): IcoFrame[] {
+  if (
+    content.length < 6 ||
+    content.readUInt16LE(0) !== 0 ||
+    content.readUInt16LE(2) !== 1
+  ) {
+    throw new Error("This icon file is not a valid ICO image.");
+  }
+
+  const count = content.readUInt16LE(4);
+  const frames: IcoFrame[] = [];
+
+  for (let i = 0; i < count; i += 1) {
+    const entryOffset = 6 + i * 16;
+
+    if (entryOffset + 16 > content.length) break;
+
+    const width = content[entryOffset] || 256;
+    const height = content[entryOffset + 1] || 256;
+    const bitCount = content.readUInt16LE(entryOffset + 6);
+    const size = content.readUInt32LE(entryOffset + 8);
+    const offset = content.readUInt32LE(entryOffset + 12);
+
+    if (offset + size <= content.length) {
+      frames.push({ width, height, bitCount, size, offset });
+    }
+  }
+
+  return frames;
+}
+
+function decodeIcoBitmapFrame(content: Buffer, frame: IcoFrame): Buffer {
+  const dib = content.subarray(frame.offset, frame.offset + frame.size);
+
+  if (dib.length < 40 || dib.readUInt32LE(0) < 40) {
+    throw new Error("This ICO frame uses an unsupported bitmap header.");
+  }
+
+  const width = dib.readInt32LE(4);
+  const storedHeight = dib.readInt32LE(8);
+  const planes = dib.readUInt16LE(12);
+  const bitCount = dib.readUInt16LE(14);
+  const compression = dib.readUInt32LE(16);
+  const headerSize = dib.readUInt32LE(0);
+  const height = Math.abs(storedHeight) / 2;
+
+  if (
+    width !== frame.width ||
+    height !== frame.height ||
+    planes !== 1 ||
+    bitCount !== 32 ||
+    compression !== 0
+  ) {
+    throw new Error("This ICO bitmap frame is not supported for preview yet.");
+  }
+
+  const pixelOffset = headerSize;
+  const rowBytes = width * 4;
+  const requiredBytes = pixelOffset + rowBytes * height;
+
+  if (requiredBytes > dib.length) {
+    throw new Error("This ICO bitmap frame is incomplete.");
+  }
+
+  const rgba = Buffer.alloc(width * height * 4);
+  const isBottomUp = storedHeight > 0;
+
+  for (let y = 0; y < height; y += 1) {
+    const sourceY = isBottomUp ? height - 1 - y : y;
+    const sourceRow = pixelOffset + sourceY * rowBytes;
+    const targetRow = y * rowBytes;
+
+    for (let x = 0; x < width; x += 1) {
+      const source = sourceRow + x * 4;
+      const target = targetRow + x * 4;
+
+      rgba[target] = dib[source + 2];
+      rgba[target + 1] = dib[source + 1];
+      rgba[target + 2] = dib[source];
+      rgba[target + 3] = dib[source + 3];
+    }
+  }
+
+  return encodeRgbaPng(width, height, rgba);
+}
+
+function decodeIcoToPng(content: Buffer): Buffer {
+  const frames = parseIcoFrames(content).sort((a, b) => {
+    const areaDiff = b.width * b.height - a.width * a.height;
+    return areaDiff || b.bitCount - a.bitCount;
+  });
+
+  for (const frame of frames) {
+    const frameContent = content.subarray(frame.offset, frame.offset + frame.size);
+    const isPng =
+      frameContent.length >= 8 &&
+      frameContent[0] === 0x89 &&
+      frameContent[1] === 0x50 &&
+      frameContent[2] === 0x4e &&
+      frameContent[3] === 0x47;
+
+    if (isPng) return frameContent;
+
+    try {
+      return decodeIcoBitmapFrame(content, frame);
+    } catch {
+      // Try the next icon frame before giving up.
+    }
+  }
+
+  throw new Error("This ICO file does not contain a previewable image frame.");
+}
+
+async function readTextFileForEditor(filePath: string): Promise<string> {
+  const stats = await fs.stat(filePath);
+
+  if (!stats.isFile()) {
+    throw new Error("Only files can be opened in the editor.");
+  }
+
+  if (stats.size > MAX_EDITOR_FILE_BYTES) {
+    throw new Error(
+      `File is too large to open safely (${formatFileSize(
+        stats.size,
+      )}). Limit: ${formatFileSize(MAX_EDITOR_FILE_BYTES)}.`,
+    );
+  }
+
+  const content = await fs.readFile(filePath);
+
+  if (looksBinary(content)) {
+    throw new Error("This looks like a binary file, so Sandbox did not open it in the text editor.");
+  }
+
+  return content.toString("utf8");
+}
+
+async function readImageForPreview(filePath: string): Promise<ReadImageResult> {
+  const stats = await fs.stat(filePath);
+
+  if (!stats.isFile()) {
+    throw new Error("Only files can be opened in the image preview.");
+  }
+
+  if (stats.size > MAX_IMAGE_PREVIEW_BYTES) {
+    throw new Error(
+      `Image is too large to preview safely (${formatFileSize(
+        stats.size,
+      )}). Limit: ${formatFileSize(MAX_IMAGE_PREVIEW_BYTES)}.`,
+    );
+  }
+
+  const ext = path.extname(filePath).toLowerCase();
+  const mimeType = IMAGE_MIME_TYPES.get(ext);
+
+  if (!mimeType) {
+    throw new Error(`This image type is not supported yet: ${ext || "unknown"}`);
+  }
+
+  const content = await fs.readFile(filePath);
+
+  if (ext === ".ico") {
+    const png = decodeIcoToPng(content);
+
+    return {
+      path: filePath,
+      dataUrl: `data:image/png;base64,${png.toString("base64")}`,
+      mimeType: "image/png",
+    };
+  }
+
+  return {
+    path: filePath,
+    dataUrl: `data:${mimeType};base64,${content.toString("base64")}`,
+    mimeType,
+  };
+}
+
+function getWorkspaceTrashRoot(): string {
+  return assertInsideWorkspace(
+    path.join(getWorkspaceRoot(), TRASH_FOLDER_NAME),
+    "Trash folder",
+  );
+}
+
+function createTrashName(originalPath: string): string {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  return `${path.basename(originalPath)}.${timestamp}`;
+}
+
+async function createUniqueTrashPath(originalPath: string): Promise<string> {
+  const trashRoot = getWorkspaceTrashRoot();
+  const baseName = createTrashName(originalPath);
+  let candidate = assertInsideWorkspace(
+    path.join(trashRoot, baseName),
+    "Trash target",
+  );
+  let counter = 1;
+
+  while (await pathExists(candidate)) {
+    candidate = assertInsideWorkspace(
+      path.join(trashRoot, `${baseName}.${counter}`),
+      "Trash target",
+    );
+    counter += 1;
+  }
+
+  return candidate;
+}
+
+async function moveToWorkspaceTrash(targetPath: string): Promise<string> {
+  const normalizedPath = await assertExistingPathInsideWorkspace(
+    targetPath,
+    "Delete target",
+  );
+  const trashRoot = getWorkspaceTrashRoot();
+
+  if (isInsideWorkspace(normalizedPath, trashRoot)) {
+    throw new Error("Items already in Sandbox trash cannot be deleted here.");
+  }
+
+  await fs.mkdir(trashRoot, { recursive: true });
+
+  const trashPath = await createUniqueTrashPath(normalizedPath);
+  await fs.rename(normalizedPath, trashPath);
+
+  return trashPath;
+}
+
+function parseTrashName(trashName: string): {
+  originalName: string;
+  deletedAt: string | null;
+} {
+  const match = trashName.match(
+    /^(.*)\.(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z)(?:\.\d+)?$/,
+  );
+
+  if (!match) {
+    return {
+      originalName: trashName,
+      deletedAt: null,
+    };
+  }
+
+  const [, originalName, rawTimestamp] = match;
+  const deletedAt = rawTimestamp.replace(
+    /^(\d{4}-\d{2}-\d{2}T)(\d{2})-(\d{2})-(\d{2})-(\d{3}Z)$/,
+    "$1$2:$3:$4.$5",
+  );
+
+  return {
+    originalName,
+    deletedAt,
+  };
+}
+
+async function listWorkspaceTrash(): Promise<TrashEntry[]> {
+  const trashRoot = getWorkspaceTrashRoot();
+
+  if (!(await pathExists(trashRoot))) {
+    return [];
+  }
+
+  const entries = await fs.readdir(trashRoot, { withFileTypes: true });
+  const trashEntries = entries.map((entry) => {
+    const parsed = parseTrashName(entry.name);
+
+    return {
+      name: entry.name,
+      path: assertInsideWorkspace(path.join(trashRoot, entry.name), "Trash item"),
+      originalName: parsed.originalName,
+      deletedAt: parsed.deletedAt,
+      type: entry.isDirectory() ? ("directory" as const) : ("file" as const),
+    };
+  });
+
+  trashEntries.sort((a, b) => b.name.localeCompare(a.name));
+
+  return trashEntries;
+}
+
+function createRestoreCandidate(root: string, fileName: string, index: number) {
+  if (index === 0) {
+    return path.join(root, fileName);
+  }
+
+  const ext = path.extname(fileName);
+  const baseName = ext ? fileName.slice(0, -ext.length) : fileName;
+
+  return path.join(root, `${baseName} restored ${index}${ext}`);
+}
+
+async function createUniqueRestorePath(fileName: string): Promise<string> {
+  const workspaceRoot = getWorkspaceRoot();
+  let index = 0;
+  let candidate = assertInsideWorkspace(
+    createRestoreCandidate(workspaceRoot, fileName, index),
+    "Restore target",
+  );
+
+  while (await pathExists(candidate)) {
+    index += 1;
+    candidate = assertInsideWorkspace(
+      createRestoreCandidate(workspaceRoot, fileName, index),
+      "Restore target",
+    );
+  }
+
+  return candidate;
+}
+
+async function restoreTrashEntry(payload: RestoreTrashPayload): Promise<string> {
+  const trashRoot = getWorkspaceTrashRoot();
+  const trashPath = await assertExistingPathInsideWorkspace(
+    payload.trashPath,
+    "Trash item",
+  );
+
+  if (!isInsideWorkspace(trashPath, trashRoot)) {
+    throw new Error("Restore target is not inside Sandbox trash.");
+  }
+
+  if (normalizeForCompare(path.dirname(trashPath)) !== normalizeForCompare(trashRoot)) {
+    throw new Error("Only direct Sandbox trash entries can be restored.");
+  }
+
+  const parsed = parseTrashName(path.basename(trashPath));
+  const restoreName = payload.restoreName?.trim() || parsed.originalName;
+  const restorePath = await createUniqueRestorePath(restoreName);
+
+  await fs.rename(trashPath, restorePath);
+
+  return restorePath;
+}
+
 async function buildFileTree(dirPath: string): Promise<FileNode[]> {
-  const entries = await fs.readdir(dirPath, { withFileTypes: true });
+  const safeDirPath = assertInsideWorkspace(dirPath, "Folder path");
+  const entries = await fs.readdir(safeDirPath, { withFileTypes: true });
 
   const visible = entries.filter(
     (entry) =>
@@ -147,7 +673,7 @@ async function buildFileTree(dirPath: string): Promise<FileNode[]> {
 
   return Promise.all(
     visible.map(async (entry) => {
-      const entryPath = path.join(dirPath, entry.name);
+      const entryPath = path.join(safeDirPath, entry.name);
 
       if (entry.isDirectory()) {
         return {
@@ -198,22 +724,24 @@ function getRunCommand(filePath: string): { command: string; args: string[] } {
 }
 
 async function runFile(payload: RunFilePayload): Promise<RunResult> {
-  const normalizedPath = path.normalize(payload.filePath);
+  const normalizedPath = await assertExistingPathInsideWorkspace(
+    payload.filePath,
+    "Run target",
+  );
   const ext = path.extname(normalizedPath).toLowerCase();
 
   if (!ALLOWED_RUN_EXTENSIONS.has(ext)) {
     throw new Error(`This file type cannot be run yet: ${ext}`);
   }
 
-  if (!(await pathExists(normalizedPath))) {
-    throw new Error(`File does not exist: ${normalizedPath}`);
-  }
-
   const { command, args } = getRunCommand(normalizedPath);
+  const cwd = payload.cwd
+    ? assertInsideWorkspace(payload.cwd, "Run working directory")
+    : path.dirname(normalizedPath);
 
   return new Promise<RunResult>((resolve, reject) => {
     const child = spawn(command, args, {
-      cwd: payload.cwd || path.dirname(normalizedPath),
+      cwd,
       shell: false,
       windowsHide: true,
     });
@@ -330,7 +858,9 @@ function createTerminal(
   }
 
   const terminalId = createTerminalId();
-  const cwd = payload.cwd || os.homedir();
+  const cwd = payload.cwd
+    ? assertInsideWorkspace(payload.cwd, "Terminal working directory")
+    : getWorkspaceRoot();
   const cols = payload.cols && payload.cols > 0 ? payload.cols : 120;
   const rows = payload.rows && payload.rows > 0 ? payload.rows : 30;
 
@@ -356,15 +886,28 @@ function createTerminal(
 
   terminals.set(terminalId, managed);
 
+  const sendTerminalEvent = (
+    channel: "terminal:data" | "terminal:exit",
+    eventPayload: { terminalId: string; data: string } | { terminalId: string; exitCode: number },
+  ) => {
+    if (senderWindow.isDestroyed() || senderWindow.webContents.isDestroyed()) {
+      terminals.delete(terminalId);
+      ptyProcess.kill();
+      return;
+    }
+
+    senderWindow.webContents.send(channel, eventPayload);
+  };
+
   ptyProcess.onData((data) => {
-    senderWindow.webContents.send("terminal:data", {
+    sendTerminalEvent("terminal:data", {
       terminalId,
       data,
     });
   });
 
   ptyProcess.onExit(({ exitCode }) => {
-    senderWindow.webContents.send("terminal:exit", {
+    sendTerminalEvent("terminal:exit", {
       terminalId,
       exitCode,
     });
@@ -387,8 +930,8 @@ function createMainWindow(): BrowserWindow {
   const win = new BrowserWindow({
     width: 1600,
     height: 980,
-    minWidth: 1200,
-    minHeight: 760,
+    minWidth: 760,
+    minHeight: 620,
     backgroundColor: "#0a0b10",
     title: APP_NAME,
     autoHideMenuBar: true,
@@ -413,6 +956,10 @@ function createMainWindow(): BrowserWindow {
     return { action: "deny" };
   });
 
+  win.on("closed", () => {
+    killAllTerminals();
+  });
+
   return win;
 }
 
@@ -429,7 +976,9 @@ app.whenReady().then(() => {
       return null;
     }
 
-    const folderPath = result.filePaths[0];
+    const folderPath = path.resolve(result.filePaths[0]);
+    killAllTerminals();
+    currentWorkspaceRoot = folderPath;
     const tree = await buildFileTree(folderPath);
 
     return {
@@ -441,8 +990,11 @@ app.whenReady().then(() => {
   ipcMain.handle(
     "workspace:read-file",
     async (_event, filePath: string): Promise<ReadFileResult> => {
-      const normalizedPath = path.normalize(filePath);
-      const content = await fs.readFile(normalizedPath, "utf8");
+      const normalizedPath = await assertExistingPathInsideWorkspace(
+        filePath,
+        "File path",
+      );
+      const content = await readTextFileForEditor(normalizedPath);
 
       return {
         path: normalizedPath,
@@ -454,7 +1006,7 @@ app.whenReady().then(() => {
   ipcMain.handle(
     "workspace:write-file",
     async (_event, payload: WriteFilePayload) => {
-      const normalizedPath = path.normalize(payload.path);
+      const normalizedPath = assertInsideWorkspace(payload.path, "File path");
       await fs.writeFile(normalizedPath, payload.content, "utf8");
 
       return {
@@ -477,7 +1029,14 @@ app.whenReady().then(() => {
         throw new Error("Name cannot contain path separators or traversal.");
       }
 
-      const targetPath = path.join(payload.parentDir, safeName);
+      const parentDir = await assertExistingPathInsideWorkspace(
+        payload.parentDir,
+        "Parent folder",
+      );
+      const targetPath = assertInsideWorkspace(
+        path.join(parentDir, safeName),
+        "New entry path",
+      );
 
       if (await pathExists(targetPath)) {
         throw new Error(`An entry already exists at ${targetPath}`);
@@ -499,8 +1058,11 @@ app.whenReady().then(() => {
   ipcMain.handle(
     "workspace:rename-entry",
     async (_event, payload: RenameEntryPayload) => {
-      const oldPath = path.normalize(payload.oldPath);
-      const newPath = path.normalize(payload.newPath);
+      const oldPath = await assertExistingPathInsideWorkspace(
+        payload.oldPath,
+        "Original path",
+      );
+      const newPath = assertInsideWorkspace(payload.newPath, "New path");
 
       if (await pathExists(newPath)) {
         throw new Error(`An entry already exists at ${newPath}`);
@@ -516,19 +1078,51 @@ app.whenReady().then(() => {
   );
 
   ipcMain.handle("workspace:delete-entry", async (_event, targetPath: string) => {
-    const normalizedPath = path.normalize(targetPath);
-    await fs.rm(normalizedPath, { recursive: true, force: true });
+    const trashPath = await moveToWorkspaceTrash(targetPath);
 
     return {
       ok: true,
+      trashPath,
     };
   });
 
+  ipcMain.handle("workspace:list-trash", async () => {
+    return listWorkspaceTrash();
+  });
+
+  ipcMain.handle(
+    "workspace:restore-trash-entry",
+    async (_event, payload: RestoreTrashPayload) => {
+      const restoredPath = await restoreTrashEntry(payload);
+
+      return {
+        ok: true,
+        path: restoredPath,
+      };
+    },
+  );
+
+  ipcMain.handle(
+    "workspace:read-image",
+    async (_event, filePath: string): Promise<ReadImageResult> => {
+      const normalizedPath = await assertExistingPathInsideWorkspace(
+        filePath,
+        "Image path",
+      );
+
+      return readImageForPreview(normalizedPath);
+    },
+  );
+
   ipcMain.handle("workspace:refresh-tree", async (_event, folderPath: string) => {
-    const tree = await buildFileTree(folderPath);
+    const safeFolderPath = await assertExistingPathInsideWorkspace(
+      folderPath,
+      "Folder path",
+    );
+    const tree = await buildFileTree(safeFolderPath);
 
     return {
-      folderPath,
+      folderPath: safeFolderPath,
       tree,
     };
   });
@@ -613,6 +1207,8 @@ app.whenReady().then(() => {
 });
 
 app.on("window-all-closed", () => {
+  killAllTerminals();
+
   if (process.platform !== "darwin") {
     app.quit();
   }

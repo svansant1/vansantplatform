@@ -79,9 +79,17 @@ function TreeNode({
         return "☕";
 
       case "png":
+      case "apng":
       case "jpg":
+      case "jpe":
       case "jpeg":
+      case "jfif":
+      case "pjp":
+      case "pjpeg":
       case "gif":
+      case "webp":
+      case "bmp":
+      case "avif":
       case "svg":
       case "ico":
         return "🖼️";

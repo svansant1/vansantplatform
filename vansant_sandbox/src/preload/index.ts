@@ -12,6 +12,14 @@ type WorkspaceOpenResult = {
   tree: FileNode[];
 } | null;
 
+type TrashEntry = {
+  name: string;
+  path: string;
+  originalName: string;
+  deletedAt: string | null;
+  type: "file" | "directory";
+};
+
 type RunResult = {
   ok: boolean;
   command: string;
@@ -40,6 +48,11 @@ const sandboxApi = {
   readFile: (filePath: string): Promise<{ path: string; content: string }> =>
     ipcRenderer.invoke("workspace:read-file", filePath),
 
+  readImage: (
+    filePath: string,
+  ): Promise<{ path: string; dataUrl: string; mimeType: string }> =>
+    ipcRenderer.invoke("workspace:read-image", filePath),
+
   writeFile: (
     path: string,
     content: string,
@@ -59,8 +72,22 @@ const sandboxApi = {
   ): Promise<{ ok: boolean; path: string }> =>
     ipcRenderer.invoke("workspace:rename-entry", { oldPath, newPath }),
 
-  deleteEntry: (targetPath: string): Promise<{ ok: boolean }> =>
+  deleteEntry: (
+    targetPath: string,
+  ): Promise<{ ok: boolean; trashPath: string }> =>
     ipcRenderer.invoke("workspace:delete-entry", targetPath),
+
+  listTrash: (): Promise<TrashEntry[]> =>
+    ipcRenderer.invoke("workspace:list-trash"),
+
+  restoreTrashEntry: (
+    trashPath: string,
+    restoreName?: string,
+  ): Promise<{ ok: boolean; path: string }> =>
+    ipcRenderer.invoke("workspace:restore-trash-entry", {
+      trashPath,
+      restoreName,
+    }),
 
   refreshTree: (
     folderPath: string,

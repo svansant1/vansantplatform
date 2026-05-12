@@ -9,7 +9,18 @@ export type OpenTab = {
   path: string;
   name: string;
   content: string;
+  kind: 'text' | 'image';
+  imageSrc?: string;
+  mimeType?: string;
   isDirty: boolean;
+};
+
+export type TrashEntry = {
+  name: string;
+  path: string;
+  originalName: string;
+  deletedAt: string | null;
+  type: 'file' | 'directory';
 };
 
 export type RunResult = {
