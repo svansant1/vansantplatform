@@ -51,9 +51,6 @@ __pycache__/
 *.pyo
 *.pyd
 
-# Standalone local Shield project
-svans_shield/
-
 # Local desktop packaging leftovers
 *.blockmap
 *.yml

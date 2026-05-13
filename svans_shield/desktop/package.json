@@ -1,0 +1,43 @@
+{
+  "name": "svans-shield-desktop",
+  "version": "1.0.0",
+  "description": "SVANS Shield desktop protection app",
+  "author": "Shawn Vansant",
+  "main": "main.js",
+  "type": "commonjs",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^30.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.svans.shield",
+    "productName": "SVANS Shield",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "icon.ico"
+    ],
+    "extraResources": [
+      {
+        "from": "../frontend/out",
+        "to": "frontend/out"
+      },
+      {
+        "from": "../services",
+        "to": "services"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "icon.ico"
+    }
+  }
+}

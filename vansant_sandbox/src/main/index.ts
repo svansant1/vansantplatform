@@ -1185,17 +1185,29 @@ function isTaxonomyOnlyResponse(text: string): boolean {
   const normalized = text.trim();
   if (!normalized) return true;
 
+  const lower = normalized.toLowerCase();
   const hasTaxonomyLabels =
     /\*\*Main Topic:\*\*/i.test(normalized) ||
     /\bMain Topic:\b/i.test(normalized) ||
     /\*\*Related Concepts:\*\*/i.test(normalized) ||
     /\bRelated Concepts:\b/i.test(normalized);
+  const taxonomyLineCount = normalized
+    .split(/\r?\n/)
+    .filter((line) => line.trim()).length;
+  const looksLikeClassifierCard =
+    hasTaxonomyLabels &&
+    taxonomyLineCount <= 6 &&
+    !/\b(file path|active file|open file|terminal|workspace root|folder path|line \d+)\b/i.test(
+      normalized,
+    );
   const hasActionableReview =
-    /\b(recommend|issue|risk|fix|change|edit|because|next step|suggest|file|line|folder|workspace)\b/i.test(
+    /\b(recommend|issue|risk|fix|change|edit|because|next step|suggest|diagnose|reviewed|open)\b/i.test(
       normalized,
     );
 
-  return hasTaxonomyLabels && !hasActionableReview;
+  if (looksLikeClassifierCard) return true;
+
+  return hasTaxonomyLabels && !hasActionableReview && lower.length < 900;
 }
 
 function summarizeFileForReview(currentFile: AssistantFileContext): string {
@@ -1238,12 +1250,57 @@ function summarizeFileForReview(currentFile: AssistantFileContext): string {
     .join("\n");
 }
 
+async function findNearbyWorkspaceMatches(workspaceRoot: string, message: string): Promise<string[]> {
+  const normalizedMessage = message.toLowerCase();
+  const projectHints = [
+    "svans_shield",
+    "svans-shield",
+    "shield",
+    "vansant_sandbox",
+    "sandbox",
+    "svansai_debugger",
+    "debugger",
+    "svansai_parent",
+    "svansai",
+  ].filter((hint) => normalizedMessage.includes(hint));
+
+  if (projectHints.length === 0) return [];
+
+  const rootsToCheck = Array.from(
+    new Set([workspaceRoot, path.dirname(workspaceRoot)].filter(Boolean)),
+  );
+  const matches: string[] = [];
+
+  for (const root of rootsToCheck) {
+    const entries = await fs
+      .readdir(root, { withFileTypes: true })
+      .catch(() => []);
+
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+
+      const entryName = entry.name.toLowerCase();
+      const isMatch = projectHints.some((hint) => {
+        const cleanHint = hint.replace(/-/g, "_");
+        return entryName === hint || entryName === cleanHint || entryName.includes(cleanHint);
+      });
+
+      if (isMatch) {
+        matches.push(path.join(root, entry.name));
+      }
+    }
+  }
+
+  return Array.from(new Set(matches)).slice(0, 8);
+}
+
 async function createLocalAssistantFallback(
   payload: AssistantRequestPayload,
 ): Promise<string> {
   const workspaceRoot = getWorkspaceRoot();
   const currentFile = payload.currentFile;
   const openFiles = payload.openFiles ?? [];
+  const nearbyMatches = await findNearbyWorkspaceMatches(workspaceRoot, payload.message);
   const topLevelEntries = await fs
     .readdir(workspaceRoot, { withFileTypes: true })
     .then((entries) =>
@@ -1278,6 +1335,15 @@ async function createLocalAssistantFallback(
       [
         "Top-level workspace items:",
         ...topLevelEntries.map((entry) => `- ${entry}`),
+      ].join("\n"),
+    );
+  }
+
+  if (nearbyMatches.length > 0) {
+    sections.push(
+      [
+        "Matching project folders I found nearby:",
+        ...nearbyMatches.map((match) => `- ${match}`),
       ].join("\n"),
     );
   }
