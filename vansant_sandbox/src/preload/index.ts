@@ -41,6 +41,42 @@ type CreatedTerminal = {
   cwd: string;
 };
 
+type AssistantFileContext = {
+  path: string;
+  content: string;
+};
+
+type AssistantOpenFile = {
+  path: string;
+  name: string;
+};
+
+type AssistantRequestPayload = {
+  message: string;
+  currentFile?: AssistantFileContext | null;
+  openFiles?: AssistantOpenFile[];
+  terminalOutput?: string;
+};
+
+type SuggestedEdit = {
+  id: string;
+  filePath: string;
+  originalText: string;
+  replacementText: string;
+  explanation: string;
+};
+
+type AssistantResponse = {
+  message: string;
+  suggestedEdits: SuggestedEdit[];
+  provider: string;
+};
+
+type ApplyAssistantEditsResult = {
+  ok: boolean;
+  results: Array<{ filePath: string; ok: boolean; message: string }>;
+};
+
 const sandboxApi = {
   openFolder: (): Promise<WorkspaceOpenResult> =>
     ipcRenderer.invoke("workspace:open-folder"),
@@ -96,6 +132,17 @@ const sandboxApi = {
 
   runFile: (filePath: string, cwd?: string): Promise<RunResult> =>
     ipcRenderer.invoke("runner:run-file", { filePath, cwd }),
+
+  askAssistant: (payload: AssistantRequestPayload): Promise<AssistantResponse> =>
+    ipcRenderer.invoke("assistant:ask", payload),
+
+  applyAssistantEdits: (
+    edits: SuggestedEdit[],
+  ): Promise<ApplyAssistantEditsResult> =>
+    ipcRenderer.invoke("assistant:apply-edits", { edits }),
+
+  openExternalUrl: (url: string): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke("shell:open-external-url", url),
 
   listTerminalProfiles: (): Promise<TerminalProfile[]> =>
     ipcRenderer.invoke("terminal:list-profiles"),

@@ -1,5 +1,5 @@
 import React from "react";
-import type { FileNode } from "./types";
+import type { DiagnosticSummary, FileNode } from "./types";
 
 type EntryType = "file" | "directory";
 
@@ -19,30 +19,55 @@ type ContextTarget =
 type Props = {
   nodes: FileNode[];
   activePath: string | null;
+  diagnosticsByPath: Record<string, DiagnosticSummary>;
   onOpenFile: (filePath: string) => void;
   onCreateEntry: (parentDir: string | null, type: EntryType) => void;
   onRenameEntry: (node: FileNode) => void;
   onDeleteEntry: (node: FileNode) => void;
 };
 
+function getDiagnosticSummary(
+  node: FileNode,
+  diagnosticsByPath: Record<string, DiagnosticSummary>,
+): DiagnosticSummary {
+  if (node.type === "file") {
+    return diagnosticsByPath[node.path] ?? { errors: 0, warnings: 0 };
+  }
+
+  return (node.children ?? []).reduce<DiagnosticSummary>(
+    (total, child) => {
+      const childSummary = getDiagnosticSummary(child, diagnosticsByPath);
+
+      return {
+        errors: total.errors + childSummary.errors,
+        warnings: total.warnings + childSummary.warnings,
+      };
+    },
+    { errors: 0, warnings: 0 },
+  );
+}
+
 function TreeNode({
   node,
   depth,
   activePath,
+  diagnosticsByPath,
   onOpenFile,
   onContextMenu,
 }: {
   node: FileNode;
   depth: number;
   activePath: string | null;
+  diagnosticsByPath: Record<string, DiagnosticSummary>;
   onOpenFile: (filePath: string) => void;
   onContextMenu: (event: React.MouseEvent, node: FileNode) => void;
 }) {
-  const [expanded, setExpanded] = React.useState(depth < 1);
+  const [expanded, setExpanded] = React.useState(false);
 
   const isFile = node.type === "file";
 
   const extension = node.name.split(".").pop()?.toLowerCase();
+  const diagnostics = getDiagnosticSummary(node, diagnosticsByPath);
 
   function getFileIcon() {
     if (!isFile) {
@@ -78,21 +103,21 @@ function TreeNode({
       case "java":
         return "☕";
 
-      case "png":
-      case "apng":
-      case "jpg":
-      case "jpe":
-      case "jpeg":
-      case "jfif":
-      case "pjp":
-      case "pjpeg":
-      case "gif":
-      case "webp":
-      case "bmp":
-      case "avif":
-      case "svg":
-      case "ico":
-        return "🖼️";
+    case "png":
+    case "apng":
+    case "jpg":
+    case "jpe":
+    case "jpeg":
+    case "jfif":
+    case "pjp":
+    case "pjpeg":
+    case "gif":
+    case "webp":
+    case "bmp":
+    case "avif":
+    case "svg":
+    case "ico":
+      return "🖼️";
 
       default:
         return "📄";
@@ -125,6 +150,19 @@ function TreeNode({
         <span className="tree-icon">{getFileIcon()}</span>
 
         <span className="tree-label">{node.name}</span>
+
+        {(diagnostics.errors > 0 || diagnostics.warnings > 0) && (
+          <span
+            className={`tree-diagnostic-badge ${
+              diagnostics.errors > 0
+                ? "tree-diagnostic-badge-error"
+                : "tree-diagnostic-badge-warning"
+            }`}
+            title={`${diagnostics.errors} error(s), ${diagnostics.warnings} warning(s)`}
+          >
+            {diagnostics.errors > 0 ? diagnostics.errors : diagnostics.warnings}
+          </span>
+        )}
       </button>
 
       {!isFile &&
@@ -135,6 +173,7 @@ function TreeNode({
             node={child}
             depth={depth + 1}
             activePath={activePath}
+            diagnosticsByPath={diagnosticsByPath}
             onOpenFile={onOpenFile}
             onContextMenu={onContextMenu}
           />
@@ -146,6 +185,7 @@ function TreeNode({
 export default function FileTree({
   nodes,
   activePath,
+  diagnosticsByPath,
   onOpenFile,
   onCreateEntry,
   onRenameEntry,
@@ -216,6 +256,7 @@ export default function FileTree({
             node={node}
             depth={0}
             activePath={activePath}
+            diagnosticsByPath={diagnosticsByPath}
             onOpenFile={onOpenFile}
             onContextMenu={openNodeMenu}
           />

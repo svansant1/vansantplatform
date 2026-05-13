@@ -1,14 +1,5 @@
 import { SVANSAI_API_BASE_URL } from "../../shared/constants/api";
-
-type ScanStatus = "good" | "warning" | "problem";
-
-type ScanFinding = {
-  category: string;
-  item: string;
-  status: ScanStatus;
-  detail: string;
-  fix: string;
-};
+import type { ScanFinding, ScanResult } from "../../shared/types/scan";
 
 type BrowserTab = {
   id?: number;
@@ -23,23 +14,11 @@ type BrowserBridgePayload = {
   error?: string;
 };
 
-type ScanResult = {
-  scope: "sites";
-  summary: string;
-  findings: ScanFinding[];
-  logs: string[];
-  recommendations: string[];
-  scannedAt: string;
-  meta?: Record<string, unknown>;
-};
-
 async function fetchBrowserTabs(): Promise<BrowserBridgePayload> {
   try {
     const response = await fetch(`${SVANSAI_API_BASE_URL}/browser/tabs`, {
       method: "GET",
-      headers: {
-        Accept: "application/json",
-      },
+      headers: { Accept: "application/json" },
     });
 
     return (await response.json()) as BrowserBridgePayload;
@@ -56,7 +35,6 @@ async function fetchBrowserTabs(): Promise<BrowserBridgePayload> {
 
 function getHostLabel(rawUrl?: string): string {
   if (!rawUrl) return "Unknown site";
-
   try {
     const url = new URL(rawUrl);
     return url.hostname.replace(/^www\./, "");
@@ -72,19 +50,49 @@ function getClearSiteName(tab: BrowserTab): string {
   if (cleanTitle && cleanTitle !== tab.url) {
     return `${cleanTitle} — ${host}`;
   }
-
   return host;
 }
 
-export async function scanSites(): Promise<ScanResult> {
+function classifyTab(tab: BrowserTab): ScanFinding {
+  const label = getClearSiteName(tab);
+  const url = tab.url || "";
+
+  if (!url) {
+    return {
+      category: "Sites",
+      item: label,
+      status: "warning",
+      detail: "Tab has no URL reported.",
+      fix: "Inspect this tab manually.",
+    };
+  }
+
+  if (url.startsWith("http://")) {
+    return {
+      category: "Sites",
+      item: label,
+      status: "warning",
+      detail: `Insecure connection: ${url}`,
+      fix: "Navigate to the HTTPS version of this site or avoid entering sensitive data.",
+    };
+  }
+
+  return {
+    category: "Sites",
+    item: label,
+    status: "good",
+    detail: url,
+    fix: "No action needed.",
+  };
+}
+
+export async function scanSites(): Promise<ScanResult & { scope: "sites" }> {
   const logs: string[] = ["[SITES] Starting browser bridge scan."];
 
   const payload = await fetchBrowserTabs();
 
   if (!Array.isArray(payload.tabs)) {
-    logs.push(
-      "[SITES] Browser extension bridge unavailable or returned invalid data.",
-    );
+    logs.push("[SITES] Browser extension bridge unavailable or returned invalid data.");
 
     return {
       scope: "sites",
@@ -108,29 +116,63 @@ export async function scanSites(): Promise<ScanResult> {
     };
   }
 
-  const findings: ScanFinding[] = payload.tabs.slice(0, 50).map((tab) => ({
-  category: "Sites",
-  item: getClearSiteName(tab),
-  status: "good",
-  detail: tab.url || "No URL reported.",
-  fix: "No action needed.",
-}));
+  const updatedAt = payload.updated_at ? new Date(payload.updated_at) : null;
+  const staleSince =
+    updatedAt ? Math.floor((Date.now() - updatedAt.getTime()) / 1000) : null;
+  const isStale = staleSince !== null && staleSince > 300;
 
   logs.push(`[SITES] Received ${payload.tabs.length} tabs from browser bridge.`);
+  if (updatedAt) {
+    logs.push(`[SITES] Bridge last updated at ${updatedAt.toLocaleString()}${isStale ? " — data may be stale." : ""}`);
+  }
+
+  const findings: ScanFinding[] = payload.tabs.slice(0, 50).map(classifyTab);
+
+  if (isStale && staleSince !== null) {
+    const minutes = Math.floor(staleSince / 60);
+    findings.unshift({
+      category: "Sites",
+      item: "Browser bridge data",
+      status: "warning",
+      detail: `Tab data from the browser bridge is ${minutes} minute(s) old. It may not reflect currently open tabs.`,
+      fix: "Reload the browser extension or ensure the bridge is running.",
+    });
+  }
+
+  const insecureCount = findings.filter(
+    (f) => f.status === "warning" && f.detail.startsWith("Insecure"),
+  ).length;
+
+  const problemCount = findings.filter((f) => f.status === "problem").length;
+  const warningCount = findings.filter((f) => f.status === "warning").length;
+
+  logs.push(`[SITES] ${problemCount} problems, ${warningCount} warnings detected.`);
+
+  const recommendations: string[] = [
+    "Review open sites and close unnecessary tabs before deeper troubleshooting.",
+  ];
+
+  if (insecureCount > 0) {
+    recommendations.push(
+      `${insecureCount} tab(s) are using insecure HTTP. Switch to HTTPS where possible.`,
+    );
+  }
+
+  recommendations.push(
+    "Extend the browser bridge next with console-error and request-failure capture.",
+  );
 
   return {
     scope: "sites",
-    summary: `Scanned ${payload.tabs.length} open tab(s) from the browser extension bridge.`,
+    summary: `Scanned ${payload.tabs.length} open tab(s). ${problemCount} problem(s), ${warningCount} warning(s) detected.${insecureCount > 0 ? ` ${insecureCount} insecure HTTP tab(s).` : ""}`,
     findings,
     logs,
-    recommendations: [
-      "Review open sites and close unnecessary tabs before deeper troubleshooting.",
-      "Extend the browser bridge next with console-error and request-failure capture.",
-    ],
+    recommendations,
     scannedAt: new Date().toISOString(),
     meta: {
       updatedAt: payload.updated_at ?? null,
       tabCount: payload.tabs.length,
+      insecureTabCount: insecureCount,
     },
   };
 }

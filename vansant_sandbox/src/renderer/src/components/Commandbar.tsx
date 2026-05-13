@@ -82,9 +82,7 @@ export default function Commandbar({
         <div className="commandbar-results">
           {files.length === 0 ? (
             <div className="commandbar-empty">
-              {query.trim()
-                ? "No matching files."
-                : "Start typing to filter files."}
+              {query.trim() ? "No matching files." : "Start typing to filter files."}
             </div>
           ) : (
             files.map((file, index) => (
@@ -98,9 +96,7 @@ export default function Commandbar({
                 onClick={() => onOpenFile(file.path)}
               >
                 <span className="commandbar-result-name">{file.name}</span>
-                <span className="commandbar-result-path">
-                  {file.relativePath}
-                </span>
+                <span className="commandbar-result-path">{file.relativePath}</span>
               </button>
             ))
           )}

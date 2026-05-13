@@ -1,18 +1,113 @@
-SVANSAI Debugger Agent Full Bundle
-This bundle gives you a single-pass file set so you do not have to keep updating the same files repeatedly.
-Included
-Electron app files for Apps + Network + Files + Sites bridge
-Browser extension for real open-tab site scanning
-FastAPI route file for the browser bridge
-Put your existing assets here
-`src/renderer/public/svdebugger.png`
-`assets/icon.ico`
-Backend router registration
+SVANSAI Debugger Agent
+
+SVANSAI Debugger is a local Electron diagnostic app for guided troubleshooting.
+It can scan:
+
+- Apps: running processes grouped by memory and instance count.
+- Network: adapters, DNS, gateway, VPN/tunnel indicators, and latency.
+- Files: selected folders with bounded recursive health checks.
+- Sites: open browser tabs through the opt-in Site Bridge extension.
+
+Local Development
+
+Install dependencies:
+
+```powershell
+npm install
+```
+
+Run the app in development:
+
+```powershell
+npm run dev
+```
+
+Build the app:
+
+```powershell
+npm run build
+```
+
+Create Windows installers:
+
+```powershell
+npm run dist:win
+```
+
+Connection Flow
+
+1. Open SVANSAI Debugger.
+2. Enter a valid Platform session code.
+3. Click Connect.
+4. Run Apps, Network, Files, or Sites scans.
+5. Open Guided Fix Chat from a warning or problem finding.
+
+The app expects the Platform/SVANSAI backend URL in:
+
+```text
+src/shared/constants/api.ts
+```
+
+Site Bridge Extension
+
+The browser extension is in:
+
+```text
+browser_extension
+```
+
+Load it in Chrome or Edge:
+
+1. Open the browser extensions page.
+2. Enable Developer Mode.
+3. Choose Load unpacked.
+4. Select the `browser_extension` folder.
+
+The Site Bridge is opt-in. It does not send tabs until you:
+
+1. Open the SVANSAI Site Bridge extension popup.
+2. Enter the same session code used in Debugger.
+3. Confirm the backend URL.
+4. Enable "Share open tabs with Debugger".
+5. Click Sync Now or leave sync enabled.
+
+The extension sends tab data to:
+
+```text
+POST /browser/tabs
+```
+
+Payload fields include:
+
+- `session_code`
+- `source`
+- `reason`
+- `updated_at`
+- `tabs`
+
+Backend Browser Bridge
+
+The backend needs browser bridge routes registered. Example:
 
 ```python
 from browser_bridge_routes import router as browser_bridge_router
 app.include_router(browser_bridge_router)
 ```
 
-Load the browser extension
-Open Chrome or Edge extensions page, enable Developer Mode, then load the `browser_extension` folder as an unpacked extension.
+Packaging Notes
+
+The packaged app includes:
+
+- `out/**/*`
+- `assets/**/*`
+- `browser_extension/**/*`
+- `package.json`
+
+If you distribute a packaged build, the extension files should travel with the release. Users still need to load the extension as unpacked unless you publish it through a browser extension store.
+
+Troubleshooting
+
+- If scans are locked, confirm the session code is connected.
+- If Sites scan fails, confirm the extension is loaded, enabled, and using the same session code.
+- If Guided Fix Chat times out, retry after checking backend availability.
+- If Files scan stops early, narrow the target folder; the scanner intentionally uses entry and depth limits.

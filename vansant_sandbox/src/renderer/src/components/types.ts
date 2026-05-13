@@ -30,3 +30,23 @@ export type RunResult = {
   stderr: string;
   exitCode: number | null;
 };
+
+export type DiagnosticSummary = {
+  errors: number;
+  warnings: number;
+};
+
+export type SuggestedEdit = {
+  id: string;
+  filePath: string;
+  originalText: string;
+  replacementText: string;
+  explanation: string;
+};
+
+export type AssistantMessage = {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  suggestedEdits?: SuggestedEdit[];
+};

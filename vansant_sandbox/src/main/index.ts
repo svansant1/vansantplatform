@@ -34,6 +34,7 @@ const TRASH_FOLDER_NAME = ".sandbox-trash";
 const MAX_EDITOR_FILE_BYTES = 2 * 1024 * 1024;
 const MAX_IMAGE_PREVIEW_BYTES = 20 * 1024 * 1024;
 const BINARY_SNIFF_BYTES = 4096;
+const SVANSAI_ASSISTANT_TIMEOUT_MS = 25000;
 
 const IMAGE_MIME_TYPES = new Map([
   [".apng", "image/apng"],
@@ -54,6 +55,20 @@ const IMAGE_MIME_TYPES = new Map([
 
 function isDev(): boolean {
   return !app.isPackaged;
+}
+
+function assertOpenableExternalUrl(rawUrl: unknown): string {
+  if (typeof rawUrl !== "string") {
+    throw new Error("URL must be a string.");
+  }
+
+  const parsedUrl = new URL(rawUrl);
+
+  if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+    throw new Error("Only http and https links can be opened.");
+  }
+
+  return parsedUrl.href;
 }
 
 function getIconPath(): string {
@@ -156,6 +171,41 @@ type KillTerminalPayload = {
   terminalId: string;
 };
 
+type AssistantFileContext = {
+  path: string;
+  content: string;
+};
+
+type AssistantOpenFile = {
+  path: string;
+  name: string;
+};
+
+type AssistantRequestPayload = {
+  message: string;
+  currentFile?: AssistantFileContext | null;
+  openFiles?: AssistantOpenFile[];
+  terminalOutput?: string;
+};
+
+type SuggestedEdit = {
+  id: string;
+  filePath: string;
+  originalText: string;
+  replacementText: string;
+  explanation: string;
+};
+
+type AssistantResponse = {
+  message: string;
+  suggestedEdits: SuggestedEdit[];
+  provider: string;
+};
+
+type ApplyAssistantEditsPayload = {
+  edits: SuggestedEdit[];
+};
+
 type RestoreTrashPayload = {
   trashPath: string;
   restoreName?: string;
@@ -171,6 +221,14 @@ type ManagedTerminal = {
 
 const terminals = new Map<string, ManagedTerminal>();
 let currentWorkspaceRoot: string | null = null;
+
+function getSvansaiApiUrl(): string {
+  return (
+    process.env.SVANSAI_API_URL ||
+    process.env.SVANSAI_ASSISTANT_URL ||
+    "https://vansant-backend.onrender.com/ask"
+  );
+}
 
 function killAllTerminals(): number {
   const terminalCount = terminals.size;
@@ -963,8 +1021,312 @@ function createMainWindow(): BrowserWindow {
   return win;
 }
 
+function normalizeAssistantMessage(value: unknown): string {
+  return typeof value === "string" ? value.trim().slice(0, 12000) : "";
+}
+
+function normalizeAssistantFileContext(
+  value: unknown,
+): AssistantFileContext | null {
+  if (!value || typeof value !== "object") return null;
+
+  const candidate = value as Partial<AssistantFileContext>;
+  if (typeof candidate.path !== "string" || typeof candidate.content !== "string") {
+    return null;
+  }
+
+  return {
+    path: assertInsideWorkspace(candidate.path, "Assistant file path"),
+    content: candidate.content.slice(0, MAX_EDITOR_FILE_BYTES),
+  };
+}
+
+function normalizeOpenFiles(value: unknown): AssistantOpenFile[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .slice(0, 20)
+    .flatMap((item) => {
+      if (!item || typeof item !== "object") return [];
+      const candidate = item as Partial<AssistantOpenFile>;
+      if (typeof candidate.path !== "string" || typeof candidate.name !== "string") {
+        return [];
+      }
+
+      return [
+        {
+          path: assertInsideWorkspace(candidate.path, "Assistant open file path"),
+          name: candidate.name.slice(0, 200),
+        },
+      ];
+    });
+}
+
+function createAssistantPrompt(payload: AssistantRequestPayload): string {
+  const workspaceRoot = getWorkspaceRoot();
+  const currentFile = payload.currentFile;
+  const openFiles = payload.openFiles ?? [];
+  const terminalOutput = payload.terminalOutput?.slice(-6000) || "No terminal output provided.";
+
+  return `You are SVANSAI inside Vansant Sandbox, a local code editor.
+
+You can assess code, explain problems, and propose edits.
+Do not claim files were changed. The Sandbox will apply edits only after the user approves them.
+Keep command suggestions cautious and non-destructive.
+Return a natural answer first. If edits are useful, include a JSON block with this exact shape:
+
+\`\`\`json
+{
+  "suggestedEdits": [
+    {
+      "filePath": "absolute path inside the workspace",
+      "originalText": "exact text currently in the file",
+      "replacementText": "replacement text",
+      "explanation": "why this edit helps"
+    }
+  ]
+}
+\`\`\`
+
+Workspace:
+${workspaceRoot}
+
+Open files:
+${openFiles.length > 0 ? openFiles.map((file) => `- ${file.name}: ${file.path}`).join("\n") : "None"}
+
+Current file:
+${currentFile ? currentFile.path : "None"}
+
+Current file content:
+\`\`\`
+${currentFile ? currentFile.content : "No active text file."}
+\`\`\`
+
+Terminal context:
+\`\`\`
+${terminalOutput}
+\`\`\`
+
+User request:
+${payload.message}`.trim();
+}
+
+function tryParseJsonObject(text: string): Record<string, unknown> | null {
+  try {
+    const parsed = JSON.parse(text) as unknown;
+    return parsed && typeof parsed === "object"
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function extractSuggestedEdits(text: string): SuggestedEdit[] {
+  const jsonBlocks = Array.from(text.matchAll(/```(?:json)?\s*([\s\S]*?)```/gi));
+  const objects = jsonBlocks
+    .map((match) => tryParseJsonObject(match[1].trim()))
+    .filter((item): item is Record<string, unknown> => Boolean(item));
+
+  for (const object of objects) {
+    const rawEdits = object.suggestedEdits;
+    if (!Array.isArray(rawEdits)) continue;
+
+    return rawEdits.flatMap((item, index) => {
+      if (!item || typeof item !== "object") return [];
+      const edit = item as Partial<SuggestedEdit>;
+
+      if (
+        typeof edit.filePath !== "string" ||
+        typeof edit.originalText !== "string" ||
+        typeof edit.replacementText !== "string"
+      ) {
+        return [];
+      }
+
+      const filePath = assertInsideWorkspace(edit.filePath, "Suggested edit path");
+
+      return [
+        {
+          id: `edit_${Date.now()}_${index}`,
+          filePath,
+          originalText: edit.originalText,
+          replacementText: edit.replacementText,
+          explanation:
+            typeof edit.explanation === "string"
+              ? edit.explanation
+              : "SVANSAI suggested this code change.",
+        },
+      ];
+    });
+  }
+
+  return [];
+}
+
+function stripSuggestedEditJson(text: string): string {
+  return text
+    .replace(/```(?:json)?\s*[\s\S]*?"suggestedEdits"[\s\S]*?```/gi, "")
+    .trim();
+}
+
+async function askSvansai(payload: AssistantRequestPayload): Promise<AssistantResponse> {
+  const message = normalizeAssistantMessage(payload.message);
+
+  if (!message) {
+    throw new Error("Ask SVANSAI a question first.");
+  }
+
+  const requestPayload: AssistantRequestPayload = {
+    message,
+    currentFile: payload.currentFile
+      ? normalizeAssistantFileContext(payload.currentFile)
+      : null,
+    openFiles: normalizeOpenFiles(payload.openFiles),
+    terminalOutput:
+      typeof payload.terminalOutput === "string"
+        ? payload.terminalOutput.slice(-6000)
+        : "",
+  };
+  const prompt = createAssistantPrompt(requestPayload);
+  const apiUrl = getSvansaiApiUrl();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => {
+    controller.abort();
+  }, SVANSAI_ASSISTANT_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(apiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      signal: controller.signal,
+      body: JSON.stringify({
+        prompt,
+        config: {
+          source: "vansant_sandbox",
+          mode: "code_assistant",
+        },
+        knowledge: [],
+        message: prompt,
+        context: requestPayload,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`SVANSAI API returned ${response.status}.`);
+    }
+
+    const data = (await response.json()) as {
+      answer?: string;
+      response?: string;
+      message?: string;
+      suggestedEdits?: unknown;
+    };
+    const rawAnswer =
+      data.answer?.trim() || data.response?.trim() || data.message?.trim() || "";
+    const suggestedEdits =
+      Array.isArray(data.suggestedEdits) && rawAnswer
+        ? extractSuggestedEdits(
+            `\`\`\`json\n${JSON.stringify({ suggestedEdits: data.suggestedEdits })}\n\`\`\``,
+          )
+        : extractSuggestedEdits(rawAnswer);
+
+    return {
+      message:
+        stripSuggestedEditJson(rawAnswer) ||
+        "I reviewed the provided context, but SVANSAI did not return a detailed answer.",
+      suggestedEdits,
+      provider: apiUrl,
+    };
+  } catch (error) {
+    const isTimeout = error instanceof Error && error.name === "AbortError";
+    const currentFile = requestPayload.currentFile;
+    const fallback = currentFile
+      ? `I could not reach SVANSAI right now, but I can see the active file is ${path.basename(
+          currentFile.path,
+        )}. Check the terminal output and the current file context, then ask again when the SVANSAI endpoint is reachable.`
+      : "I could not reach SVANSAI right now. Open a file or provide terminal output, then try again when the SVANSAI endpoint is reachable.";
+
+    return {
+      message:
+        isTimeout
+          ? `${fallback}\n\nConnection detail: SVANSAI did not respond within ${Math.round(
+              SVANSAI_ASSISTANT_TIMEOUT_MS / 1000,
+            )} seconds.`
+          : error instanceof Error
+            ? `${fallback}\n\nConnection detail: ${error.message}`
+            : fallback,
+      suggestedEdits: [],
+      provider: apiUrl,
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function applyAssistantEdits(payload: ApplyAssistantEditsPayload) {
+  if (!Array.isArray(payload.edits) || payload.edits.length === 0) {
+    throw new Error("No SVANSAI edits were provided.");
+  }
+
+  const results: Array<{ filePath: string; ok: boolean; message: string }> = [];
+
+  for (const edit of payload.edits.slice(0, 20)) {
+    const filePath = await assertExistingPathInsideWorkspace(
+      edit.filePath,
+      "Suggested edit path",
+    );
+
+    if (
+      typeof edit.originalText !== "string" ||
+      typeof edit.replacementText !== "string"
+    ) {
+      throw new Error(`Invalid edit for ${filePath}.`);
+    }
+
+    const content = await readTextFileForEditor(filePath);
+    const index = content.indexOf(edit.originalText);
+
+    if (index === -1) {
+      results.push({
+        filePath,
+        ok: false,
+        message: "Original text was not found. The file may have changed.",
+      });
+      continue;
+    }
+
+    const nextContent =
+      content.slice(0, index) +
+      edit.replacementText +
+      content.slice(index + edit.originalText.length);
+
+    await fs.writeFile(filePath, nextContent, "utf8");
+    results.push({
+      filePath,
+      ok: true,
+      message: "Applied.",
+    });
+  }
+
+  return {
+    ok: results.every((result) => result.ok),
+    results,
+  };
+}
+
 app.whenReady().then(() => {
   const mainWindow = createMainWindow();
+
+  ipcMain.handle("shell:open-external-url", async (_event, rawUrl: string) => {
+    await shell.openExternal(assertOpenableExternalUrl(rawUrl));
+
+    return {
+      ok: true,
+    };
+  });
 
   ipcMain.handle("workspace:open-folder", async () => {
     const result = await dialog.showOpenDialog({
@@ -1111,6 +1473,20 @@ app.whenReady().then(() => {
       );
 
       return readImageForPreview(normalizedPath);
+    },
+  );
+
+  ipcMain.handle(
+    "assistant:ask",
+    async (_event, payload: AssistantRequestPayload) => {
+      return askSvansai(payload);
+    },
+  );
+
+  ipcMain.handle(
+    "assistant:apply-edits",
+    async (_event, payload: ApplyAssistantEditsPayload) => {
+      return applyAssistantEdits(payload);
     },
   );
 

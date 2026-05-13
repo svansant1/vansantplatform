@@ -4,12 +4,12 @@ declare global {
   type ScanStatus = "good" | "warning" | "problem";
 
   type ScanFinding = {
-  category: string;
-  item: string;
-  status: "good" | "warning" | "problem";
-  detail: string;
-  fix: string; // 👈 THIS FIXES ALL 3 ERRORS
-};
+    category: string;
+    item: string;
+    status: "good" | "warning" | "problem";
+    detail: string;
+    fix: string;
+  };
 
   type ScanResult = {
     scope: "apps" | "network" | "files" | "sites";
@@ -21,6 +21,12 @@ declare global {
     meta?: Record<string, unknown>;
   };
 
+  type SaveReportResult = {
+    ok: boolean;
+    filePath?: string;
+    error?: string;
+  };
+
   interface Window {
     scanner: {
       apps: () => Promise<ScanResult>;
@@ -28,6 +34,7 @@ declare global {
       files: (dir?: string) => Promise<ScanResult>;
       sites: () => Promise<ScanResult>;
       pickFolder: () => Promise<string | null>;
+      saveReport: (content: string, defaultName: string) => Promise<SaveReportResult>;
     };
   }
 }

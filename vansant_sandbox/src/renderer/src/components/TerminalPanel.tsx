@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Terminal } from "@xterm/xterm";
+import { Terminal, type ILink } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import type { RunResult } from "./types";
@@ -33,7 +33,56 @@ type RunProblem = {
   message: string;
 };
 
-function addProblem(problems: RunProblem[], nextProblem: RunProblem): void {
+const TERMINAL_URL_PATTERN = /\bhttps?:\/\/[^\s<>"'`]+/gi;
+const TRAILING_URL_PUNCTUATION = /[),.;:!?]+$/;
+
+function getTerminalUrlLinks(
+  terminal: Terminal,
+  bufferLineNumber: number,
+): ILink[] | undefined {
+  const line = terminal.buffer.active.getLine(bufferLineNumber - 1);
+  if (!line) return undefined;
+
+  const text = line.translateToString(true);
+  const links: ILink[] = [];
+
+  for (const match of text.matchAll(TERMINAL_URL_PATTERN)) {
+    const rawUrl = match[0];
+    const linkText = rawUrl.replace(TRAILING_URL_PUNCTUATION, "");
+    const startIndex = match.index ?? 0;
+
+    if (!linkText) continue;
+
+    links.push({
+      text: linkText,
+      range: {
+        start: {
+          x: startIndex + 1,
+          y: bufferLineNumber,
+        },
+        end: {
+          x: startIndex + linkText.length + 1,
+          y: bufferLineNumber,
+        },
+      },
+      decorations: {
+        pointerCursor: true,
+        underline: true,
+      },
+      activate: (event, url) => {
+        if (!event.ctrlKey && !event.metaKey) return;
+        void window.sandboxApi.openExternalUrl(url);
+      },
+    });
+  }
+
+  return links.length > 0 ? links : undefined;
+}
+
+function addProblem(
+  problems: RunProblem[],
+  nextProblem: RunProblem,
+): void {
   const key = `${nextProblem.file ?? ""}:${nextProblem.line ?? ""}:${
     nextProblem.column ?? ""
   }:${nextProblem.message}`;
@@ -77,9 +126,7 @@ function parseRunProblems(result: RunResult | null): RunProblem[] {
       continue;
     }
 
-    const javaMatch = line.match(
-      /^(.+?\.java):(\d+):\s+(error|warning):\s+(.+)$/i,
-    );
+    const javaMatch = line.match(/^(.+?\.java):(\d+):\s+(error|warning):\s+(.+)$/i);
 
     if (javaMatch) {
       addProblem(problems, {
@@ -168,6 +215,18 @@ export default function TerminalPanel({
     [sessions, activeTerminalId],
   );
 
+  function fitActiveTerminal() {
+    const terminalId = activeTerminalIdRef.current;
+    if (!terminalRef.current || !fitAddonRef.current || !terminalId) return;
+
+    fitAddonRef.current.fit();
+    void window.sandboxApi.resizeTerminal(
+      terminalId,
+      terminalRef.current.cols,
+      terminalRef.current.rows,
+    );
+  }
+
   useEffect(() => {
     activeTerminalIdRef.current = activeTerminalId;
   }, [activeTerminalId]);
@@ -217,12 +276,8 @@ export default function TerminalPanel({
 
     if (terminalRef.current) {
       terminalRef.current.clear();
-      terminalRef.current.writeln(
-        "Workspace changed. Terminal sessions reset.",
-      );
-      terminalRef.current.writeln(
-        "Starting a new terminal for this workspace.",
-      );
+      terminalRef.current.writeln("Workspace changed. Terminal sessions reset.");
+      terminalRef.current.writeln("Starting a new terminal for this workspace.");
     }
   }, [workspacePath]);
 
@@ -263,6 +318,11 @@ export default function TerminalPanel({
     terminal.loadAddon(fitAddon);
     terminal.open(host);
     fitAddon.fit();
+    const urlLinkProvider = terminal.registerLinkProvider({
+      provideLinks: (bufferLineNumber, callback) => {
+        callback(getTerminalUrlLinks(terminal, bufferLineNumber));
+      },
+    });
 
     terminal.writeln("Vansant Sandbox Terminal");
     terminal.writeln("Starting terminal...");
@@ -278,17 +338,9 @@ export default function TerminalPanel({
     fitAddonRef.current = fitAddon;
     setTerminalReady(true);
 
-    const onResize = () => {
-      const terminalId = activeTerminalIdRef.current;
-      if (!terminalRef.current || !fitAddonRef.current || !terminalId) return;
-
-      fitAddonRef.current.fit();
-      void window.sandboxApi.resizeTerminal(
-        terminalId,
-        terminalRef.current.cols,
-        terminalRef.current.rows,
-      );
-    };
+    const onResize = () => fitActiveTerminal();
+    const resizeObserver = new ResizeObserver(() => fitActiveTerminal());
+    resizeObserver.observe(host);
 
     window.addEventListener("resize", onResize);
 
@@ -321,7 +373,9 @@ export default function TerminalPanel({
     return () => {
       removeDataListener();
       removeExitListener();
+      resizeObserver.disconnect();
       window.removeEventListener("resize", onResize);
+      urlLinkProvider.dispose();
       terminal.dispose();
       terminalRef.current = null;
       fitAddonRef.current = null;
@@ -345,14 +399,13 @@ export default function TerminalPanel({
     );
 
     if (fitAddonRef.current && activeTerminalId) {
-      fitAddonRef.current.fit();
-      void window.sandboxApi.resizeTerminal(
-        activeTerminalId,
-        terminalRef.current.cols,
-        terminalRef.current.rows,
-      );
+      fitActiveTerminal();
     }
   }, [activeSession, activeTerminalId]);
+
+  useEffect(() => {
+    fitActiveTerminal();
+  }, [height, viewMode, sessions.length]);
 
   async function createTerminal(requestedProfileId?: string) {
     if (!terminalRef.current || !fitAddonRef.current) return;
@@ -516,50 +569,50 @@ export default function TerminalPanel({
           viewMode === "terminal" ? "" : "terminal-view-hidden"
         }`}
       >
-        <div className="terminal-session-tabs">
-          {sessions.length === 0 ? (
-            <span className="terminal-empty-label">Starting terminal...</span>
-          ) : (
-            sessions.map((session) => (
-              <div
-                key={session.terminalId}
-                className={`terminal-session-tab ${
-                  activeTerminalId === session.terminalId
-                    ? "terminal-session-tab-active"
-                    : ""
-                }`}
-              >
-                <button
-                  type="button"
-                  className="terminal-session-tab-button"
-                  onClick={() => setActiveTerminalId(session.terminalId)}
+          <div className="terminal-session-tabs">
+            {sessions.length === 0 ? (
+              <span className="terminal-empty-label">Starting terminal...</span>
+            ) : (
+              sessions.map((session) => (
+                <div
+                  key={session.terminalId}
+                  className={`terminal-session-tab ${
+                    activeTerminalId === session.terminalId
+                      ? "terminal-session-tab-active"
+                      : ""
+                  }`}
                 >
-                  {session.label}
-                </button>
+                  <button
+                    type="button"
+                    className="terminal-session-tab-button"
+                    onClick={() => setActiveTerminalId(session.terminalId)}
+                  >
+                    {session.label}
+                  </button>
 
-                <button
-                  type="button"
-                  className="terminal-session-tab-close"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    void closeTerminal(session.terminalId);
-                  }}
-                  title={`Close ${session.label}`}
-                >
-                  ×
-                </button>
-              </div>
-            ))
-          )}
-        </div>
-
-        {terminalError ? (
-          <div className="terminal-status" style={{ color: "#fca5a5" }}>
-            {terminalError}
+                  <button
+                    type="button"
+                    className="terminal-session-tab-close"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      void closeTerminal(session.terminalId);
+                    }}
+                    title={`Close ${session.label}`}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))
+            )}
           </div>
-        ) : null}
 
-        <div ref={terminalHostRef} className="terminal-xterm-host" />
+          {terminalError ? (
+            <div className="terminal-status" style={{ color: "#fca5a5" }}>
+              {terminalError}
+            </div>
+          ) : null}
+
+          <div ref={terminalHostRef} className="terminal-xterm-host" />
       </div>
 
       <div
@@ -589,9 +642,7 @@ export default function TerminalPanel({
                       key={`${problem.file ?? "run"}-${problem.line ?? index}-${problem.message}`}
                       className="problem-item"
                     >
-                      <span
-                        className={`problem-severity problem-${problem.severity}`}
-                      >
+                      <span className={`problem-severity problem-${problem.severity}`}>
                         {problem.severity}
                       </span>
                       <span className="problem-location">

@@ -33,6 +33,8 @@
     },
     "files": [
       "out/**/*",
+      "assets/**/*",
+      "browser_extension/**/*",
       "package.json"
     ],
     "asar": true,

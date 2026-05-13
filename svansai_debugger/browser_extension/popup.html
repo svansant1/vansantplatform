@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SVANSAI Site Bridge</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="panel">
+      <div class="eyebrow">SVANSAI Debugger</div>
+      <h1>Site Bridge</h1>
+
+      <label class="field">
+        <span>Session code</span>
+        <input id="sessionCode" type="text" autocomplete="off" placeholder="Enter code" />
+      </label>
+
+      <label class="field">
+        <span>Backend URL</span>
+        <input id="apiBaseUrl" type="url" autocomplete="off" />
+      </label>
+
+      <label class="toggle">
+        <input id="enabled" type="checkbox" />
+        <span>Share open tabs with Debugger</span>
+      </label>
+
+      <div class="actions">
+        <button id="save" type="button">Save</button>
+        <button id="syncNow" type="button">Sync Now</button>
+      </div>
+
+      <p id="status" class="status">Sync is off.</p>
+    </main>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

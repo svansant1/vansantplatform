@@ -92,7 +92,7 @@ export default function DebuggerPage() {
 
           <div className="mt-5 flex flex-wrap gap-3">
             <a
-              href="/downloads/SVANSAI-Debugger-Agent.exe"
+              href="/downloads/SVANSAI-Debugger.exe"
               download
               className="rounded-xl bg-purple-500 px-5 py-3 text-sm font-medium text-white hover:bg-purple-600"
             >
@@ -100,7 +100,7 @@ export default function DebuggerPage() {
             </a>
 
             <a
-              href="/downloads/SVANSAI-Debugger-Agent-Portable.exe"
+              href="/downloads/SVANSAI-Debugger-Agent.exe"
               download
               className="rounded-xl border border-zinc-700 px-5 py-3 text-sm font-medium text-zinc-300 hover:bg-zinc-900"
             >

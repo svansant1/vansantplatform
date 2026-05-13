@@ -1,27 +1,8 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import type { ScanFinding, ScanResult } from "../../shared/types/scan";
 
 const execFileAsync = promisify(execFile);
-
-type ScanStatus = "good" | "warning" | "problem";
-
-type ScanFinding = {
-  category: string;
-  item: string;
-  status: ScanStatus;
-  detail: string;
-  fix: string;
-};
-
-type ScanResult = {
-  scope: "apps";
-  summary: string;
-  findings: ScanFinding[];
-  logs: string[];
-  recommendations: string[];
-  scannedAt: string;
-  meta?: Record<string, unknown>;
-};
 
 type TaskListRow = {
   imageName: string;
@@ -31,22 +12,39 @@ type TaskListRow = {
   memUsageKb: number;
 };
 
+type AggregatedProcess = {
+  imageName: string;
+  totalMemKb: number;
+  maxMemKb: number;
+  count: number;
+  pids: number[];
+};
+
 const PROCESS_LABELS: Record<string, string> = {
   "Code.exe": "Visual Studio Code",
   "msedge.exe": "Microsoft Edge",
   "chrome.exe": "Google Chrome",
   "python.exe": "Python",
-  "pythonw.exe": "Python",
+  "pythonw.exe": "Python (windowless)",
   "node.exe": "Node.js",
   "explorer.exe": "Windows Explorer",
   "cmd.exe": "Command Prompt",
   "powershell.exe": "PowerShell",
-  "pwsh.exe": "PowerShell",
+  "pwsh.exe": "PowerShell Core",
   "WindowsTerminal.exe": "Windows Terminal",
   "SearchIndexer.exe": "Windows Search Indexer",
   "Taskmgr.exe": "Task Manager",
   "svchost.exe": "Windows Service Host",
 };
+
+// Instance counts beyond these thresholds are flagged
+const INSTANCE_WARN_THRESHOLD: Record<string, number> = {
+  "svchost.exe": 60,
+  "msedge.exe": 30,
+  "chrome.exe": 30,
+  "RuntimeBroker.exe": 20,
+};
+const DEFAULT_INSTANCE_WARN = 12;
 
 function getFriendlyProcessName(imageName: string): string {
   return PROCESS_LABELS[imageName] || imageName.replace(/\.exe$/i, "");
@@ -76,87 +74,99 @@ function parseTasklistCsv(stdout: string): TaskListRow[] {
   });
 }
 
-function formatMemoryMb(memUsageKb: number): number {
-  return Math.round(memUsageKb / 1024);
+function aggregateProcesses(rows: TaskListRow[]): AggregatedProcess[] {
+  const map = new Map<string, AggregatedProcess>();
+
+  for (const row of rows) {
+    const key = row.imageName.toLowerCase();
+    const existing = map.get(key);
+
+    if (existing) {
+      existing.totalMemKb += row.memUsageKb;
+      existing.maxMemKb = Math.max(existing.maxMemKb, row.memUsageKb);
+      existing.count++;
+      existing.pids.push(row.pid);
+    } else {
+      map.set(key, {
+        imageName: row.imageName,
+        totalMemKb: row.memUsageKb,
+        maxMemKb: row.memUsageKb,
+        count: 1,
+        pids: [row.pid],
+      });
+    }
+  }
+
+  return Array.from(map.values()).sort((a, b) => b.totalMemKb - a.totalMemKb);
 }
 
-function buildProcessLabel(row: TaskListRow): string {
-  return getFriendlyProcessName(row.imageName);
+function formatMb(kb: number): number {
+  return Math.round(kb / 1024);
 }
 
-function getProcessDetail(row: TaskListRow, memoryMb: number): string {
-  const friendlyName = getFriendlyProcessName(row.imageName);
-  const technicalInfo = `Process: ${row.imageName} | PID: ${row.pid} | Session: ${row.sessionName} | Memory: ${memoryMb} MB.`;
+function classifyAggregatedProcess(agg: AggregatedProcess): ScanFinding {
+  const totalMb = formatMb(agg.totalMemKb);
+  const maxMb = formatMb(agg.maxMemKb);
+  const friendlyName = getFriendlyProcessName(agg.imageName);
+  const instanceLabel = agg.count > 1 ? ` (${agg.count} instances)` : "";
 
-  if (row.imageName === "Code.exe") {
-    return `${friendlyName} is running. This is likely one of your open VS Code windows or workspaces. ${technicalInfo}`;
-  }
+  const instanceThreshold =
+    INSTANCE_WARN_THRESHOLD[agg.imageName] ?? DEFAULT_INSTANCE_WARN;
+  const tooManyInstances = agg.count > instanceThreshold;
 
-  if (row.imageName === "msedge.exe") {
-    return `${friendlyName} is active. This may represent one of your browser windows, tabs, extensions, or browser services. ${technicalInfo}`;
-  }
+  const instanceNote = tooManyInstances
+    ? ` Unusually high instance count (${agg.count}).`
+    : "";
 
-  if (row.imageName === "chrome.exe") {
-    return `${friendlyName} is active. This may represent one of your browser windows, tabs, extensions, or browser services. ${technicalInfo}`;
-  }
+  const memDetail =
+    agg.count > 1
+      ? `Total memory: ${totalMb} MB across ${agg.count} instances. Largest instance: ${maxMb} MB.`
+      : `Memory: ${totalMb} MB.`;
 
-  if (row.imageName === "node.exe") {
-    return `${friendlyName} is active. This often means a dev server, build tool, or local app runtime is running. ${technicalInfo}`;
-  }
-
-  if (row.imageName === "python.exe" || row.imageName === "pythonw.exe") {
-    return `${friendlyName} is active. This often means a backend, script, or automation process is running. ${technicalInfo}`;
-  }
-
-  return `${friendlyName} is running normally. ${technicalInfo}`;
-}
-
-function classifyProcess(row: TaskListRow): ScanFinding {
-  const memoryMb = formatMemoryMb(row.memUsageKb);
-  const itemLabel = buildProcessLabel(row);
-
-  if (row.memUsageKb >= 800_000) {
+  if (agg.totalMemKb >= 800_000 || tooManyInstances) {
     return {
       category: "Apps",
-      item: itemLabel,
+      item: `${friendlyName}${instanceLabel}`,
       status: "problem",
-      detail: `Very high memory usage detected: ${memoryMb} MB. ${getProcessDetail(row, memoryMb)}`,
-      fix: "Close or restart this application. Check for memory leaks, too many open instances, or reinstall if the issue keeps returning.",
+      detail: `${memDetail}${instanceNote}`,
+      fix: "Close or restart this application. Check for memory leaks, too many open instances, or reinstall if the issue persists.",
     };
   }
 
-  if (row.memUsageKb >= 300_000) {
+  if (agg.totalMemKb >= 300_000) {
     return {
       category: "Apps",
-      item: itemLabel,
+      item: `${friendlyName}${instanceLabel}`,
       status: "warning",
-      detail: `Elevated memory usage detected: ${memoryMb} MB. ${getProcessDetail(row, memoryMb)}`,
-      fix: "Monitor usage. Close unnecessary instances, reduce workload, or restart the app if performance feels degraded.",
+      detail: memDetail,
+      fix: "Monitor usage. Close unnecessary instances or restart the app if performance feels degraded.",
     };
   }
 
   return {
     category: "Apps",
-    item: itemLabel,
+    item: `${friendlyName}${instanceLabel}`,
     status: "good",
-    detail: getProcessDetail(row, memoryMb),
+    detail: memDetail,
     fix: "No action needed.",
   };
 }
 
 function buildRecommendations(findings: ScanFinding[]): string[] {
   const recommendations: string[] = [];
-  const problemCount = findings.filter((item) => item.status === "problem").length;
-  const warningCount = findings.filter((item) => item.status === "warning").length;
-  const hasVsCode = findings.some((item) => item.item.includes("Visual Studio Code"));
-  const hasBrowser = findings.some((item) => item.item.includes("Microsoft Edge") || item.item.includes("Google Chrome"));
+  const problemCount = findings.filter((f) => f.status === "problem").length;
+  const warningCount = findings.filter((f) => f.status === "warning").length;
+  const hasVsCode = findings.some((f) => f.item.includes("Visual Studio Code"));
+  const hasBrowser = findings.some(
+    (f) => f.item.includes("Microsoft Edge") || f.item.includes("Google Chrome"),
+  );
 
   if (problemCount > 0) {
     recommendations.push(
-      "Review the processes marked as problems and confirm whether their memory footprint is expected.",
+      "Review processes marked as problems. Confirm whether high memory or instance counts are expected.",
     );
     recommendations.push(
-      "Close non-essential high-memory applications and re-run the scan to verify whether pressure is reduced.",
+      "Close non-essential high-memory applications and re-run the scan to verify pressure is reduced.",
     );
   }
 
@@ -168,13 +178,13 @@ function buildRecommendations(findings: ScanFinding[]): string[] {
 
   if (hasVsCode) {
     recommendations.push(
-      "If Visual Studio Code usage looks high, close unused windows, folders, terminals, or extensions and scan again.",
+      "If VS Code memory looks high, close unused windows, folders, terminals, or extensions.",
     );
   }
 
   if (hasBrowser) {
     recommendations.push(
-      "If browser usage looks high, close unused tabs or extensions and re-check app memory pressure.",
+      "If browser memory looks high, close unused tabs or disable resource-heavy extensions.",
     );
   }
 
@@ -185,35 +195,37 @@ function buildRecommendations(findings: ScanFinding[]): string[] {
   return recommendations;
 }
 
-export async function scanApps(): Promise<ScanResult> {
+export async function scanApps(): Promise<ScanResult & { scope: "apps" }> {
   const logs: string[] = ["[APPS] Starting Windows process scan."];
 
   try {
     const { stdout } = await execFileAsync("tasklist", ["/FO", "CSV", "/NH"]);
     const rows = parseTasklistCsv(stdout);
 
-    logs.push(`[APPS] Parsed ${rows.length} running processes.`);
+    logs.push(`[APPS] Parsed ${rows.length} raw process entries.`);
 
-    const sortedRows = rows.sort((a, b) => b.memUsageKb - a.memUsageKb);
-    const topRows = sortedRows.slice(0, 30);
-    const findings = topRows.map(classifyProcess);
+    const aggregated = aggregateProcesses(rows);
+    const top30 = aggregated.slice(0, 30);
+    const findings = top30.map(classifyAggregatedProcess);
 
-    const problemCount = findings.filter((item) => item.status === "problem").length;
-    const warningCount = findings.filter((item) => item.status === "warning").length;
+    const problemCount = findings.filter((f) => f.status === "problem").length;
+    const warningCount = findings.filter((f) => f.status === "warning").length;
 
-    logs.push(`[APPS] Top ${topRows.length} processes analyzed by memory usage.`);
+    logs.push(`[APPS] Aggregated into ${aggregated.length} unique processes.`);
+    logs.push(`[APPS] Top 30 by total memory analyzed.`);
     logs.push(`[APPS] ${problemCount} problems, ${warningCount} warnings detected.`);
 
     return {
       scope: "apps",
-      summary: `Scanned ${rows.length} running processes. ${problemCount} problem(s), ${warningCount} warning(s) detected in the top 30 by memory usage.`,
+      summary: `Scanned ${rows.length} processes (${aggregated.length} unique). ${problemCount} problem(s), ${warningCount} warning(s) in top 30 by total memory.`,
       findings,
       logs,
       recommendations: buildRecommendations(findings),
       scannedAt: new Date().toISOString(),
       meta: {
         totalProcesses: rows.length,
-        analyzedProcesses: topRows.length,
+        uniqueProcesses: aggregated.length,
+        analyzedProcesses: top30.length,
       },
     };
   } catch (error) {

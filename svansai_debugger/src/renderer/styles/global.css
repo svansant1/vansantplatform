@@ -303,6 +303,29 @@ input {
   font-size: 14px;
 }
 
+.scan-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 10px 14px;
+  border: 1px solid rgba(168, 85, 247, 0.28);
+  border-radius: 999px;
+  background: rgba(88, 28, 135, 0.18);
+  color: #e9d5ff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.scan-state__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: #a78bfa;
+  box-shadow: 0 0 0 0 rgba(167, 139, 250, 0.7);
+  animation: scan-pulse 1.4s ease-out infinite;
+}
+
 .notes-box__title {
   font-size: 18px;
   font-weight: 700;
@@ -371,4 +394,273 @@ input {
   0% { transform: translateY(0); }
   50% { transform: translateY(-6px); }
   100% { transform: translateY(0); }
+}
+
+@keyframes scan-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(167, 139, 250, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(167, 139, 250, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(167, 139, 250, 0);
+  }
+}
+
+.chat-history {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.chat-bubble {
+  border: 1px solid #27272a;
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.chat-bubble--assistant {
+  background: #11131b;
+}
+
+.chat-bubble--user {
+  background: #151a27;
+}
+
+.chat-bubble--system {
+  background: #0d0f17;
+  border-color: #3f3f46;
+}
+
+.chat-bubble__label {
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  color: #a1a1aa;
+}
+
+.chat-bubble__body {
+  white-space: pre-wrap;
+  color: #d4d4d8;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.findings-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.finding-card {
+  border: 1px solid #27272a;
+  border-radius: 16px;
+  padding: 14px;
+  background: #11131b;
+}
+
+.finding-card__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.finding-card__item {
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.finding-card__category {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #52525b;
+}
+
+.finding-card__detail {
+  margin-top: 8px;
+  color: #d4d4d8;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.finding-card__fix {
+  margin-top: 8px;
+  color: #a1a1aa;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.finding-card__actions {
+  margin-top: 12px;
+}
+
+.finding-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.finding-badge--good {
+  background: rgba(34, 197, 94, 0.12);
+  color: #86efac;
+  border-color: rgba(34, 197, 94, 0.25);
+}
+
+.finding-badge--warning {
+  background: rgba(234, 179, 8, 0.12);
+  color: #fde68a;
+  border-color: rgba(234, 179, 8, 0.25);
+}
+
+.finding-badge--problem {
+  background: rgba(239, 68, 68, 0.12);
+  color: #fca5a5;
+  border-color: rgba(239, 68, 68, 0.25);
+}
+
+.folder-picker {
+  margin-top: 16px;
+  border: 1px solid #3f3f46;
+  border-radius: 20px;
+  background: #0d0f17;
+  padding: 14px 18px;
+}
+
+.folder-picker__label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #71717a;
+  margin-bottom: 10px;
+}
+
+.folder-picker__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.folder-picker__path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: #a1a1aa;
+  font-family: ui-monospace, "Cascadia Code", "Fira Code", monospace;
+}
+
+/* ===== SCAN HISTORY ===== */
+
+.history-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.history-entry {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid #27272a;
+  background: #0d0f17;
+  color: #d4d4d8;
+  cursor: pointer;
+  transition: 140ms ease;
+}
+
+.history-entry:hover {
+  background: #13161f;
+  border-color: #3f3f46;
+}
+
+.history-entry__scope {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: #c084fc;
+  min-width: 52px;
+}
+
+.history-entry__time {
+  flex: 1;
+  font-size: 13px;
+  color: #a1a1aa;
+}
+
+.history-entry__counts {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* ===== MARKDOWN CHAT BODY ===== */
+
+.chat-md-body {
+  font-size: 14px;
+  line-height: 1.65;
+  color: #d4d4d8;
+}
+
+.chat-md-body .chat-md-p {
+  margin: 0 0 6px;
+}
+
+.chat-md-body .chat-md-heading {
+  margin: 10px 0 4px;
+  font-weight: 700;
+  color: #e4e4e7;
+}
+
+.chat-md-body .chat-md-list {
+  margin: 4px 0 8px 18px;
+  padding: 0;
+}
+
+.chat-md-body .chat-md-list li {
+  margin-bottom: 4px;
+}
+
+.chat-code-block {
+  margin: 8px 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #060810;
+  border: 1px solid #27272a;
+  overflow-x: auto;
+  font-family: ui-monospace, "Cascadia Code", "Fira Code", monospace;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #a5f3fc;
+}
+
+.chat-inline-code {
+  background: rgba(88, 28, 135, 0.22);
+  border: 1px solid rgba(168, 85, 247, 0.25);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-family: ui-monospace, "Cascadia Code", "Fira Code", monospace;
+  font-size: 12px;
+  color: #c4b5fd;
 }

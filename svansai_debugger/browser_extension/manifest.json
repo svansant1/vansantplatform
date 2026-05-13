@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "name": "SVANSAI Debugger Site Bridge",
-  "description": "Sends currently open tabs to the SVANSAI backend.",
+  "description": "Opt-in bridge for sharing current browser tabs with the SVANSAI Debugger.",
   "version": "1.0.0",
-  "permissions": ["tabs"],
+  "permissions": ["tabs", "storage"],
   "host_permissions": [
     "https://vansant-backend.onrender.com/*"
   ],
@@ -11,6 +11,7 @@
     "service_worker": "background.js"
   },
   "action": {
-    "default_title": "SVANSAI Site Bridge"
+    "default_title": "SVANSAI Site Bridge",
+    "default_popup": "popup.html"
   }
 }

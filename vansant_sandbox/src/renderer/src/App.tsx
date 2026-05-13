@@ -6,12 +6,15 @@ import EditorTabs from "./components/EditorTabs";
 import TerminalPanel from "./components/TerminalPanel";
 import StatusBar from "./components/StatusBar";
 import Commandbar from "./components/Commandbar";
+import AIAssistantPanel from "./components/AIAssistantPanel";
 import type {
+  DiagnosticSummary,
   FileNode,
   OpenTab,
   RunResult,
   TrashEntry,
 } from "./components/types";
+import svansAiIcon from "./assets/sv-robot.png";
 
 loader.config({ monaco });
 
@@ -81,17 +84,11 @@ function isImageFile(filePath: string): boolean {
   return IMAGE_EXTENSIONS.has(getFileExtension(filePath));
 }
 
-function makeRelativePath(
-  filePath: string,
-  workspacePath: string | null,
-): string {
+function makeRelativePath(filePath: string, workspacePath: string | null): string {
   const normalizedFile = normalizePath(filePath);
   const normalizedWorkspace = workspacePath ? normalizePath(workspacePath) : "";
 
-  if (
-    normalizedWorkspace &&
-    normalizedFile.startsWith(`${normalizedWorkspace}/`)
-  ) {
+  if (normalizedWorkspace && normalizedFile.startsWith(`${normalizedWorkspace}/`)) {
     return normalizedFile.slice(normalizedWorkspace.length + 1);
   }
 
@@ -196,17 +193,12 @@ function readDraft(
   filePath: string,
 ): DraftRecord | null {
   try {
-    const raw = window.localStorage.getItem(
-      getDraftKey(workspacePath, filePath),
-    );
+    const raw = window.localStorage.getItem(getDraftKey(workspacePath, filePath));
     if (!raw) return null;
 
     const parsed = JSON.parse(raw) as Partial<DraftRecord>;
 
-    if (
-      typeof parsed.content !== "string" ||
-      typeof parsed.savedAt !== "number"
-    ) {
+    if (typeof parsed.content !== "string" || typeof parsed.savedAt !== "number") {
       return null;
     }
 
@@ -296,10 +288,12 @@ export default function App() {
   const [quickOpenVisible, setQuickOpenVisible] = useState(false);
   const [quickOpenQuery, setQuickOpenQuery] = useState("");
   const [quickOpenIndex, setQuickOpenIndex] = useState(0);
-  const [editorFontSize, setEditorFontSize] = useState(
-    DEFAULT_EDITOR_FONT_SIZE,
-  );
+  const [editorFontSize, setEditorFontSize] = useState(DEFAULT_EDITOR_FONT_SIZE);
   const [imageZoom, setImageZoom] = useState(DEFAULT_IMAGE_ZOOM);
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const [diagnosticsByPath, setDiagnosticsByPath] = useState<
+    Record<string, DiagnosticSummary>
+  >({});
 
   useEffect(() => {
     if (!isResizingTerminal) return;
@@ -376,10 +370,7 @@ export default function App() {
 
   useEffect(() => {
     const handleQuickOpenShortcut = (event: KeyboardEvent) => {
-      if (
-        !(event.ctrlKey || event.metaKey) ||
-        event.key.toLowerCase() !== "p"
-      ) {
+      if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "p") {
         return;
       }
 
@@ -426,11 +417,7 @@ export default function App() {
         return;
       }
 
-      if (
-        event.key === "-" ||
-        event.code === "Minus" ||
-        event.code === "NumpadSubtract"
-      ) {
+      if (event.key === "-" || event.code === "Minus" || event.code === "NumpadSubtract") {
         event.preventDefault();
         event.stopPropagation();
         if (activeTab?.kind === "image") {
@@ -441,11 +428,7 @@ export default function App() {
         return;
       }
 
-      if (
-        event.key === "0" ||
-        event.code === "Digit0" ||
-        event.code === "Numpad0"
-      ) {
+      if (event.key === "0" || event.code === "Digit0" || event.code === "Numpad0") {
         event.preventDefault();
         event.stopPropagation();
         if (activeTab?.kind === "image") {
@@ -474,14 +457,10 @@ export default function App() {
       }
     };
 
-    window.addEventListener("keydown", handleEditorShortcuts, {
-      capture: true,
-    });
+    window.addEventListener("keydown", handleEditorShortcuts, { capture: true });
 
     return () => {
-      window.removeEventListener("keydown", handleEditorShortcuts, {
-        capture: true,
-      });
+      window.removeEventListener("keydown", handleEditorShortcuts, { capture: true });
     };
   }, [activeTab, dirtyTabs, quickOpenVisible, running, workspacePath]);
 
@@ -541,6 +520,30 @@ export default function App() {
     setImageZoom(DEFAULT_IMAGE_ZOOM);
   }
 
+  function updateDiagnosticsForPath(
+    filePath: string,
+    markers: monaco.editor.IMarker[],
+  ) {
+    const errors = markers.filter(
+      (marker) => marker.severity === monaco.MarkerSeverity.Error,
+    ).length;
+    const warnings = markers.filter(
+      (marker) => marker.severity === monaco.MarkerSeverity.Warning,
+    ).length;
+
+    setDiagnosticsByPath((current) => {
+      const next = { ...current };
+
+      if (errors === 0 && warnings === 0) {
+        delete next[filePath];
+      } else {
+        next[filePath] = { errors, warnings };
+      }
+
+      return next;
+    });
+  }
+
   async function refreshTree(folderPath: string) {
     const result = await window.sandboxApi.refreshTree(folderPath);
     setTree(result.tree);
@@ -597,6 +600,7 @@ export default function App() {
 
       setWorkspacePath(result.folderPath);
       setTree(result.tree);
+      setDiagnosticsByPath({});
       setTrashEntries(await window.sandboxApi.listTrash());
       setStatusMessage(`Opened workspace: ${result.folderPath}`);
 
@@ -750,9 +754,7 @@ export default function App() {
         ),
       );
 
-      setStatusMessage(
-        `Saved ${dirtyTextTabs.length} file${dirtyTextTabs.length === 1 ? "" : "s"}.`,
-      );
+      setStatusMessage(`Saved ${dirtyTextTabs.length} file${dirtyTextTabs.length === 1 ? "" : "s"}.`);
 
       if (workspacePath) {
         await refreshTree(workspacePath);
@@ -884,7 +886,9 @@ export default function App() {
       removeDraftsForPath(workspacePath, node.path, openTabs);
 
       setOpenTabs((prev) =>
-        prev.filter((tab) => !isPathAtOrInside(tab.path, node.path)),
+        prev.filter(
+          (tab) => !isPathAtOrInside(tab.path, node.path),
+        ),
       );
 
       if (activePath && isPathAtOrInside(activePath, node.path)) {
@@ -940,9 +944,7 @@ export default function App() {
       );
 
       if (!shouldSave) {
-        setStatusMessage(
-          "Run canceled. Save the file or run after discarding changes.",
-        );
+        setStatusMessage("Run canceled. Save the file or run after discarding changes.");
         return;
       }
 
@@ -999,6 +1001,39 @@ export default function App() {
       setStatusMessage(
         error instanceof Error ? error.message : "Failed to restore item.",
       );
+    }
+  }
+
+  async function handleAssistantEditsApplied(filePaths: string[]) {
+    if (workspacePath) {
+      await refreshTree(workspacePath);
+    }
+
+    for (const filePath of filePaths) {
+      const openTab = openTabs.find((tab) => tab.path === filePath);
+      if (!openTab || openTab.kind !== "text") continue;
+
+      try {
+        const result = await window.sandboxApi.readFile(filePath);
+        removeDraft(workspacePath, filePath);
+        setOpenTabs((prev) =>
+          prev.map((tab) =>
+            tab.path === filePath && tab.kind === "text"
+              ? {
+                  ...tab,
+                  content: result.content,
+                  isDirty: false,
+                }
+              : tab,
+          ),
+        );
+      } catch (error) {
+        setStatusMessage(
+          error instanceof Error
+            ? error.message
+            : "Applied edit, but failed to refresh the open tab.",
+        );
+      }
     }
   }
 
@@ -1119,10 +1154,21 @@ export default function App() {
           >
             {running ? "Running..." : "Run File"}
           </button>
+
+          <button
+            className={`assistant-toggle-btn${assistantOpen ? " assistant-toggle-btn-active" : ""}`}
+            onClick={() => setAssistantOpen((open) => !open)}
+            disabled={!workspacePath}
+            title="Open SVANSAI Code Assistant"
+            aria-pressed={assistantOpen}
+            aria-label="Toggle SVANSAI Code Assistant"
+          >
+            <img src={svansAiIcon} alt="" className="assistant-toggle-icon" />
+          </button>
         </div>
       </header>
 
-      <div className="workspace-grid">
+      <div className={`workspace-grid${assistantOpen ? " workspace-grid-assistant-open" : ""}`}>
         <aside className="sidebar-panel">
           <div className="panel-title-row">
             <h3>Explorer</h3>
@@ -1138,6 +1184,7 @@ export default function App() {
           <FileTree
             nodes={tree}
             activePath={activePath}
+            diagnosticsByPath={diagnosticsByPath}
             onOpenFile={openFile}
             onCreateEntry={(parentDir, type) => createEntry(type, parentDir)}
             onRenameEntry={renameEntry}
@@ -1206,10 +1253,7 @@ export default function App() {
                     <span>{activeTab.mimeType}</span>
                   </div>
 
-                  <div
-                    className="zoom-controls"
-                    aria-label="Image zoom controls"
-                  >
+                  <div className="zoom-controls" aria-label="Image zoom controls">
                     <button
                       className="secondary-btn zoom-btn"
                       onClick={zoomImageOut}
@@ -1265,6 +1309,9 @@ export default function App() {
                 language={getLanguage(activeTab.path)}
                 value={activeTab.content}
                 onChange={updateActiveContent}
+                onValidate={(markers) =>
+                  updateDiagnosticsForPath(activeTab.path, markers)
+                }
                 options={{
                   minimap: { enabled: true },
                   fontSize: editorFontSize,
@@ -1289,6 +1336,17 @@ export default function App() {
             )}
           </div>
         </section>
+
+        {assistantOpen && (
+          <AIAssistantPanel
+            activeTab={activeTab}
+            openTabs={openTabs}
+            runResult={runResult}
+            workspacePath={workspacePath}
+            onEditsApplied={handleAssistantEditsApplied}
+            onStatus={setStatusMessage}
+          />
+        )}
       </div>
 
       <div
