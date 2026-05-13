@@ -9,6 +9,7 @@ let backendProcess = null;
 let frontendServer = null;
 
 const FRONTEND_PORT = 4173;
+const BACKEND_PORT = 8000;
 
 const LOADING_HTML = `<!DOCTYPE html>
 <html>
@@ -70,6 +71,60 @@ function getFrontendRoot() {
   return app.isPackaged
     ? path.join(process.resourcesPath, "frontend", "out")
     : path.join(__dirname, "../frontend/out");
+}
+
+function getPythonCandidates() {
+  const candidates = [];
+  const localAppData = process.env.LOCALAPPDATA;
+  const userProfile = process.env.USERPROFILE;
+
+  if (process.env.PYTHON) {
+    candidates.push(process.env.PYTHON);
+  }
+
+  candidates.push(
+    "py",
+    "python",
+    "python3",
+    path.join(process.env.SystemRoot || "C:\\Windows", "py.exe")
+  );
+
+  if (localAppData) {
+    candidates.push(
+      path.join(localAppData, "Programs", "Python", "Python312", "python.exe"),
+      path.join(localAppData, "Programs", "Python", "Python311", "python.exe"),
+      path.join(localAppData, "Programs", "Python", "Python310", "python.exe")
+    );
+  }
+
+  if (userProfile) {
+    candidates.push(
+      path.join(userProfile, "AppData", "Local", "Programs", "Python", "Python312", "python.exe"),
+      path.join(userProfile, "AppData", "Local", "Programs", "Python", "Python311", "python.exe"),
+      path.join(userProfile, "AppData", "Local", "Programs", "Python", "Python310", "python.exe")
+    );
+  }
+
+  return [...new Set(candidates.filter(Boolean))];
+}
+
+function resolvePythonCommand() {
+  for (const candidate of getPythonCandidates()) {
+    if (candidate.includes("\\") || candidate.includes("/")) {
+      if (fs.existsSync(candidate)) {
+        return { command: candidate, prefixArgs: [] };
+      }
+      continue;
+    }
+
+    if (candidate === "py") {
+      return { command: candidate, prefixArgs: ["-3"] };
+    }
+
+    return { command: candidate, prefixArgs: [] };
+  }
+
+  return { command: "python", prefixArgs: [] };
 }
 
 function startFrontendServer() {
@@ -186,14 +241,25 @@ function createWindow() {
 
 function startBackend() {
   const backendPath = getBackendPath();
+  const python = resolvePythonCommand();
 
   backendProcess = spawn(
-    "python",
-    ["-m", "uvicorn", "main:app", "--host", "127.0.0.1", "--port", "8000"],
+    python.command,
+    [
+      ...python.prefixArgs,
+      "-m",
+      "uvicorn",
+      "main:app",
+      "--host",
+      "127.0.0.1",
+      "--port",
+      String(BACKEND_PORT),
+    ],
     {
       cwd: backendPath,
       shell: false,
       windowsHide: true,
+      detached: false,
     }
   );
 
@@ -220,7 +286,7 @@ function waitForBackend(maxWaitMs = 30000, pollIntervalMs = 500) {
     const deadline = Date.now() + maxWaitMs;
 
     function attempt() {
-      const req = http.get("http://127.0.0.1:8000/health", (res) => {
+      const req = http.get(`http://127.0.0.1:${BACKEND_PORT}/health`, (res) => {
         res.resume();
         if (res.statusCode === 200) {
           resolve();

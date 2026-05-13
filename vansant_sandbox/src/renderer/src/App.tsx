@@ -10,6 +10,7 @@ import AIAssistantPanel from "./components/AIAssistantPanel";
 import type {
   DiagnosticSummary,
   FileNode,
+  GitStatus,
   OpenTab,
   RunResult,
   TrashEntry,
@@ -281,6 +282,7 @@ export default function App() {
   const [activePath, setActivePath] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState("Ready");
   const [runResult, setRunResult] = useState<RunResult | null>(null);
+  const [gitStatus, setGitStatus] = useState<GitStatus | null>(null);
   const [running, setRunning] = useState(false);
   const [busy, setBusy] = useState(false);
   const [terminalHeight, setTerminalHeight] = useState(260);
@@ -549,6 +551,11 @@ export default function App() {
     setTree(result.tree);
   }
 
+  async function refreshGitStatus(folderPath: string) {
+    const result = await window.sandboxApi.getGitStatus(folderPath);
+    setGitStatus(result);
+  }
+
   async function refreshTrash() {
     if (!workspacePath) {
       setTrashEntries([]);
@@ -558,6 +565,43 @@ export default function App() {
     const result = await window.sandboxApi.listTrash();
     setTrashEntries(result);
   }
+
+  useEffect(() => {
+    if (!workspacePath) {
+      setGitStatus(null);
+      return;
+    }
+
+    let canceled = false;
+
+    async function refreshWorkspaceState() {
+      if (!workspacePath) return;
+
+      try {
+        const [treeResult, gitResult] = await Promise.all([
+          window.sandboxApi.refreshTree(workspacePath),
+          window.sandboxApi.getGitStatus(workspacePath),
+        ]);
+
+        if (canceled) return;
+
+        setTree(treeResult.tree);
+        setGitStatus(gitResult);
+      } catch {
+        if (!canceled) {
+          setGitStatus(null);
+        }
+      }
+    }
+
+    void refreshWorkspaceState();
+    const intervalId = window.setInterval(refreshWorkspaceState, 5000);
+
+    return () => {
+      canceled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [workspacePath]);
 
   function confirmDiscardUnsaved(action: string, tabs = dirtyTabs): boolean {
     if (tabs.length === 0) return true;
@@ -602,6 +646,7 @@ export default function App() {
       setTree(result.tree);
       setDiagnosticsByPath({});
       setTrashEntries(await window.sandboxApi.listTrash());
+      setGitStatus(await window.sandboxApi.getGitStatus(result.folderPath));
       setStatusMessage(`Opened workspace: ${result.folderPath}`);
 
       const firstFile = flattenFirstEditableFile(result.tree);
@@ -963,6 +1008,11 @@ export default function App() {
       );
 
       setRunResult(result);
+
+      if (workspacePath) {
+        await refreshTree(workspacePath);
+        await refreshGitStatus(workspacePath);
+      }
 
       setStatusMessage(
         result.ok
@@ -1366,6 +1416,7 @@ export default function App() {
         workspacePath={workspacePath}
         activeFilePath={activePath}
         statusMessage={statusMessage}
+        gitStatus={gitStatus}
       />
     </div>
   );

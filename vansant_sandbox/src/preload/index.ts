@@ -28,6 +28,16 @@ type RunResult = {
   exitCode: number | null;
 };
 
+type GitStatusResult = {
+  ok: boolean;
+  isRepo: boolean;
+  staged: number;
+  unstaged: number;
+  untracked: number;
+  clean: boolean;
+  summary: string;
+};
+
 type TerminalProfile = {
   id: string;
   label: string;
@@ -132,6 +142,9 @@ const sandboxApi = {
 
   runFile: (filePath: string, cwd?: string): Promise<RunResult> =>
     ipcRenderer.invoke("runner:run-file", { filePath, cwd }),
+
+  getGitStatus: (folderPath: string): Promise<GitStatusResult> =>
+    ipcRenderer.invoke("git:status", folderPath),
 
   askAssistant: (payload: AssistantRequestPayload): Promise<AssistantResponse> =>
     ipcRenderer.invoke("assistant:ask", payload),

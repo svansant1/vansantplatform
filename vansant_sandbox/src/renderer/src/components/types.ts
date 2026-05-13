@@ -36,6 +36,16 @@ export type DiagnosticSummary = {
   warnings: number;
 };
 
+export type GitStatus = {
+  ok: boolean;
+  isRepo: boolean;
+  staged: number;
+  unstaged: number;
+  untracked: number;
+  clean: boolean;
+  summary: string;
+};
+
 export type SuggestedEdit = {
   id: string;
   filePath: string;

@@ -14,6 +14,15 @@ from typing import Any
 from analyzer import analyze_finding
 from memory import get_reputation_adjustment, is_known_safe
 
+CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+POWERSHELL_EXE = (
+    Path(os.environ.get("SystemRoot", r"C:\Windows"))
+    / "System32"
+    / "WindowsPowerShell"
+    / "v1.0"
+    / "powershell.exe"
+)
+
 SUSPICIOUS_EXTENSIONS = {
     ".exe",
     ".bat",
@@ -513,11 +522,22 @@ def get_authenticode_signature(file_path: str) -> dict[str, str] | None:
 
     try:
         result = subprocess.run(
-            ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script, str(path_obj)],
+            [
+                str(POWERSHELL_EXE),
+                "-NoLogo",
+                "-NoProfile",
+                "-NonInteractive",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                script,
+                str(path_obj),
+            ],
             capture_output=True,
             text=True,
             timeout=4,
             check=False,
+            creationflags=CREATE_NO_WINDOW,
         )
     except (OSError, subprocess.TimeoutExpired):
         return None
@@ -579,11 +599,22 @@ def get_running_parent_context(file_path: str) -> dict[str, str] | None:
 
     try:
         result = subprocess.run(
-            ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script, str(file_path)],
+            [
+                str(POWERSHELL_EXE),
+                "-NoLogo",
+                "-NoProfile",
+                "-NonInteractive",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                script,
+                str(file_path),
+            ],
             capture_output=True,
             text=True,
             timeout=4,
             check=False,
+            creationflags=CREATE_NO_WINDOW,
         )
     except (OSError, subprocess.TimeoutExpired):
         return None

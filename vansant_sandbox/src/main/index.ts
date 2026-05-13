@@ -142,6 +142,16 @@ type RunResult = {
   exitCode: number | null;
 };
 
+type GitStatusResult = {
+  ok: boolean;
+  isRepo: boolean;
+  staged: number;
+  unstaged: number;
+  untracked: number;
+  clean: boolean;
+  summary: string;
+};
+
 type TerminalProfile = {
   id: string;
   label: string;
@@ -826,6 +836,91 @@ async function runFile(payload: RunFilePayload): Promise<RunResult> {
         stdout,
         stderr,
         exitCode: code,
+      });
+    });
+  });
+}
+
+async function getGitStatus(folderPath: string): Promise<GitStatusResult> {
+  const cwd = await assertExistingPathInsideWorkspace(folderPath, "Git folder");
+
+  return new Promise<GitStatusResult>((resolve) => {
+    const child = spawn("git", ["status", "--porcelain=v1"], {
+      cwd,
+      shell: false,
+      windowsHide: true,
+    });
+
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+
+    child.on("error", () => {
+      resolve({
+        ok: false,
+        isRepo: false,
+        staged: 0,
+        unstaged: 0,
+        untracked: 0,
+        clean: false,
+        summary: "Git unavailable",
+      });
+    });
+
+    child.on("close", (code) => {
+      if (code !== 0) {
+        const isNotRepo =
+          /not a git repository/i.test(stderr) || /not a git repository/i.test(stdout);
+
+        resolve({
+          ok: false,
+          isRepo: !isNotRepo,
+          staged: 0,
+          unstaged: 0,
+          untracked: 0,
+          clean: false,
+          summary: isNotRepo ? "Git: no repo" : "Git status unavailable",
+        });
+        return;
+      }
+
+      const lines = stdout.split(/\r?\n/).filter(Boolean);
+      let staged = 0;
+      let unstaged = 0;
+      let untracked = 0;
+
+      for (const line of lines) {
+        const indexStatus = line[0] ?? " ";
+        const worktreeStatus = line[1] ?? " ";
+
+        if (line.startsWith("??")) {
+          untracked += 1;
+          continue;
+        }
+
+        if (indexStatus !== " ") staged += 1;
+        if (worktreeStatus !== " ") unstaged += 1;
+      }
+
+      const clean = staged === 0 && unstaged === 0 && untracked === 0;
+
+      resolve({
+        ok: true,
+        isRepo: true,
+        staged,
+        unstaged,
+        untracked,
+        clean,
+        summary: clean
+          ? "Git: clean"
+          : `Git: ${staged} staged, ${unstaged} changed, ${untracked} untracked`,
       });
     });
   });
@@ -1698,6 +1793,10 @@ app.whenReady().then(() => {
 
   ipcMain.handle("runner:run-file", async (_event, payload: RunFilePayload) => {
     return runFile(payload);
+  });
+
+  ipcMain.handle("git:status", async (_event, folderPath: string) => {
+    return getGitStatus(folderPath);
   });
 
   ipcMain.handle("terminal:list-profiles", async () => {
