@@ -1068,10 +1068,18 @@ function createAssistantPrompt(payload: AssistantRequestPayload): string {
   const openFiles = payload.openFiles ?? [];
   const terminalOutput = payload.terminalOutput?.slice(-6000) || "No terminal output provided.";
 
-  return `You are SVANSAI inside Vansant Sandbox, a local code editor.
+  return `You are SVANSAI Code Assistant inside Vansant Sandbox. You help review code, explain files, diagnose terminal output, and suggest edits. Be specific to the provided file/workspace context. Never answer as a generic topic classifier.
 
-You can assess code, explain problems, and propose edits.
+Sandbox context is code/workspace context, not general learning classification.
+You are not a glossary, topic classifier, or keyword extractor.
+Never answer with "Main Topic", "Related Concepts", labels, or extracted keywords unless the user explicitly asks for topic classification.
+For review requests, give a concrete code/workspace review with findings, risks, and next steps.
+If only the active file is available, say that clearly and review only that file.
+If the user asks to review the main folder or project, use the workspace root, open file list, active file, and terminal context provided below. If the available context is not enough for a full review, state exactly which files or outputs are needed next.
+Practical developer feedback should cover what the current file appears to do, possible issues, suggested improvements, and what additional files are needed for a fuller review.
+For follow-up requests like "what can you do to change it?", refer to the previous/current workspace context and describe specific possible edits.
 Do not claim files were changed. The Sandbox will apply edits only after the user approves them.
+Preserve the approve-before-apply edit flow. Do not enable or imply automatic edits.
 Keep command suggestions cautious and non-destructive.
 Return a natural answer first. If edits are useful, include a JSON block with this exact shape:
 
@@ -1106,6 +1114,9 @@ Terminal context:
 \`\`\`
 ${terminalOutput}
 \`\`\`
+
+Selected text:
+Not provided by this Sandbox request.
 
 User request:
 ${payload.message}`.trim();
@@ -1170,6 +1181,120 @@ function stripSuggestedEditJson(text: string): string {
     .trim();
 }
 
+function isTaxonomyOnlyResponse(text: string): boolean {
+  const normalized = text.trim();
+  if (!normalized) return true;
+
+  const hasTaxonomyLabels =
+    /\*\*Main Topic:\*\*/i.test(normalized) ||
+    /\bMain Topic:\b/i.test(normalized) ||
+    /\*\*Related Concepts:\*\*/i.test(normalized) ||
+    /\bRelated Concepts:\b/i.test(normalized);
+  const hasActionableReview =
+    /\b(recommend|issue|risk|fix|change|edit|because|next step|suggest|file|line|folder|workspace)\b/i.test(
+      normalized,
+    );
+
+  return hasTaxonomyLabels && !hasActionableReview;
+}
+
+function summarizeFileForReview(currentFile: AssistantFileContext): string {
+  const fileName = path.basename(currentFile.path);
+  const extension = path.extname(currentFile.path).toLowerCase() || "file";
+  const lineCount = currentFile.content.split(/\r?\n/).length;
+  const trimmedContent = currentFile.content.trim();
+  const notes: string[] = [];
+
+  if (!trimmedContent) {
+    notes.push("The active file is empty.");
+  }
+
+  if (extension === ".json") {
+    try {
+      JSON.parse(currentFile.content);
+      notes.push("The JSON parses correctly.");
+    } catch (error) {
+      notes.push(
+        `The JSON has a parse problem: ${
+          error instanceof Error ? error.message : "invalid JSON"
+        }.`,
+      );
+    }
+
+    if (/permissions|allow|deny/i.test(currentFile.content)) {
+      notes.push(
+        "This looks like a local permissions/settings file, so changes should be kept narrow and reviewed before broadening command access.",
+      );
+    }
+  }
+
+  return [
+    `I can review the workspace context I have, starting with the active file: ${fileName}.`,
+    "",
+    `Quick read: ${fileName} is a ${extension} file with ${lineCount} lines.`,
+    notes.length > 0 ? notes.map((note) => `- ${note}`).join("\n") : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+async function createLocalAssistantFallback(
+  payload: AssistantRequestPayload,
+): Promise<string> {
+  const workspaceRoot = getWorkspaceRoot();
+  const currentFile = payload.currentFile;
+  const openFiles = payload.openFiles ?? [];
+  const topLevelEntries = await fs
+    .readdir(workspaceRoot, { withFileTypes: true })
+    .then((entries) =>
+      entries
+        .filter((entry) => !HIDDEN_EXPLORER_ITEMS.has(entry.name))
+        .slice(0, 12)
+        .map((entry) => `${entry.isDirectory() ? "folder" : "file"}: ${entry.name}`),
+    )
+    .catch(() => []);
+
+  const sections: string[] = [
+    "I did not get a useful code-assistant answer back, so here is a practical review from the local Sandbox context instead.",
+  ];
+
+  if (currentFile) {
+    sections.push(summarizeFileForReview(currentFile));
+  } else {
+    sections.push("No active text file is selected, so I cannot inspect file contents yet. I can still use the workspace folder list, open file names, and terminal output if they are available.");
+  }
+
+  if (openFiles.length > 0) {
+    sections.push(
+      [
+        "Open files I can see:",
+        ...openFiles.map((file) => `- ${file.name}`),
+      ].join("\n"),
+    );
+  }
+
+  if (topLevelEntries.length > 0) {
+    sections.push(
+      [
+        "Top-level workspace items:",
+        ...topLevelEntries.map((entry) => `- ${entry}`),
+      ].join("\n"),
+    );
+  }
+
+  sections.push(
+    [
+      "What I can do next:",
+      "- Review the active file for mistakes or risky settings.",
+      "- Explain terminal errors and connect them to the likely file.",
+      "- Propose specific edits that you can approve before anything is changed.",
+      "- Help inspect the main folder, but a full review needs the workspace file tree plus key files such as package/config files, entry points, and recent terminal output.",
+    ].join("\n"),
+  );
+
+  return sections.join("\n\n");
+}
+
 async function askSvansai(payload: AssistantRequestPayload): Promise<AssistantResponse> {
   const message = normalizeAssistantMessage(payload.message);
 
@@ -1226,20 +1351,22 @@ async function askSvansai(payload: AssistantRequestPayload): Promise<AssistantRe
     };
     const rawAnswer =
       data.answer?.trim() || data.response?.trim() || data.message?.trim() || "";
-    const suggestedEdits =
-      Array.isArray(data.suggestedEdits) && rawAnswer
-        ? extractSuggestedEdits(
-            `\`\`\`json\n${JSON.stringify({ suggestedEdits: data.suggestedEdits })}\n\`\`\``,
-          )
-        : extractSuggestedEdits(rawAnswer);
+      const suggestedEdits =
+        Array.isArray(data.suggestedEdits) && rawAnswer
+          ? extractSuggestedEdits(
+              `\`\`\`json\n${JSON.stringify({ suggestedEdits: data.suggestedEdits })}\n\`\`\``,
+            )
+          : extractSuggestedEdits(rawAnswer);
+      const cleanAnswer = stripSuggestedEditJson(rawAnswer);
 
-    return {
-      message:
-        stripSuggestedEditJson(rawAnswer) ||
-        "I reviewed the provided context, but SVANSAI did not return a detailed answer.",
-      suggestedEdits,
-      provider: apiUrl,
-    };
+      return {
+        message: isTaxonomyOnlyResponse(cleanAnswer)
+          ? await createLocalAssistantFallback(requestPayload)
+          : cleanAnswer ||
+            "I reviewed the provided context, but SVANSAI did not return a detailed answer.",
+        suggestedEdits,
+        provider: apiUrl,
+      };
   } catch (error) {
     const isTimeout = error instanceof Error && error.name === "AbortError";
     const currentFile = requestPayload.currentFile;
