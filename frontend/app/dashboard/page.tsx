@@ -193,20 +193,20 @@ function MascotRoster() {
     <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6">
       <h2 className="text-xl font-semibold text-white">Platform Mascots</h2>
 
-      <div className="mt-6 flex gap-12 overflow-x-auto pl-30">
+      <div className="mt-6 grid grid-cols-[repeat(auto-fit,minmax(112px,1fr))] items-end justify-items-center gap-x-6 gap-y-6">
         {mascots.map((m) => (
           <div
             key={m.name}
-            className="flex min-w-[130px] flex-col items-center"
+            className="flex min-w-0 flex-col items-center text-center"
           >
             <Image
               src={m.image}
               alt={m.name}
               width={96}
               height={96}
-              className="object-contain drop-shadow-[0_0_14px_rgba(168,85,247,0.45)]"
+              className="h-20 w-20 object-contain drop-shadow-[0_0_14px_rgba(168,85,247,0.45)] sm:h-24 sm:w-24"
             />
-            <span className="mt-3 text-sm font-medium text-zinc-100">
+            <span className="mt-3 max-w-full text-sm font-medium text-zinc-100">
               {m.name}
             </span>
           </div>
