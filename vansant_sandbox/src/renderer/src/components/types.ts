@@ -52,6 +52,7 @@ export type SuggestedEdit = {
   originalText: string;
   replacementText: string;
   explanation: string;
+  operation?: 'replace' | 'create';
 };
 
 export type AssistantMessage = {

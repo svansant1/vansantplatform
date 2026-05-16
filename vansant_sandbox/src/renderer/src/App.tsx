@@ -595,11 +595,40 @@ export default function App() {
     }
 
     void refreshWorkspaceState();
-    const intervalId = window.setInterval(refreshWorkspaceState, 5000);
+    const intervalId = window.setInterval(refreshWorkspaceState, 15000);
 
     return () => {
       canceled = true;
       window.clearInterval(intervalId);
+    };
+  }, [workspacePath]);
+
+  useEffect(() => {
+    if (!workspacePath) return;
+
+    let refreshTimer: number | null = null;
+    const removeListener = window.sandboxApi.onWorkspaceChanged((payload) => {
+      if (normalizePath(payload.folderPath) !== normalizePath(workspacePath)) return;
+
+      if (refreshTimer) {
+        window.clearTimeout(refreshTimer);
+      }
+
+      refreshTimer = window.setTimeout(() => {
+        refreshTimer = null;
+        void refreshTree(workspacePath);
+        void refreshTrash();
+        void refreshGitStatus(workspacePath);
+        setStatusMessage(`Workspace updated: ${basename(payload.changedPath)}`);
+      }, 150);
+    });
+
+    return () => {
+      if (refreshTimer) {
+        window.clearTimeout(refreshTimer);
+      }
+
+      removeListener();
     };
   }, [workspacePath]);
 

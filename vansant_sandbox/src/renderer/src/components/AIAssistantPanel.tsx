@@ -59,7 +59,7 @@ export default function AIAssistantPanel({
   const [messages, setMessages] = useState<AssistantMessage[]>([
     createMessage(
       "system",
-      "SVANSAI can review the active file, explain errors, and propose edits. Changes are applied only after you approve them.",
+      "SVANSAI can inspect the opened workspace, find files/folders, explain errors, and propose code edits or new files. Changes are applied only after you approve them.",
     ),
   ]);
   const [loading, setLoading] = useState(false);
@@ -123,7 +123,7 @@ export default function AIAssistantPanel({
 
   async function applyEdit(edit: SuggestedEdit) {
     const confirmed = window.confirm(
-      `Apply SVANSAI edit to ${basename(edit.filePath)}?\n\n${edit.explanation}`,
+      `${edit.operation === "create" ? "Create" : "Apply SVANSAI edit to"} ${basename(edit.filePath)}?\n\n${edit.explanation}`,
     );
 
     if (!confirmed) return;
@@ -183,7 +183,7 @@ export default function AIAssistantPanel({
 
       <div className="assistant-context">
         <span>Context</span>
-        <strong>{activeTextTab ? activeTextTab.name : "No active text file"}</strong>
+        <strong>{activeTextTab ? activeTextTab.name : "Workspace-aware"}</strong>
       </div>
 
       <div className="assistant-messages">
@@ -206,25 +206,25 @@ export default function AIAssistantPanel({
                 {message.suggestedEdits.map((edit) => (
                   <div key={edit.id} className="suggested-edit">
                     <div className="suggested-edit-header">
-                      <strong>{basename(edit.filePath)}</strong>
+                      <strong>{edit.operation === "create" ? `Create ${basename(edit.filePath)}` : basename(edit.filePath)}</strong>
                       <button
                         type="button"
                         className="primary-btn compact-btn"
                         onClick={() => void applyEdit(edit)}
                         disabled={applyingEditIds.has(edit.id)}
                       >
-                        {applyingEditIds.has(edit.id) ? "Applying..." : "Apply"}
+                        {applyingEditIds.has(edit.id) ? "Applying..." : edit.operation === "create" ? "Create" : "Apply"}
                       </button>
                     </div>
                     <p>{edit.explanation}</p>
                     <div className="diff-preview">
                       <div>
-                        <span>Before</span>
-                        <pre>{previewSnippet(edit.originalText)}</pre>
+                        <span>{edit.operation === "create" ? "New file" : "Before"}</span>
+                        <pre>{edit.operation === "create" ? previewSnippet(edit.replacementText) : previewSnippet(edit.originalText)}</pre>
                       </div>
                       <div>
-                        <span>After</span>
-                        <pre>{previewSnippet(edit.replacementText)}</pre>
+                        <span>{edit.operation === "create" ? "Action" : "After"}</span>
+                        <pre>{edit.operation === "create" ? "Create this file inside the opened workspace." : previewSnippet(edit.replacementText)}</pre>
                       </div>
                     </div>
                   </div>
@@ -240,7 +240,7 @@ export default function AIAssistantPanel({
           value={input}
           onChange={(event) => setInput(event.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask SVANSAI to review, explain, or suggest edits..."
+          placeholder="Ask SVANSAI to review the project, find a file, explain errors, or suggest edits..."
           disabled={loading || !workspacePath}
         />
         <button

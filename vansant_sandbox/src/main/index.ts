@@ -1,7 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import path from "node:path";
 import fs from "node:fs/promises";
-import { constants as fsConstants, existsSync } from "node:fs";
+import { constants as fsConstants, existsSync, watch, type FSWatcher } from "node:fs";
 import { spawn } from "node:child_process";
 import { deflateSync } from "node:zlib";
 import * as pty from "node-pty";
@@ -191,11 +191,25 @@ type AssistantOpenFile = {
   name: string;
 };
 
+type AssistantWorkspaceContext = {
+  root: string;
+  treeText: string;
+  files: Array<{
+    path: string;
+    relativePath: string;
+    size: number;
+    modifiedAt: string;
+    reason: string;
+    content: string;
+  }>;
+};
+
 type AssistantRequestPayload = {
   message: string;
   currentFile?: AssistantFileContext | null;
   openFiles?: AssistantOpenFile[];
   terminalOutput?: string;
+  workspaceContext?: AssistantWorkspaceContext;
 };
 
 type SuggestedEdit = {
@@ -204,6 +218,7 @@ type SuggestedEdit = {
   originalText: string;
   replacementText: string;
   explanation: string;
+  operation?: "replace" | "create";
 };
 
 type AssistantResponse = {
@@ -723,15 +738,260 @@ async function restoreTrashEntry(payload: RestoreTrashPayload): Promise<string> 
   return restorePath;
 }
 
+function isHiddenWorkspaceEntry(name: string): boolean {
+  return HIDDEN_EXPLORER_ITEMS.has(name) || name.toLowerCase().includes("backup");
+}
+
+function toWorkspaceRelativePath(filePath: string): string {
+  return path.relative(getWorkspaceRoot(), filePath).replace(/\\/g, "/");
+}
+
+function shouldConsiderAssistantFile(filePath: string): boolean {
+  const ext = path.extname(filePath).toLowerCase();
+  const textExtensions = new Set([
+    ".c",
+    ".cpp",
+    ".cs",
+    ".css",
+    ".env",
+    ".go",
+    ".html",
+    ".java",
+    ".js",
+    ".json",
+    ".jsx",
+    ".lua",
+    ".md",
+    ".mjs",
+    ".py",
+    ".rb",
+    ".rs",
+    ".scss",
+    ".sql",
+    ".ts",
+    ".tsx",
+    ".txt",
+    ".vue",
+    ".yaml",
+    ".yml",
+  ]);
+
+  return textExtensions.has(ext) || path.basename(filePath).toLowerCase().startsWith("dockerfile");
+}
+
+type WorkspaceFileIndexItem = {
+  path: string;
+  relativePath: string;
+  size: number;
+  modifiedMs: number;
+};
+
+async function collectWorkspaceFileIndex(
+  dirPath: string,
+  items: WorkspaceFileIndexItem[] = [],
+): Promise<WorkspaceFileIndexItem[]> {
+  if (items.length >= MAX_WORKSPACE_SNAPSHOT_FILES) return items;
+
+  const safeDirPath = assertInsideWorkspace(dirPath, "Folder path");
+  const entries = await fs.readdir(safeDirPath, { withFileTypes: true }).catch(() => []);
+  const visible = entries
+    .filter((entry) => !isHiddenWorkspaceEntry(entry.name))
+    .sort((a, b) => {
+      if (a.isDirectory() && !b.isDirectory()) return -1;
+      if (!a.isDirectory() && b.isDirectory()) return 1;
+      return a.name.localeCompare(b.name);
+    });
+
+  for (const entry of visible) {
+    if (items.length >= MAX_WORKSPACE_SNAPSHOT_FILES) break;
+
+    const entryPath = path.join(safeDirPath, entry.name);
+
+    if (entry.isDirectory()) {
+      await collectWorkspaceFileIndex(entryPath, items);
+      continue;
+    }
+
+    if (!entry.isFile() || !shouldConsiderAssistantFile(entryPath)) continue;
+
+    const stats = await fs.stat(entryPath).catch(() => null);
+    if (!stats || stats.size > MAX_WORKSPACE_FILE_READ_BYTES) continue;
+
+    items.push({
+      path: entryPath,
+      relativePath: toWorkspaceRelativePath(entryPath),
+      size: stats.size,
+      modifiedMs: stats.mtimeMs,
+    });
+  }
+
+  return items;
+}
+
+async function buildWorkspaceTreeLines(
+  dirPath: string,
+  depth = 0,
+  lines: string[] = [],
+): Promise<string[]> {
+  if (lines.length >= MAX_WORKSPACE_TREE_LINES) return lines;
+
+  const safeDirPath = assertInsideWorkspace(dirPath, "Folder path");
+  const entries = await fs.readdir(safeDirPath, { withFileTypes: true }).catch(() => []);
+  const visible = entries
+    .filter((entry) => !isHiddenWorkspaceEntry(entry.name))
+    .sort((a, b) => {
+      if (a.isDirectory() && !b.isDirectory()) return -1;
+      if (!a.isDirectory() && b.isDirectory()) return 1;
+      return a.name.localeCompare(b.name);
+    });
+
+  for (const entry of visible) {
+    if (lines.length >= MAX_WORKSPACE_TREE_LINES) break;
+
+    lines.push(`${"  ".repeat(depth)}${entry.isDirectory() ? "[folder]" : "[file]"} ${entry.name}`);
+
+    if (entry.isDirectory()) {
+      await buildWorkspaceTreeLines(path.join(safeDirPath, entry.name), depth + 1, lines);
+    }
+  }
+
+  return lines;
+}
+
+function tokenizeAssistantMessage(message: string): string[] {
+  return Array.from(
+    new Set(
+      message
+        .toLowerCase()
+        .split(/[^a-z0-9_.-]+/i)
+        .map((token) => token.trim())
+        .filter((token) => token.length >= 3),
+    ),
+  ).slice(0, 24);
+}
+
+function scoreWorkspaceFile(
+  file: WorkspaceFileIndexItem,
+  messageTokens: string[],
+  openFiles: AssistantOpenFile[],
+): number {
+  const relative = file.relativePath.toLowerCase();
+  const name = path.basename(relative);
+  let score = 0;
+
+  for (const token of messageTokens) {
+    if (relative.includes(token)) score += name.includes(token) ? 8 : 4;
+  }
+
+  if (openFiles.some((openFile) => path.resolve(openFile.path) === file.path)) score += 30;
+
+  if (/^(package|vite|next|tsconfig|electron\.vite|readme|tailwind|eslint|main|index|app)\b/i.test(name)) {
+    score += 12;
+  }
+
+  if (relative.includes("src/")) score += 4;
+  score += Math.max(0, 5 - Math.floor(file.size / 40000));
+
+  return score;
+}
+
+async function readAssistantContextFile(file: WorkspaceFileIndexItem, reason: string) {
+  const content = await fs.readFile(file.path);
+
+  if (looksBinary(content)) return null;
+
+  return {
+    path: file.path,
+    relativePath: file.relativePath,
+    size: file.size,
+    modifiedAt: new Date(file.modifiedMs).toISOString(),
+    reason,
+    content: content.toString("utf8").slice(0, MAX_WORKSPACE_CONTEXT_BYTES),
+  };
+}
+
+async function buildAssistantWorkspaceContext(
+  payload: AssistantRequestPayload,
+): Promise<AssistantWorkspaceContext> {
+  const root = getWorkspaceRoot();
+  const [treeLines, fileIndex] = await Promise.all([
+    buildWorkspaceTreeLines(root),
+    collectWorkspaceFileIndex(root),
+  ]);
+  const messageTokens = tokenizeAssistantMessage(payload.message);
+  const openFiles = payload.openFiles ?? [];
+  const currentPath = payload.currentFile?.path ? path.resolve(payload.currentFile.path) : null;
+  const ranked = fileIndex
+    .map((file) => ({
+      file,
+      score: file.path === currentPath ? 100 : scoreWorkspaceFile(file, messageTokens, openFiles),
+    }))
+    .sort((a, b) => b.score - a.score || b.file.modifiedMs - a.file.modifiedMs)
+    .slice(0, MAX_WORKSPACE_CONTEXT_FILES);
+
+  const files = (
+    await Promise.all(
+      ranked.map(({ file, score }) =>
+        readAssistantContextFile(
+          file,
+          file.path === currentPath
+            ? "active file"
+            : score >= 20
+              ? "matched the request or open files"
+              : "important project file",
+        ),
+      ),
+    )
+  ).filter((item): item is AssistantWorkspaceContext["files"][number] => Boolean(item));
+
+  return {
+    root,
+    treeText: treeLines.join("\n") || "No visible files found.",
+    files,
+  };
+}
+
+function stopWorkspaceWatcher(): void {
+  if (workspaceChangeTimer) {
+    clearTimeout(workspaceChangeTimer);
+    workspaceChangeTimer = null;
+  }
+
+  if (workspaceWatcher) {
+    workspaceWatcher.close();
+    workspaceWatcher = null;
+  }
+}
+
+function startWorkspaceWatcher(mainWindow: BrowserWindow, folderPath: string): void {
+  stopWorkspaceWatcher();
+
+  try {
+    workspaceWatcher = watch(folderPath, { recursive: true }, (_eventType, filename) => {
+      if (workspaceChangeTimer) clearTimeout(workspaceChangeTimer);
+
+      workspaceChangeTimer = setTimeout(() => {
+        if (mainWindow.isDestroyed()) return;
+
+        mainWindow.webContents.send("workspace:changed", {
+          folderPath,
+          changedPath: filename ? path.join(folderPath, filename.toString()) : folderPath,
+        });
+      }, WORKSPACE_CHANGE_DEBOUNCE_MS);
+    });
+
+    workspaceWatcher.on("error", () => {
+      stopWorkspaceWatcher();
+    });
+  } catch {
+    stopWorkspaceWatcher();
+  }
+}
 async function buildFileTree(dirPath: string): Promise<FileNode[]> {
   const safeDirPath = assertInsideWorkspace(dirPath, "Folder path");
   const entries = await fs.readdir(safeDirPath, { withFileTypes: true });
 
-  const visible = entries.filter(
-    (entry) =>
-      !HIDDEN_EXPLORER_ITEMS.has(entry.name) &&
-      !entry.name.toLowerCase().includes("backup"),
-  );
+  const visible = entries.filter((entry) => !isHiddenWorkspaceEntry(entry.name));
 
   visible.sort((a, b) => {
     if (a.isDirectory() && !b.isDirectory()) return -1;
@@ -1169,14 +1429,14 @@ Sandbox context is code/workspace context, not general learning classification.
 You are not a glossary, topic classifier, or keyword extractor.
 Never answer with "Main Topic", "Related Concepts", labels, or extracted keywords unless the user explicitly asks for topic classification.
 For review requests, give a concrete code/workspace review with findings, risks, and next steps.
-If only the active file is available, say that clearly and review only that file.
-If the user asks to review the main folder or project, use the workspace root, open file list, active file, and terminal context provided below. If the available context is not enough for a full review, state exactly which files or outputs are needed next.
+Use the workspace tree snapshot and relevant workspace files to find likely files/folders even when the user has not selected a file. If only limited context is available, say that clearly and explain what you can infer.
+If the user asks to review the main folder or project, use the workspace root, tree snapshot, relevant files, open file list, active file, and terminal context provided below. Stay inside the opened workspace only.
 Practical developer feedback should cover what the current file appears to do, possible issues, suggested improvements, and what additional files are needed for a fuller review.
 For follow-up requests like "what can you do to change it?", refer to the previous/current workspace context and describe specific possible edits.
 Do not claim files were changed. The Sandbox will apply edits only after the user approves them.
 Preserve the approve-before-apply edit flow. Do not enable or imply automatic edits.
 Keep command suggestions cautious and non-destructive.
-Return a natural answer first. If edits are useful, include a JSON block with this exact shape:
+Return a natural answer first. For large coding work, give a direct plan by file/folder and include suggested edits for the first safe step. If edits are useful, include a JSON block with this exact shape:
 
 \`\`\`json
 {
@@ -1184,8 +1444,9 @@ Return a natural answer first. If edits are useful, include a JSON block with th
     {
       "filePath": "absolute path inside the workspace",
       "originalText": "exact text currently in the file",
-      "replacementText": "replacement text",
-      "explanation": "why this edit helps"
+      "replacementText": "replacement text or full new file content",
+      "explanation": "why this edit helps",
+      "operation": "replace or create"
     }
   ]
 }
@@ -1196,6 +1457,14 @@ ${workspaceRoot}
 
 Open files:
 ${openFiles.length > 0 ? openFiles.map((file) => `- ${file.name}: ${file.path}`).join("\n") : "None"}
+
+Workspace tree snapshot:
+\`\`\`text
+${payload.workspaceContext?.treeText ?? "Workspace snapshot was not available."}
+\`\`\`
+
+Relevant workspace files:
+${payload.workspaceContext?.files.length ? payload.workspaceContext.files.map((file) => `--- ${file.relativePath} (${file.reason}, ${formatFileSize(file.size)}, modified ${file.modifiedAt}) ---\n${file.content}`).join("\n\n") : "No extra workspace file contents were available."}
 
 Current file:
 ${currentFile ? currentFile.path : "None"}
@@ -1244,9 +1513,14 @@ function extractSuggestedEdits(text: string): SuggestedEdit[] {
 
       if (
         typeof edit.filePath !== "string" ||
-        typeof edit.originalText !== "string" ||
         typeof edit.replacementText !== "string"
       ) {
+        return [];
+      }
+
+      const operation = edit.operation === "create" ? "create" : "replace";
+
+      if (operation === "replace" && typeof edit.originalText !== "string") {
         return [];
       }
 
@@ -1256,12 +1530,15 @@ function extractSuggestedEdits(text: string): SuggestedEdit[] {
         {
           id: `edit_${Date.now()}_${index}`,
           filePath,
-          originalText: edit.originalText,
+          originalText: typeof edit.originalText === "string" ? edit.originalText : "",
           replacementText: edit.replacementText,
           explanation:
             typeof edit.explanation === "string"
               ? edit.explanation
-              : "SVANSAI suggested this code change.",
+              : operation === "create"
+                ? "SVANSAI suggested creating this file."
+                : "SVANSAI suggested this code change.",
+          operation,
         },
       ];
     });
@@ -1443,13 +1720,33 @@ async function createLocalAssistantFallback(
     );
   }
 
+  if (payload.workspaceContext) {
+    sections.push(
+      [
+        "Workspace tree I can inspect:",
+        payload.workspaceContext.treeText,
+      ].join("\n"),
+    );
+
+    if (payload.workspaceContext.files.length > 0) {
+      sections.push(
+        [
+          "Relevant files I loaded for this request:",
+          ...payload.workspaceContext.files.map(
+            (file) => `- ${file.relativePath} (${file.reason}, ${formatFileSize(file.size)})`,
+          ),
+        ].join("\n"),
+      );
+    }
+  }
+
   sections.push(
     [
       "What I can do next:",
       "- Review the active file for mistakes or risky settings.",
       "- Explain terminal errors and connect them to the likely file.",
       "- Propose specific edits that you can approve before anything is changed.",
-      "- Help inspect the main folder, but a full review needs the workspace file tree plus key files such as package/config files, entry points, and recent terminal output.",
+      "- Review the opened main folder using the workspace tree and relevant files without requiring you to select each one first.",
     ].join("\n"),
   );
 
@@ -1474,6 +1771,7 @@ async function askSvansai(payload: AssistantRequestPayload): Promise<AssistantRe
         ? payload.terminalOutput.slice(-6000)
         : "",
   };
+  requestPayload.workspaceContext = await buildAssistantWorkspaceContext(requestPayload);
   const prompt = createAssistantPrompt(requestPayload);
   const apiUrl = getSvansaiApiUrl();
   const controller = new AbortController();
@@ -1530,22 +1828,17 @@ async function askSvansai(payload: AssistantRequestPayload): Promise<AssistantRe
       };
   } catch (error) {
     const isTimeout = error instanceof Error && error.name === "AbortError";
-    const currentFile = requestPayload.currentFile;
-    const fallback = currentFile
-      ? `I could not reach SVANSAI right now, but I can see the active file is ${path.basename(
-          currentFile.path,
-        )}. Check the terminal output and the current file context, then ask again when the SVANSAI endpoint is reachable.`
-      : "I could not reach SVANSAI right now. Open a file or provide terminal output, then try again when the SVANSAI endpoint is reachable.";
+    const localReview = await createLocalAssistantFallback(requestPayload);
+    const connectionDetail = isTimeout
+      ? `SVANSAI did not respond within ${Math.round(
+          SVANSAI_ASSISTANT_TIMEOUT_MS / 1000,
+        )} seconds.`
+      : error instanceof Error
+        ? error.message
+        : "SVANSAI endpoint was unreachable.";
 
     return {
-      message:
-        isTimeout
-          ? `${fallback}\n\nConnection detail: SVANSAI did not respond within ${Math.round(
-              SVANSAI_ASSISTANT_TIMEOUT_MS / 1000,
-            )} seconds.`
-          : error instanceof Error
-            ? `${fallback}\n\nConnection detail: ${error.message}`
-            : fallback,
+      message: `${localReview}\n\nConnection detail: ${connectionDetail}`,
       suggestedEdits: [],
       provider: apiUrl,
     };
@@ -1561,17 +1854,43 @@ async function applyAssistantEdits(payload: ApplyAssistantEditsPayload) {
 
   const results: Array<{ filePath: string; ok: boolean; message: string }> = [];
 
-  for (const edit of payload.edits.slice(0, 20)) {
-    const filePath = await assertExistingPathInsideWorkspace(
-      edit.filePath,
-      "Suggested edit path",
-    );
+  for (const edit of payload.edits.slice(0, 30)) {
+    const filePath = assertInsideWorkspace(edit.filePath, "Suggested edit path");
 
     if (
       typeof edit.originalText !== "string" ||
       typeof edit.replacementText !== "string"
     ) {
       throw new Error(`Invalid edit for ${filePath}.`);
+    }
+
+    if (edit.operation === "create") {
+      if (await pathExists(filePath)) {
+        results.push({
+          filePath,
+          ok: false,
+          message: "File already exists. SVANSAI will not overwrite it as a create edit.",
+        });
+        continue;
+      }
+
+      await fs.mkdir(path.dirname(filePath), { recursive: true });
+      await fs.writeFile(filePath, edit.replacementText, "utf8");
+      results.push({
+        filePath,
+        ok: true,
+        message: "Created.",
+      });
+      continue;
+    }
+
+    if (!(await pathExists(filePath))) {
+      results.push({
+        filePath,
+        ok: false,
+        message: "File does not exist for replacement edit.",
+      });
+      continue;
     }
 
     const content = await readTextFileForEditor(filePath);
@@ -1605,6 +1924,11 @@ async function applyAssistantEdits(payload: ApplyAssistantEditsPayload) {
   };
 }
 
+app.on("before-quit", () => {
+  stopWorkspaceWatcher();
+  killAllTerminals();
+});
+
 app.whenReady().then(() => {
   const mainWindow = createMainWindow();
 
@@ -1629,6 +1953,7 @@ app.whenReady().then(() => {
     const folderPath = path.resolve(result.filePaths[0]);
     killAllTerminals();
     currentWorkspaceRoot = folderPath;
+    startWorkspaceWatcher(mainWindow, folderPath);
     const tree = await buildFileTree(folderPath);
 
     return {

@@ -74,6 +74,7 @@ type SuggestedEdit = {
   originalText: string;
   replacementText: string;
   explanation: string;
+  operation?: "replace" | "create";
 };
 
 type AssistantResponse = {
@@ -180,6 +181,19 @@ const sandboxApi = {
 
   killTerminal: (terminalId: string): Promise<{ ok: boolean }> =>
     ipcRenderer.invoke("terminal:kill", { terminalId }),
+
+  onWorkspaceChanged: (callback: (payload: { folderPath: string; changedPath: string }) => void) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      payload: { folderPath: string; changedPath: string },
+    ) => callback(payload);
+
+    ipcRenderer.on("workspace:changed", listener);
+
+    return () => {
+      ipcRenderer.removeListener("workspace:changed", listener);
+    };
+  },
 
   onTerminalData: (callback: (payload: { terminalId: string; data: string }) => void) => {
     const listener = (
