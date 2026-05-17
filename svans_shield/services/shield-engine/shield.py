@@ -22,6 +22,7 @@ POWERSHELL_EXE = (
     / "v1.0"
     / "powershell.exe"
 )
+POWERSHELL_AVAILABLE = POWERSHELL_EXE.exists() and POWERSHELL_EXE.is_file()
 
 SUSPICIOUS_EXTENSIONS = {
     ".exe",
@@ -509,6 +510,9 @@ def get_authenticode_signature(file_path: str) -> dict[str, str] | None:
 
     path_obj = Path(file_path)
 
+    if not POWERSHELL_AVAILABLE:
+        return None
+
     if path_obj.suffix.lower() not in {".exe", ".dll", ".msi", ".sys", ".cat"}:
         return None
 
@@ -583,6 +587,9 @@ def signature_score_adjustment(path_obj: Path) -> tuple[list[str], int, dict[str
 @lru_cache(maxsize=256)
 def get_running_parent_context(file_path: str) -> dict[str, str] | None:
     if os.name != "nt" or Path(file_path).suffix.lower() != ".exe":
+        return None
+
+    if not POWERSHELL_AVAILABLE:
         return None
 
     script = (
