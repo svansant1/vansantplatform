@@ -1582,6 +1582,12 @@ function isTaxonomyOnlyResponse(text: string): boolean {
   return hasTaxonomyLabels && !hasActionableReview && lower.length < 900;
 }
 
+function shouldUseLocalCodeAssistant(message: string): boolean {
+  return /\b(review|inspect|analyze|analyse|main folder|project|workspace|file|code|error|terminal|build|npm|where is|where's|find|change|fix|edit|suggest|what can you do)\b/i.test(
+    message,
+  );
+}
+
 function summarizeFileForReview(currentFile: AssistantFileContext): string {
   const fileName = path.basename(currentFile.path);
   const extension = path.extname(currentFile.path).toLowerCase() || "file";
@@ -1774,6 +1780,15 @@ async function askSvansai(payload: AssistantRequestPayload): Promise<AssistantRe
   requestPayload.workspaceContext = await buildAssistantWorkspaceContext(requestPayload);
   const prompt = createAssistantPrompt(requestPayload);
   const apiUrl = getSvansaiApiUrl();
+
+  if (shouldUseLocalCodeAssistant(message)) {
+    return {
+      message: await createLocalAssistantFallback(requestPayload),
+      suggestedEdits: [],
+      provider: "local-sandbox-context",
+    };
+  }
+
   const controller = new AbortController();
   const timeout = setTimeout(() => {
     controller.abort();

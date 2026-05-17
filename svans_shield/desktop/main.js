@@ -1,6 +1,6 @@
 const { app, BrowserWindow, nativeImage } = require("electron");
 const path = require("path");
-const { spawn } = require("child_process");
+const { spawn, spawnSync } = require("child_process");
 const http = require("http");
 const fs = require("fs");
 
@@ -82,13 +82,6 @@ function getPythonCandidates() {
     candidates.push(process.env.PYTHON);
   }
 
-  candidates.push(
-    "py",
-    "python",
-    "python3",
-    path.join(process.env.SystemRoot || "C:\\Windows", "py.exe")
-  );
-
   if (localAppData) {
     candidates.push(
       path.join(localAppData, "Programs", "Python", "Python312", "python.exe"),
@@ -105,15 +98,33 @@ function getPythonCandidates() {
     );
   }
 
+  candidates.push(
+    path.join(process.env.SystemRoot || "C:\\Windows", "py.exe"),
+    "python",
+    "py",
+    "python3"
+  );
+
   return [...new Set(candidates.filter(Boolean))];
+}
+
+function commandExists(command) {
+  if (command.includes("\\") || command.includes("/")) {
+    return fs.existsSync(command);
+  }
+
+  const result = spawnSync("where", [command], {
+    shell: false,
+    windowsHide: true,
+    stdio: "ignore",
+  });
+
+  return result.status === 0;
 }
 
 function resolvePythonCommand() {
   for (const candidate of getPythonCandidates()) {
-    if (candidate.includes("\\") || candidate.includes("/")) {
-      if (fs.existsSync(candidate)) {
-        return { command: candidate, prefixArgs: [] };
-      }
+    if (!commandExists(candidate)) {
       continue;
     }
 
