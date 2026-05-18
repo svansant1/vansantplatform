@@ -595,7 +595,7 @@ export default function App() {
     }
 
     void refreshWorkspaceState();
-    const intervalId = window.setInterval(refreshWorkspaceState, 15000);
+    const intervalId = window.setInterval(refreshWorkspaceState, 5000);
 
     return () => {
       canceled = true;

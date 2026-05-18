@@ -1008,6 +1008,21 @@ function startWorkspaceWatcher(mainWindow: BrowserWindow, folderPath: string): v
     stopWorkspaceWatcher();
   }
 }
+
+function emitWorkspaceChanged(changedPath: string): void {
+  if (!currentWorkspaceRoot) return;
+
+  const windows = BrowserWindow.getAllWindows();
+  for (const window of windows) {
+    if (window.isDestroyed()) continue;
+
+    window.webContents.send("workspace:changed", {
+      folderPath: currentWorkspaceRoot,
+      changedPath,
+    });
+  }
+}
+
 async function buildFileTree(dirPath: string): Promise<FileNode[]> {
   const safeDirPath = assertInsideWorkspace(dirPath, "Folder path");
   const entries = await fs.readdir(safeDirPath, { withFileTypes: true });
@@ -1962,6 +1977,7 @@ async function applyAssistantEdits(payload: ApplyAssistantEditsPayload) {
 
       await fs.mkdir(path.dirname(filePath), { recursive: true });
       await fs.writeFile(filePath, edit.replacementText, "utf8");
+      emitWorkspaceChanged(filePath);
       results.push({
         filePath,
         ok: true,
@@ -1997,6 +2013,7 @@ async function applyAssistantEdits(payload: ApplyAssistantEditsPayload) {
       content.slice(index + edit.originalText.length);
 
     await fs.writeFile(filePath, nextContent, "utf8");
+    emitWorkspaceChanged(filePath);
     results.push({
       filePath,
       ok: true,
@@ -2069,6 +2086,7 @@ app.whenReady().then(() => {
     async (_event, payload: WriteFilePayload) => {
       const normalizedPath = assertInsideWorkspace(payload.path, "File path");
       await fs.writeFile(normalizedPath, payload.content, "utf8");
+      emitWorkspaceChanged(normalizedPath);
 
       return {
         ok: true,
@@ -2108,6 +2126,7 @@ app.whenReady().then(() => {
       } else {
         await fs.writeFile(targetPath, "", { encoding: "utf8", flag: "wx" });
       }
+      emitWorkspaceChanged(targetPath);
 
       return {
         ok: true,
@@ -2130,6 +2149,7 @@ app.whenReady().then(() => {
       }
 
       await fs.rename(oldPath, newPath);
+      emitWorkspaceChanged(newPath);
 
       return {
         ok: true,
@@ -2140,6 +2160,7 @@ app.whenReady().then(() => {
 
   ipcMain.handle("workspace:delete-entry", async (_event, targetPath: string) => {
     const trashPath = await moveToWorkspaceTrash(targetPath);
+    emitWorkspaceChanged(targetPath);
 
     return {
       ok: true,
@@ -2155,6 +2176,7 @@ app.whenReady().then(() => {
     "workspace:restore-trash-entry",
     async (_event, payload: RestoreTrashPayload) => {
       const restoredPath = await restoreTrashEntry(payload);
+      emitWorkspaceChanged(restoredPath);
 
       return {
         ok: true,
