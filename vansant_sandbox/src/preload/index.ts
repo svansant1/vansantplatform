@@ -59,6 +59,9 @@ type AssistantFileContext = {
 type AssistantOpenFile = {
   path: string;
   name: string;
+  kind?: "text" | "image";
+  content?: string;
+  isActive?: boolean;
 };
 
 type AssistantRequestPayload = {

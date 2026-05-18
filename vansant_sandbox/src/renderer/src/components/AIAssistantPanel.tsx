@@ -98,6 +98,9 @@ export default function AIAssistantPanel({
         openFiles: openTabs.map((tab) => ({
           path: tab.path,
           name: tab.name,
+          kind: tab.kind,
+          content: tab.kind === "text" ? tab.content : undefined,
+          isActive: tab.path === activeTab?.path,
         })),
         terminalOutput: buildTerminalOutput(runResult),
       });

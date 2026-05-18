@@ -189,6 +189,9 @@ type AssistantFileContext = {
 type AssistantOpenFile = {
   path: string;
   name: string;
+  kind?: "text" | "image";
+  content?: string;
+  isActive?: boolean;
 };
 
 type AssistantWorkspaceContext = {
@@ -944,10 +947,28 @@ async function buildAssistantWorkspaceContext(
     )
   ).filter((item): item is AssistantWorkspaceContext["files"][number] => Boolean(item));
 
+  const includedPaths = new Set(files.map((file) => path.resolve(file.path)));
+  const openFileContexts = openFiles
+    .filter(
+      (file) =>
+        file.kind !== "image" &&
+        typeof file.content === "string" &&
+        !includedPaths.has(path.resolve(file.path)),
+    )
+    .slice(0, 6)
+    .map((file) => ({
+      path: file.path,
+      relativePath: toWorkspaceRelativePath(file.path),
+      size: Buffer.byteLength(file.content ?? "", "utf8"),
+      modifiedAt: new Date().toISOString(),
+      reason: file.isActive ? "active open editor buffer" : "open editor buffer",
+      content: (file.content ?? "").slice(0, MAX_WORKSPACE_CONTEXT_BYTES),
+    }));
+
   return {
     root,
     treeText: treeLines.join("\n") || "No visible files found.",
-    files,
+    files: [...openFileContexts, ...files].slice(0, MAX_WORKSPACE_CONTEXT_FILES),
   };
 }
 
@@ -1412,9 +1433,46 @@ function normalizeOpenFiles(value: unknown): AssistantOpenFile[] {
         {
           path: assertInsideWorkspace(candidate.path, "Assistant open file path"),
           name: candidate.name.slice(0, 200),
+          kind: candidate.kind === "image" ? "image" : "text",
+          content:
+            typeof candidate.content === "string"
+              ? candidate.content.slice(0, MAX_EDITOR_FILE_BYTES)
+              : undefined,
+          isActive: candidate.isActive === true,
         },
       ];
     });
+}
+
+async function resolveAssistantCurrentFile(
+  currentFile: AssistantFileContext | null,
+  openFiles: AssistantOpenFile[],
+): Promise<AssistantFileContext | null> {
+  if (currentFile) return currentFile;
+
+  const activeOpenFile =
+    openFiles.find((file) => file.isActive && file.kind !== "image") ??
+    openFiles.find((file) => file.kind !== "image" && typeof file.content === "string");
+
+  if (!activeOpenFile) return null;
+
+  if (typeof activeOpenFile.content === "string") {
+    return {
+      path: activeOpenFile.path,
+      content: activeOpenFile.content.slice(0, MAX_EDITOR_FILE_BYTES),
+    };
+  }
+
+  if (!shouldConsiderAssistantFile(activeOpenFile.path)) return null;
+
+  try {
+    return {
+      path: activeOpenFile.path,
+      content: await readTextFileForEditor(activeOpenFile.path),
+    };
+  } catch {
+    return null;
+  }
 }
 
 function createAssistantPrompt(payload: AssistantRequestPayload): string {
@@ -1695,8 +1753,17 @@ async function createLocalAssistantFallback(
 
   if (currentFile) {
     sections.push(summarizeFileForReview(currentFile));
+  } else if (payload.workspaceContext?.files.length) {
+    sections.push(
+      [
+        "No single active text editor buffer was identified, but I can still inspect workspace files that Sandbox loaded for this request.",
+        "I will base the review on the workspace tree, relevant file contents, open file list, and terminal context available below.",
+      ].join("\n"),
+    );
   } else {
-    sections.push("No active text file is selected, so I cannot inspect file contents yet. I can still use the workspace folder list, open file names, and terminal output if they are available.");
+    sections.push(
+      "I can see the opened workspace, but no readable text file contents were available for this request. Open a text file or ask about a specific file/folder name and I will load the closest matching workspace files.",
+    );
   }
 
   if (openFiles.length > 0) {
@@ -1766,12 +1833,16 @@ async function askSvansai(payload: AssistantRequestPayload): Promise<AssistantRe
     throw new Error("Ask SVANSAI a question first.");
   }
 
+  const openFiles = normalizeOpenFiles(payload.openFiles);
+  const currentFile = await resolveAssistantCurrentFile(
+    payload.currentFile ? normalizeAssistantFileContext(payload.currentFile) : null,
+    openFiles,
+  );
+
   const requestPayload: AssistantRequestPayload = {
     message,
-    currentFile: payload.currentFile
-      ? normalizeAssistantFileContext(payload.currentFile)
-      : null,
-    openFiles: normalizeOpenFiles(payload.openFiles),
+    currentFile,
+    openFiles,
     terminalOutput:
       typeof payload.terminalOutput === "string"
         ? payload.terminalOutput.slice(-6000)
