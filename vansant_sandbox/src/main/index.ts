@@ -249,6 +249,9 @@ type ManagedTerminal = {
 
 const terminals = new Map<string, ManagedTerminal>();
 let currentWorkspaceRoot: string | null = null;
+let workspaceWatcher: FSWatcher | null = null;
+let workspaceChangeTimer: NodeJS.Timeout | null = null;
+const WORKSPACE_CHANGE_DEBOUNCE_MS = 250;
 
 function getSvansaiApiUrl(): string {
   return (
