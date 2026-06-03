@@ -739,6 +739,237 @@ button {
 }
 
 /* =========================
+   TRAINING
+   ========================= */
+
+.training-toolbar-btn-active {
+  color: #fff;
+  border-color: rgba(167, 139, 250, 0.8);
+  background: rgba(124, 58, 237, 0.28);
+  box-shadow: 0 0 0 1px rgba(167, 139, 250, 0.18);
+}
+
+.training-panel {
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top right, rgba(249, 115, 22, 0.12), transparent 34%),
+    #090b12;
+}
+
+.training-hero {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(320px, 0.75fr);
+  gap: 18px;
+  align-items: end;
+  padding: 18px;
+  border-bottom: 1px solid #22242d;
+  background: rgba(11, 13, 19, 0.78);
+}
+
+.training-hero h2 {
+  margin: 4px 0 8px;
+  font-size: 1.35rem;
+}
+
+.training-hero p {
+  max-width: 720px;
+  margin: 0;
+  color: #a1a1aa;
+  line-height: 1.6;
+}
+
+.training-prompt label {
+  display: block;
+  margin-bottom: 7px;
+  color: #a78bfa;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.training-prompt > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.training-prompt input {
+  min-width: 0;
+  border: 1px solid #2c2f3a;
+  border-radius: 12px;
+  padding: 10px 12px;
+  color: #f4f4f5;
+  background: #11131a;
+  outline: 0;
+}
+
+.training-prompt input:focus {
+  border-color: rgba(167, 139, 250, 0.75);
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.18);
+}
+
+.training-workbench {
+  min-height: 0;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto auto minmax(180px, 0.46fr);
+  gap: 12px;
+  padding: 12px;
+  overflow: hidden;
+}
+
+.training-files {
+  grid-row: 1 / -1;
+  min-height: 0;
+  overflow: auto;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.training-file-card,
+.training-empty-files {
+  width: 100%;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 12px;
+  padding: 12px;
+  background: #11131a;
+  color: #e5e7eb;
+  text-align: left;
+}
+
+.training-file-card {
+  cursor: pointer;
+}
+
+.training-file-card:hover,
+.training-file-card-active {
+  border-color: rgba(167, 139, 250, 0.72);
+  background: rgba(124, 58, 237, 0.18);
+}
+
+.training-file-card span {
+  display: block;
+  margin-bottom: 14px;
+  color: #fb923c;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.training-file-card strong {
+  display: block;
+  font-size: 0.9rem;
+}
+
+.training-file-card small,
+.training-empty-files {
+  display: block;
+  margin-top: 6px;
+  color: #94a3b8;
+  font-size: 0.75rem;
+}
+
+.training-editor-grid {
+  min-height: 0;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.training-code-panel,
+.training-preview {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 14px;
+  background: #0b1020;
+}
+
+.training-panel-label {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  color: #94a3b8;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.training-code-block,
+.training-code-panel textarea {
+  width: 100%;
+  height: calc(100% - 38px);
+  margin: 0;
+  padding: 14px;
+  border: 0;
+  outline: 0;
+  overflow: auto;
+  resize: none;
+  color: #dbeafe;
+  background: #080b12;
+  font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.training-code-panel textarea {
+  color: #f8fafc;
+}
+
+.training-code-block mark {
+  display: inline-block;
+  min-width: 1ch;
+  border-radius: 4px;
+  background: #fb923c;
+  color: #111827;
+  box-shadow: 0 0 0 2px rgba(251, 146, 60, 0.18);
+}
+
+.training-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.training-feedback {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.74);
+  color: #d4d4d8;
+  font-size: 0.84rem;
+}
+
+.training-preview {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.training-preview iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: white;
+}
+
+/* =========================
    SVANSAI ASSISTANT
    ========================= */
 
@@ -1271,6 +1502,22 @@ button {
     justify-content: flex-start;
   }
 
+  .training-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .training-workbench {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(320px, 1fr) auto auto minmax(180px, 0.4fr);
+    overflow: auto;
+  }
+
+  .training-files {
+    grid-row: auto;
+    grid-template-columns: repeat(3, minmax(150px, 1fr));
+    overflow: visible;
+  }
+
   .workspace-grid {
     grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr);
@@ -1313,6 +1560,15 @@ button {
   .accent-btn {
     padding: 8px 10px;
     font-size: 12px;
+  }
+
+  .training-editor-grid,
+  .training-prompt > div {
+    grid-template-columns: 1fr;
+  }
+
+  .training-files {
+    grid-template-columns: 1fr;
   }
 
   .workspace-grid {

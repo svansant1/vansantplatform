@@ -7,6 +7,7 @@ import TerminalPanel from "./components/TerminalPanel";
 import StatusBar from "./components/StatusBar";
 import Commandbar from "./components/Commandbar";
 import AIAssistantPanel from "./components/AIAssistantPanel";
+import TrainingPanel from "./components/TrainingPanel";
 import type {
   DiagnosticSummary,
   FileNode,
@@ -293,6 +294,7 @@ export default function App() {
   const [editorFontSize, setEditorFontSize] = useState(DEFAULT_EDITOR_FONT_SIZE);
   const [imageZoom, setImageZoom] = useState(DEFAULT_IMAGE_ZOOM);
   const [assistantOpen, setAssistantOpen] = useState(false);
+  const [trainingOpen, setTrainingOpen] = useState(false);
   const [diagnosticsByPath, setDiagnosticsByPath] = useState<
     Record<string, DiagnosticSummary>
   >({});
@@ -320,8 +322,11 @@ export default function App() {
   }, [isResizingTerminal]);
 
   const activeTab = useMemo(
-    () => openTabs.find((tab) => tab.path === activePath) ?? null,
-    [openTabs, activePath],
+    () =>
+      trainingOpen
+        ? null
+        : openTabs.find((tab) => tab.path === activePath) ?? null,
+    [openTabs, activePath, trainingOpen],
   );
 
   const dirtyTabs = useMemo(
@@ -693,6 +698,7 @@ export default function App() {
 
   async function openFile(filePath: string) {
     try {
+      setTrainingOpen(false);
       const existing = openTabs.find((tab) => tab.path === filePath);
 
       if (existing) {
@@ -1151,6 +1157,17 @@ export default function App() {
           </button>
 
           <button
+            className={`secondary-btn${trainingOpen ? " training-toolbar-btn-active" : ""}`}
+            onClick={() => {
+              setTrainingOpen(true);
+              setStatusMessage("Training mode ready.");
+            }}
+            title="Open project tracing training"
+          >
+            Training
+          </button>
+
+          <button
             className="secondary-btn"
             onClick={() => createEntry("file")}
             disabled={!workspacePath}
@@ -1319,12 +1336,17 @@ export default function App() {
           <EditorTabs
             tabs={openTabs}
             activePath={activePath}
-            onSelect={setActivePath}
+            onSelect={(path) => {
+              setTrainingOpen(false);
+              setActivePath(path);
+            }}
             onClose={closeTab}
           />
 
           <div className="editor-wrapper">
-            {activeTab?.kind === "image" ? (
+            {trainingOpen ? (
+              <TrainingPanel />
+            ) : activeTab?.kind === "image" ? (
               <div className="image-preview">
                 <div className="image-preview-toolbar">
                   <div className="image-preview-title">
