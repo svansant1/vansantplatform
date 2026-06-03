@@ -1297,6 +1297,22 @@ function createTerminalId(): string {
   return `term_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function getDefaultTerminalCwd(): string {
+  return currentWorkspaceRoot ?? app.getPath("home") ?? process.cwd();
+}
+
+function resolveTerminalCwd(requestedCwd?: string): string {
+  if (!requestedCwd) {
+    return getDefaultTerminalCwd();
+  }
+
+  if (currentWorkspaceRoot) {
+    return assertInsideWorkspace(requestedCwd, "Terminal working directory");
+  }
+
+  return path.resolve(requestedCwd);
+}
+
 function createTerminal(
   senderWindow: BrowserWindow,
   payload: CreateTerminalPayload,
@@ -1310,9 +1326,7 @@ function createTerminal(
   }
 
   const terminalId = createTerminalId();
-  const cwd = payload.cwd
-    ? assertInsideWorkspace(payload.cwd, "Terminal working directory")
-    : getWorkspaceRoot();
+  const cwd = resolveTerminalCwd(payload.cwd);
   const cols = payload.cols && payload.cols > 0 ? payload.cols : 120;
   const rows = payload.rows && payload.rows > 0 ? payload.rows : 30;
 

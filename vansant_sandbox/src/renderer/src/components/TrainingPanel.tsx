@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 
 type TrainingFile = {
@@ -6,7 +6,109 @@ type TrainingFile = {
   language: string;
   code: string;
   typed: string;
+  metrics: TrainingMetrics;
 };
+
+type TrainingMetrics = {
+  mistakes: number;
+  startedAt: number | null;
+  completedAt: number | null;
+};
+
+type TrainingSaveState = {
+  version: 1;
+  idea: string;
+  files: TrainingFile[];
+  activeIndex: number;
+  previewHtml: string;
+  savedAt: number;
+};
+
+const TRAINING_SAVE_KEY = "vansant-sandbox:training-state:v1";
+
+function createTrainingMetrics(): TrainingMetrics {
+  return {
+    mistakes: 0,
+    startedAt: null,
+    completedAt: null,
+  };
+}
+
+function normalizeTrainingMetrics(metrics: Partial<TrainingMetrics> | undefined): TrainingMetrics {
+  return {
+    mistakes: typeof metrics?.mistakes === "number" ? metrics.mistakes : 0,
+    startedAt: typeof metrics?.startedAt === "number" ? metrics.startedAt : null,
+    completedAt: typeof metrics?.completedAt === "number" ? metrics.completedAt : null,
+  };
+}
+
+function readSavedTrainingState(): TrainingSaveState | null {
+  try {
+    const raw = window.localStorage.getItem(TRAINING_SAVE_KEY);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw) as Partial<TrainingSaveState>;
+
+    if (
+      parsed.version !== 1 ||
+      typeof parsed.idea !== "string" ||
+      !Array.isArray(parsed.files) ||
+      typeof parsed.activeIndex !== "number"
+    ) {
+      return null;
+    }
+
+    const files = parsed.files.filter(
+      (
+        file,
+      ): file is Omit<TrainingFile, "metrics"> & {
+        metrics?: Partial<TrainingMetrics>;
+      } =>
+        Boolean(file) &&
+        typeof file.name === "string" &&
+        typeof file.language === "string" &&
+        typeof file.code === "string" &&
+        typeof file.typed === "string",
+    ).map((file) => ({
+      ...file,
+      metrics: normalizeTrainingMetrics(file.metrics),
+    }));
+
+    return {
+      version: 1,
+      idea: parsed.idea,
+      files,
+      activeIndex: Math.max(0, Math.min(parsed.activeIndex, Math.max(files.length - 1, 0))),
+      previewHtml: typeof parsed.previewHtml === "string" ? parsed.previewHtml : "",
+      savedAt: typeof parsed.savedAt === "number" ? parsed.savedAt : Date.now(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeSavedTrainingState(state: Omit<TrainingSaveState, "version" | "savedAt">): void {
+  try {
+    window.localStorage.setItem(
+      TRAINING_SAVE_KEY,
+      JSON.stringify({
+        ...state,
+        version: 1,
+        savedAt: Date.now(),
+      } satisfies TrainingSaveState),
+    );
+  } catch {
+    // Training progress should never block typing if storage is unavailable.
+  }
+}
+
+function clearSavedTrainingState(): void {
+  try {
+    window.localStorage.removeItem(TRAINING_SAVE_KEY);
+  } catch {
+    // Best effort.
+  }
+}
 
 function titleCase(text: string): string {
   const words = text
@@ -259,9 +361,9 @@ function generateProjectFiles(idea: string): TrainingFile[] {
   ].join("\n");
 
   return [
-    { name: "index.html", language: "HTML", code: html, typed: "" },
-    { name: "styles.css", language: "CSS", code: css, typed: "" },
-    { name: "app.js", language: "JS", code: scriptByKind[kind].join("\n"), typed: "" },
+    { name: "index.html", language: "HTML", code: html, typed: "", metrics: createTrainingMetrics() },
+    { name: "styles.css", language: "CSS", code: css, typed: "", metrics: createTrainingMetrics() },
+    { name: "app.js", language: "JS", code: scriptByKind[kind].join("\n"), typed: "", metrics: createTrainingMetrics() },
   ];
 }
 
@@ -285,18 +387,106 @@ function assemblePreview(files: TrainingFile[]): string {
     .replace('<script src="app.js"></script>', `<script>\n${js}\n</script>`);
 }
 
+function getFileStats(file: TrainingFile, now: number) {
+  const correct = file.typed.length;
+  const attempts = correct + file.metrics.mistakes;
+  const accuracy = attempts > 0 ? Math.round((correct / attempts) * 100) : 0;
+  const endTime = file.metrics.completedAt ?? now;
+  const elapsedMs = file.metrics.startedAt ? Math.max(0, endTime - file.metrics.startedAt) : 0;
+  const elapsedMinutes = elapsedMs / 60000;
+  const wpm = elapsedMinutes > 0 ? Math.round(correct / 5 / elapsedMinutes) : 0;
+
+  return {
+    accuracy,
+    mistakes: file.metrics.mistakes,
+    wpm,
+    elapsedMs,
+  };
+}
+
+function formatTrainingTime(elapsedMs: number): string {
+  const totalSeconds = Math.floor(elapsedMs / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  return `${minutes.toString().padStart(2, "0")}m:${seconds
+    .toString()
+    .padStart(2, "0")}s`;
+}
+
+function getTrainingExplanation(file: TrainingFile | null, idea: string) {
+  if (!file) {
+    return {
+      title: "Explanation",
+      description:
+        "Generate a project and this section will explain what each file is teaching while you trace it.",
+      learned:
+        "You will learn how HTML, CSS, and JavaScript work together to turn an idea into an app.",
+    };
+  }
+
+  if (file.language === "HTML") {
+    return {
+      title: "HTML Structure",
+      description: `This file creates the bones of ${idea.trim() || "your project"}: headings, text, buttons, inputs, and the places JavaScript can target.`,
+      learned:
+        "You are learning page structure, semantic layout, linking CSS, and loading JavaScript.",
+    };
+  }
+
+  if (file.language === "CSS") {
+    return {
+      title: "CSS Styling",
+      description:
+        "This file controls the look and feel: spacing, colors, layout, borders, and responsive visual polish.",
+      learned:
+        "You are learning selectors, reusable classes, layout rules, and visual hierarchy.",
+    };
+  }
+
+  return {
+    title: "JavaScript Behavior",
+    description:
+      "This file makes the project interactive by finding elements, listening for clicks, and changing what appears on the page.",
+    learned:
+      "You are learning DOM selection, event listeners, conditionals, variables, and UI updates.",
+  };
+}
+
 export default function TrainingPanel() {
-  const [idea, setIdea] = useState("");
-  const [files, setFiles] = useState<TrainingFile[]>([]);
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [feedback, setFeedback] = useState("Type a project idea, then generate a training trace.");
-  const [previewHtml, setPreviewHtml] = useState("");
+  const savedState = useMemo(() => readSavedTrainingState(), []);
+  const [idea, setIdea] = useState(savedState?.idea ?? "");
+  const [files, setFiles] = useState<TrainingFile[]>(savedState?.files ?? []);
+  const [activeIndex, setActiveIndex] = useState(savedState?.activeIndex ?? 0);
+  const [feedback, setFeedback] = useState(
+    savedState?.files.length
+      ? "Restored your saved training progress."
+      : "Type a project idea, then generate a training trace.",
+  );
+  const [previewHtml, setPreviewHtml] = useState(savedState?.previewHtml ?? "");
+  const [now, setNow] = useState(() => Date.now());
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    writeSavedTrainingState({
+      idea,
+      files,
+      activeIndex,
+      previewHtml,
+    });
+  }, [activeIndex, files, idea, previewHtml]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+
+    return () => window.clearInterval(timer);
+  }, []);
 
   const activeFile = files[activeIndex] ?? null;
   const complete = files.length > 0 && files.every((file) => file.typed === file.code);
   const remaining = activeFile ? activeFile.code.slice(activeFile.typed.length) : "";
   const percent = activeFile ? Math.round((activeFile.typed.length / activeFile.code.length) * 100) : 0;
+  const explanation = getTrainingExplanation(activeFile, idea);
 
   const remainingPreview = useMemo(() => {
     if (!activeFile) return "";
@@ -305,11 +495,20 @@ export default function TrainingPanel() {
     return remaining;
   }, [activeFile, remaining]);
 
-  function updateActiveFile(nextTyped: string) {
+  function updateActiveFile(
+    nextTyped: string,
+    updateMetrics?: (metrics: TrainingMetrics, file: TrainingFile) => TrainingMetrics,
+  ) {
     setFiles((current) =>
-      current.map((file, index) =>
-        index === activeIndex ? { ...file, typed: nextTyped } : file,
-      ),
+      current.map((file, index) => {
+        if (index !== activeIndex) return file;
+
+        return {
+          ...file,
+          typed: nextTyped,
+          metrics: updateMetrics ? updateMetrics(file.metrics, file) : file.metrics,
+        };
+      }),
     );
   }
 
@@ -338,12 +537,17 @@ export default function TrainingPanel() {
       const expected = activeFile.code[nextTyped.length];
 
       if (char !== expected) {
+        const wrongAt = Date.now();
         setFeedback(
           accepted
             ? `Accepted ${accepted.length} character(s), then stopped. Expected ${visibleKey(expected)}, got ${visibleKey(char)}.`
             : `Wrong key. Expected ${visibleKey(expected)}, got ${visibleKey(char)}.`,
         );
-        updateActiveFile(nextTyped);
+        updateActiveFile(nextTyped, (metrics, file) => ({
+          ...metrics,
+          mistakes: metrics.mistakes + 1,
+          startedAt: metrics.startedAt ?? (file.typed.length > 0 || accepted ? wrongAt : null),
+        }));
         return;
       }
 
@@ -351,7 +555,13 @@ export default function TrainingPanel() {
       accepted += char;
     }
 
-    updateActiveFile(nextTyped);
+    const acceptedAt = Date.now();
+    updateActiveFile(nextTyped, (metrics, file) => ({
+      ...metrics,
+      startedAt: metrics.startedAt ?? acceptedAt,
+      completedAt:
+        nextTyped.length === file.code.length ? metrics.completedAt ?? acceptedAt : null,
+    }));
     setFeedback(accepted ? `Accepted: ${accepted.split("").map(visibleKey).join(" ")}` : "Ready.");
   }
 
@@ -368,7 +578,10 @@ export default function TrainingPanel() {
 
     if (event.key === "Backspace") {
       event.preventDefault();
-      updateActiveFile(activeFile.typed.slice(0, -1));
+      updateActiveFile(activeFile.typed.slice(0, -1), (metrics) => ({
+        ...metrics,
+        completedAt: null,
+      }));
       setFeedback("Backed up one character.");
       return;
     }
@@ -446,30 +659,49 @@ export default function TrainingPanel() {
       </section>
 
       <section className="training-workbench">
-        <aside className="training-files" aria-label="Training project files">
-          {files.length ? (
-            files.map((file, index) => {
-              const filePercent = Math.round((file.typed.length / file.code.length) * 100);
+        <aside className="training-sidebar" aria-label="Training project files and explanation">
+          <div className="training-files">
+            {files.length ? (
+              files.map((file, index) => {
+                const filePercent = Math.round((file.typed.length / file.code.length) * 100);
+                const stats = getFileStats(file, now);
 
-              return (
-                <button
-                  key={file.name}
-                  type="button"
-                  className={`training-file-card${index === activeIndex ? " training-file-card-active" : ""}`}
-                  onClick={() => {
-                    setActiveIndex(index);
-                    window.setTimeout(() => inputRef.current?.focus(), 0);
-                  }}
-                >
-                  <span>{file.language}</span>
-                  <strong>{file.name}</strong>
-                  <small>{file.typed.length} / {file.code.length} · {filePercent}%</small>
-                </button>
-              );
-            })
-          ) : (
-            <div className="training-empty-files">No files generated yet.</div>
-          )}
+                return (
+                  <button
+                    key={file.name}
+                    type="button"
+                    className={`training-file-card${index === activeIndex ? " training-file-card-active" : ""}`}
+                    onClick={() => {
+                      setActiveIndex(index);
+                      window.setTimeout(() => inputRef.current?.focus(), 0);
+                    }}
+                  >
+                    <span>{file.language}</span>
+                    <strong>{file.name}</strong>
+                    <small>{file.typed.length} / {file.code.length} · {filePercent}%</small>
+                    <div className="training-file-stats">
+                      <small>Accuracy: {stats.accuracy}%</small>
+                      <small>Mistakes: {stats.mistakes}</small>
+                      <small>WPM: {stats.wpm}</small>
+                      <small>Time: {formatTrainingTime(stats.elapsedMs)}</small>
+                    </div>
+                  </button>
+                );
+              })
+            ) : (
+              <div className="training-empty-files">No files generated yet.</div>
+            )}
+          </div>
+
+          <div className="training-explanation">
+            <div className="training-panel-label">Explanation</div>
+            <div>
+              <h3>{explanation.title}</h3>
+              <p>{explanation.description}</p>
+              <strong>What was learned</strong>
+              <p>{explanation.learned}</p>
+            </div>
+          </div>
         </aside>
 
         <div className="training-editor-grid">
@@ -537,12 +769,32 @@ export default function TrainingPanel() {
             className="secondary-btn"
             onClick={() => {
               if (!activeFile) return;
-              updateActiveFile("");
+              updateActiveFile("", () => createTrainingMetrics());
               setFeedback(`${activeFile.name} restarted.`);
               inputRef.current?.focus();
             }}
           >
             Restart File
+          </button>
+          <button
+            type="button"
+            className="secondary-btn training-danger-btn"
+            onClick={() => {
+              const confirmed = window.confirm(
+                "Clear all saved Training progress and start blank?",
+              );
+
+              if (!confirmed) return;
+
+              clearSavedTrainingState();
+              setIdea("");
+              setFiles([]);
+              setActiveIndex(0);
+              setPreviewHtml("");
+              setFeedback("Training progress cleared.");
+            }}
+          >
+            Clear Training
           </button>
         </div>
 

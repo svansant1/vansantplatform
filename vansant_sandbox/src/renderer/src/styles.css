@@ -825,8 +825,16 @@ button {
   overflow: hidden;
 }
 
-.training-files {
+.training-sidebar {
   grid-row: 1 / -1;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(0, auto) minmax(210px, 1fr);
+  gap: 8px;
+  overflow: hidden;
+}
+
+.training-files {
   min-height: 0;
   overflow: auto;
   display: grid;
@@ -875,6 +883,57 @@ button {
   margin-top: 6px;
   color: #94a3b8;
   font-size: 0.75rem;
+}
+
+.training-file-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.training-file-stats small {
+  margin-top: 0;
+  white-space: nowrap;
+}
+
+.training-explanation {
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 12px;
+  background: #11131a;
+  color: #d4d4d8;
+}
+
+.training-explanation > div:last-child {
+  height: calc(100% - 38px);
+  overflow: auto;
+  padding: 12px;
+}
+
+.training-explanation h3 {
+  margin: 0 0 8px;
+  color: #f4f4f5;
+  font-size: 0.95rem;
+}
+
+.training-explanation p {
+  margin: 0 0 12px;
+  color: #a1a1aa;
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.training-explanation strong {
+  display: block;
+  margin-bottom: 6px;
+  color: #bfdbfe;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .training-editor-grid {
@@ -943,6 +1002,15 @@ button {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.training-danger-btn {
+  color: #fecaca;
+  border-color: rgba(248, 113, 113, 0.26);
+}
+
+.training-danger-btn:hover:not(:disabled) {
+  background: rgba(127, 29, 29, 0.28);
 }
 
 .training-feedback {
@@ -1512,8 +1580,13 @@ button {
     overflow: auto;
   }
 
-  .training-files {
+  .training-sidebar {
     grid-row: auto;
+    grid-template-rows: auto auto;
+    overflow: visible;
+  }
+
+  .training-files {
     grid-template-columns: repeat(3, minmax(150px, 1fr));
     overflow: visible;
   }

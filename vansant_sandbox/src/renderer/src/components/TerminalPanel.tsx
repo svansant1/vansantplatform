@@ -265,7 +265,7 @@ export default function TerminalPanel({
     const previousWorkspacePath = previousWorkspacePathRef.current;
     previousWorkspacePathRef.current = workspacePath;
 
-    if (!previousWorkspacePath || previousWorkspacePath === workspacePath) {
+    if (previousWorkspacePath === workspacePath) {
       return;
     }
 
