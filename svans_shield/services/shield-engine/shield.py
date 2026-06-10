@@ -213,8 +213,13 @@ DOUBLE_EXTENSION_PATTERN = re.compile(
 
 MAX_HASH_SIZE_BYTES = 512 * 1024 * 1024
 MAX_CONTENT_SCAN_BYTES = 512 * 1024
+MAX_TEST_SIGNATURE_SCAN_BYTES = 1024 * 1024
 FULL_PC_SCAN_MAX_SECONDS = 300
 RECENT_FILE_DAYS = 7
+EICAR_TEST_SIGNATURE_BYTES = (
+    b"X5O!P%@AP[4\\PZX54(P^)7CC)7}"
+    b"$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"
+)
 
 SCRIPT_CONTENT_EXTENSIONS = {".ps1", ".bat", ".cmd", ".vbs"}
 WHOLE_PC_SCAN_EXTENSIONS = SUSPICIOUS_EXTENSIONS | HIGH_RISK_EXTENSIONS | SCRIPT_CONTENT_EXTENSIONS
@@ -544,7 +549,16 @@ def is_whole_pc_scan_candidate(file_name: str) -> bool:
     return (
         suffix in WHOLE_PC_SCAN_EXTENSIONS
         or filename_lower in SUSPICIOUS_FILENAMES
+        or "eicar" in filename_lower
         or DOUBLE_EXTENSION_PATTERN.match(file_name) is not None
+    )
+
+
+def is_eicar_named_test_file(file_name: str) -> bool:
+    filename_lower = file_name.lower()
+    return (
+        filename_lower in {"eicar", "eicar.com", "eicar.txt", "eicar.com.txt"}
+        or filename_lower.startswith("eicar.")
     )
 
 
@@ -759,6 +773,24 @@ def calculate_confidence(score: int, reasons: list[str]) -> str:
     return "review"
 
 
+def contains_eicar_test_signature(file_path: Path) -> bool:
+    try:
+        file_size = file_path.stat().st_size
+    except OSError:
+        return False
+
+    if file_size > MAX_TEST_SIGNATURE_SCAN_BYTES:
+        return False
+
+    try:
+        with file_path.open("rb") as handle:
+            sample = handle.read(MAX_TEST_SIGNATURE_SCAN_BYTES)
+    except OSError:
+        return False
+
+    return EICAR_TEST_SIGNATURE_BYTES in sample
+
+
 def svansai_threat_analysis(finding: dict[str, Any]) -> dict[str, Any]:
     analyzed = analyze_finding(finding)
     tags = analyzed.get("context_tags", [])
@@ -790,8 +822,13 @@ def svansai_threat_analysis(finding: dict[str, Any]) -> dict[str, Any]:
         ]
     )
     temp_or_download = "temp" in path_lower or "downloads" in path_lower
+    antivirus_test = "antivirus test" in tags or "eicar" in reason_text
 
-    if any(strong_signals) and score >= 55:
+    if antivirus_test:
+        action = "Test detection passed"
+        confidence = "high"
+        summary = "SVANSAI recognizes the standard EICAR antivirus test signature. It is harmless when you created it on purpose."
+    elif any(strong_signals) and score >= 55:
         action = "Quarantine"
         confidence = "high"
         summary = "SVANSAI sees strong behavior-based threat signals, not just a risky file type."
@@ -886,6 +923,14 @@ def assess_file(file_path: str | Path, deep_checks: bool = True) -> dict[str, An
 
     reasons: list[str] = []
     score = 0
+    eicar_detected = contains_eicar_test_signature(path_obj)
+
+    if eicar_detected:
+        reasons.append("EICAR antivirus test signature detected")
+        score += 100
+    elif is_eicar_named_test_file(filename):
+        reasons.append("EICAR antivirus test filename detected; content may have been blocked before Shield could read it")
+        score += 75
 
     if suffix == ".cmd" and any(
         trusted in path_lower
@@ -921,7 +966,7 @@ def assess_file(file_path: str | Path, deep_checks: bool = True) -> dict[str, An
     except OSError:
         file_hash = "Could not hash file"
 
-    if is_known_safe(file_hash):
+    if is_known_safe(file_hash) and not eicar_detected:
         return None
 
     trust_context: dict[str, Any] = {

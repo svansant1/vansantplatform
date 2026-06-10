@@ -10,6 +10,9 @@ def _tag_context(finding: dict[str, Any]) -> list[str]:
 
     tags: list[str] = []
 
+    if "eicar" in reasons_lower or "antivirus test" in reasons_lower:
+        tags.append("antivirus test")
+
     if "startup" in path_lower:
         tags.append("persistence")
 
@@ -63,6 +66,9 @@ def _tag_context(finding: dict[str, Any]) -> list[str]:
 
 
 def _determine_verdict(score: int, tags: list[str]) -> str:
+    if "antivirus test" in tags:
+        return "Antivirus Test Detected"
+
     if "persistence" in tags or "encoded command" in tags:
         return "Likely Malicious"
 
@@ -80,6 +86,9 @@ def _determine_verdict(score: int, tags: list[str]) -> str:
 
 def _generate_explanation(finding: dict[str, Any], tags: list[str]) -> str:
     parts: list[str] = []
+
+    if "antivirus test" in tags:
+        parts.append("This matches the standard EICAR antivirus test signature. The string is harmless, but Shield should detect it as a critical test finding.")
 
     if "script execution" in tags:
         parts.append("This file can execute commands directly on the system.")
