@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { PracticeLanguage, RunResult } from "./types";
 
 type PracticePanelProps = {
@@ -9,15 +9,25 @@ type PracticePanelProps = {
 const PRACTICE_SAVE_KEY = "vansant-sandbox:practice:v1";
 
 const STARTER_CODE: Record<PracticeLanguage, string> = {
-  javascript: 'console.log("Hello from JavaScript practice!");\n',
-  typescript: 'const message: string = "Hello from TypeScript practice!";\nconsole.log(message);\n',
-  python: 'print("Hello from Python practice!")\n',
-  powershell: 'Write-Output "Hello from PowerShell practice!"\n',
+  svans: 'say "Welcome to SVANS Practice."\nask name "What is your name?"\nsay name\nset goal = "Build something real."\nsay goal\n',
+  javascript: 'const fs = require("node:fs");\nconst name = fs.readFileSync(0, "utf8").trim() || "coder";\nconsole.log(`Hello, ${name}!`);\n',
+  typescript: 'import fs from "node:fs";\nconst name = fs.readFileSync(0, "utf8").trim() || "coder";\nconsole.log(`Hello, ${name}!`);\n',
+  python: 'name = input("What is your name? ")\nprint(f"Hello, {name}!")\n',
+  powershell: '$name = Read-Host "What is your name?"\nWrite-Output "Hello, $name!"\n',
+};
+
+const STARTER_INPUT: Record<PracticeLanguage, string> = {
+  svans: "Shawn\n",
+  javascript: "Shawn\n",
+  typescript: "Shawn\n",
+  python: "Shawn\n",
+  powershell: "Shawn\n",
 };
 
 type SavedPractice = {
   language: PracticeLanguage;
   code: string;
+  input: string;
 };
 
 function readSavedPractice(): SavedPractice | null {
@@ -26,7 +36,7 @@ function readSavedPractice(): SavedPractice | null {
     if (!raw) return null;
 
     const parsed = JSON.parse(raw) as Partial<SavedPractice>;
-    const languages: PracticeLanguage[] = ["javascript", "typescript", "python", "powershell"];
+    const languages: PracticeLanguage[] = ["javascript", "typescript", "python", "powershell", "svans"];
 
     if (
       !parsed.language ||
@@ -39,6 +49,7 @@ function readSavedPractice(): SavedPractice | null {
     return {
       language: parsed.language,
       code: parsed.code,
+      input: typeof parsed.input === "string" ? parsed.input : "",
     };
   } catch {
     return null;
@@ -53,19 +64,34 @@ export default function PracticePanel({ onStatus, onResult }: PracticePanelProps
   const [code, setCode] = useState(
     savedPractice?.code ?? STARTER_CODE.javascript,
   );
+  const [input, setInput] = useState(
+    savedPractice?.input ?? STARTER_INPUT.javascript,
+  );
   const [result, setResult] = useState<RunResult | null>(null);
   const [running, setRunning] = useState(false);
+  const runIdRef = useRef(0);
 
   useEffect(() => {
     try {
       window.localStorage.setItem(
         PRACTICE_SAVE_KEY,
-        JSON.stringify({ language, code } satisfies SavedPractice),
+        JSON.stringify({ language, code, input } satisfies SavedPractice),
       );
     } catch {
       // Practice autosave is best-effort.
     }
-  }, [code, language]);
+  }, [code, input, language]);
+
+  useEffect(() => {
+    return () => {
+      runIdRef.current += 1;
+    };
+  }, []);
+
+  function stopVisibleRun() {
+    runIdRef.current += 1;
+    setRunning(false);
+  }
 
   async function runPractice() {
     if (!code.trim()) {
@@ -73,11 +99,16 @@ export default function PracticePanel({ onStatus, onResult }: PracticePanelProps
       return;
     }
 
+    const runId = runIdRef.current + 1;
+    runIdRef.current = runId;
+
     try {
       setRunning(true);
       onStatus(`Running ${language} practice...`);
 
-      const nextResult = await window.sandboxApi.runPractice(language, code);
+      const nextResult = await window.sandboxApi.runPractice(language, code, input);
+
+      if (runIdRef.current !== runId) return;
 
       setResult(nextResult);
       onResult(nextResult);
@@ -87,6 +118,8 @@ export default function PracticePanel({ onStatus, onResult }: PracticePanelProps
           : "Practice run finished with errors.",
       );
     } catch (error) {
+      if (runIdRef.current !== runId) return;
+
       const message =
         error instanceof Error ? error.message : "Failed to run practice code.";
       setResult({
@@ -99,7 +132,9 @@ export default function PracticePanel({ onStatus, onResult }: PracticePanelProps
       onResult(null);
       onStatus(message);
     } finally {
-      setRunning(false);
+      if (runIdRef.current === runId) {
+        setRunning(false);
+      }
     }
   }
 
@@ -125,13 +160,16 @@ export default function PracticePanel({ onStatus, onResult }: PracticePanelProps
             id="practice-language"
             value={language}
             onChange={(event) => {
+              stopVisibleRun();
               const nextLanguage = event.target.value as PracticeLanguage;
               setLanguage(nextLanguage);
               setCode(STARTER_CODE[nextLanguage]);
+              setInput(STARTER_INPUT[nextLanguage]);
               setResult(null);
               onResult(null);
             }}
           >
+            <option value="svans">SVANS</option>
             <option value="javascript">JavaScript</option>
             <option value="typescript">TypeScript</option>
             <option value="python">Python</option>
@@ -160,6 +198,17 @@ export default function PracticePanel({ onStatus, onResult }: PracticePanelProps
           </pre>
         </div>
 
+        <div className="practice-input-card">
+          <div className="training-panel-label">Program Input</div>
+          <textarea
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            spellCheck={false}
+            placeholder="Each line here is sent to input(), stdin, or Read-Host when you run."
+            aria-label="Practice program input"
+          />
+        </div>
+
         <div className="practice-actions">
           <button
             type="button"
@@ -173,7 +222,9 @@ export default function PracticePanel({ onStatus, onResult }: PracticePanelProps
             type="button"
             className="secondary-btn"
             onClick={() => {
+              stopVisibleRun();
               setCode(STARTER_CODE[language]);
+              setInput(STARTER_INPUT[language]);
               setResult(null);
               onResult(null);
               onStatus("Practice reset.");
@@ -185,7 +236,9 @@ export default function PracticePanel({ onStatus, onResult }: PracticePanelProps
             type="button"
             className="secondary-btn"
             onClick={() => {
+              stopVisibleRun();
               setCode("");
+              setInput("");
               setResult(null);
               onResult(null);
               onStatus("Practice cleared.");

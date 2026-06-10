@@ -35,6 +35,7 @@ const MAX_EDITOR_FILE_BYTES = 2 * 1024 * 1024;
 const MAX_IMAGE_PREVIEW_BYTES = 20 * 1024 * 1024;
 const BINARY_SNIFF_BYTES = 4096;
 const SVANSAI_ASSISTANT_TIMEOUT_MS = 25000;
+const PRACTICE_RUN_TIMEOUT_MS = 10000;
 
 const IMAGE_MIME_TYPES = new Map([
   [".apng", "image/apng"],
@@ -134,11 +135,12 @@ type RunFilePayload = {
   cwd?: string;
 };
 
-type PracticeLanguage = "javascript" | "typescript" | "python" | "powershell";
+type PracticeLanguage = "javascript" | "typescript" | "python" | "powershell" | "svans";
 
 type RunPracticePayload = {
   language: PracticeLanguage;
   code: string;
+  input?: string;
 };
 
 type RunResult = {
@@ -1149,6 +1151,8 @@ async function runFile(payload: RunFilePayload): Promise<RunResult> {
 
 function getPracticeFileName(language: PracticeLanguage): string {
   switch (language) {
+    case "svans":
+      return "practice.svans";
     case "python":
       return "practice.py";
     case "typescript":
@@ -1191,11 +1195,78 @@ function getPracticeCommand(
   }
 }
 
+function parseSvansValue(rawValue: string, variables: Map<string, string>): string {
+  const value = rawValue.trim();
+  const quoted = value.match(/^["'](.*)["']$/);
+
+  if (quoted) return quoted[1];
+  if (variables.has(value)) return variables.get(value) ?? "";
+
+  return value;
+}
+
+function runSvansPractice(code: string, input: string): RunResult {
+  const variables = new Map<string, string>();
+  const inputLines = input.split(/\r?\n/);
+  const output: string[] = [];
+  const lines = code.split(/\r?\n/);
+  let inputIndex = 0;
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const rawLine = lines[index];
+    const line = rawLine.trim();
+
+    if (!line || line.startsWith("#") || line.startsWith("//")) continue;
+
+    const sayMatch = line.match(/^(?:say|print)\s+(.+)$/i);
+    if (sayMatch) {
+      output.push(parseSvansValue(sayMatch[1], variables));
+      continue;
+    }
+
+    const setMatch = line.match(/^(?:set|let)\s+([a-zA-Z_][\w-]*)\s*=\s*(.+)$/i);
+    if (setMatch) {
+      variables.set(setMatch[1], parseSvansValue(setMatch[2], variables));
+      continue;
+    }
+
+    const askMatch = line.match(/^ask\s+([a-zA-Z_][\w-]*)(?:\s+(.+))?$/i);
+    if (askMatch) {
+      const prompt = askMatch[2] ? parseSvansValue(askMatch[2], variables) : "";
+      if (prompt) output.push(prompt);
+      variables.set(askMatch[1], inputLines[inputIndex] ?? "");
+      inputIndex += 1;
+      continue;
+    }
+
+    return {
+      ok: false,
+      command: "svans practice.svans",
+      stdout: output.join("\n"),
+      stderr: `SVANS error on line ${index + 1}: I do not understand "${rawLine}". Try: say "Hello", set name = "Shawn", or ask name "Your name?"`,
+      exitCode: 1,
+    };
+  }
+
+  return {
+    ok: true,
+    command: "svans practice.svans",
+    stdout: output.join("\n"),
+    stderr: "",
+    exitCode: 0,
+  };
+}
+
 async function runPractice(payload: RunPracticePayload): Promise<RunResult> {
   const code = payload.code.trimEnd();
+  const input = payload.input ?? "";
 
   if (!code.trim()) {
     throw new Error("Write something in Practice before running.");
+  }
+
+  if (payload.language === "svans") {
+    return runSvansPractice(code, input);
   }
 
   const sessionId = `practice_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -1216,6 +1287,27 @@ async function runPractice(payload: RunPracticePayload): Promise<RunResult> {
 
     let stdout = "";
     let stderr = "";
+    let settled = false;
+
+    const cleanup = () => {
+      void fs.rm(cwd, { recursive: true, force: true }).catch(() => undefined);
+    };
+
+    const timeout = setTimeout(() => {
+      if (settled) return;
+
+      child.kill();
+      settled = true;
+      cleanup();
+
+      resolve({
+        ok: false,
+        command: `${command} ${args.join(" ")}`,
+        stdout,
+        stderr: `${stderr}${stderr ? "\n" : ""}Practice run stopped after ${PRACTICE_RUN_TIMEOUT_MS / 1000} seconds. Check for infinite loops or code waiting for input.`,
+        exitCode: null,
+      });
+    }, PRACTICE_RUN_TIMEOUT_MS);
 
     child.stdout.on("data", (chunk) => {
       stdout += chunk.toString();
@@ -1225,13 +1317,27 @@ async function runPractice(payload: RunPracticePayload): Promise<RunResult> {
       stderr += chunk.toString();
     });
 
+    if (input) {
+      child.stdin.write(input.endsWith("\n") ? input : `${input}\n`);
+    }
+
+    child.stdin.end();
+
     child.on("error", async (error) => {
-      await fs.rm(cwd, { recursive: true, force: true }).catch(() => undefined);
+      if (settled) return;
+
+      settled = true;
+      clearTimeout(timeout);
+      cleanup();
       reject(error);
     });
 
-    child.on("close", async (code) => {
-      await fs.rm(cwd, { recursive: true, force: true }).catch(() => undefined);
+    child.on("close", (code) => {
+      if (settled) return;
+
+      settled = true;
+      clearTimeout(timeout);
+      cleanup();
 
       resolve({
         ok: code === 0,

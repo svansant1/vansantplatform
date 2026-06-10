@@ -28,7 +28,7 @@ type RunResult = {
   exitCode: number | null;
 };
 
-type PracticeLanguage = "javascript" | "typescript" | "python" | "powershell";
+type PracticeLanguage = "javascript" | "typescript" | "python" | "powershell" | "svans";
 
 type GitStatusResult = {
   ok: boolean;
@@ -152,8 +152,9 @@ const sandboxApi = {
   runPractice: (
     language: PracticeLanguage,
     code: string,
+    input?: string,
   ): Promise<RunResult> =>
-    ipcRenderer.invoke("runner:run-practice", { language, code }),
+    ipcRenderer.invoke("runner:run-practice", { language, code, input }),
 
   getGitStatus: (folderPath: string): Promise<GitStatusResult> =>
     ipcRenderer.invoke("git:status", folderPath),
