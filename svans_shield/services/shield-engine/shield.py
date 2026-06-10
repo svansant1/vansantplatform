@@ -213,6 +213,7 @@ DOUBLE_EXTENSION_PATTERN = re.compile(
 
 MAX_HASH_SIZE_BYTES = 512 * 1024 * 1024
 MAX_CONTENT_SCAN_BYTES = 512 * 1024
+FULL_PC_SCAN_MAX_SECONDS = 300
 RECENT_FILE_DAYS = 7
 
 SCRIPT_CONTENT_EXTENSIONS = {".ps1", ".bat", ".cmd", ".vbs"}
@@ -242,6 +243,7 @@ SHIELD_DATA_ROOT = Path.home() / ".svans_shield"
 QUARANTINE_ROOT = SHIELD_DATA_ROOT / "quarantine"
 QUARANTINE_HISTORY_PATH = SHIELD_DATA_ROOT / "quarantine_history.json"
 SETTINGS_PATH = SHIELD_DATA_ROOT / "settings.json"
+SCAN_CACHE_PATH = SHIELD_DATA_ROOT / "scan_cache.json"
 
 VALID_SCAN_MODES = {"strict", "balanced", "deep"}
 
@@ -249,6 +251,8 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "scan_mode": "balanced",
     "show_low_risk": False,
     "auto_quarantine": False,
+    "fast_folder_scan": True,
+    "svansai_assist": True,
 }
 
 # Minimum finding score shown for each mode.
@@ -292,6 +296,43 @@ def save_quarantine_history(records: list[dict[str, Any]]) -> None:
 
     with QUARANTINE_HISTORY_PATH.open("w", encoding="utf-8") as file:
         json.dump(records, file, indent=2)
+
+
+def load_scan_cache() -> dict[str, dict[str, Any]]:
+    if not SCAN_CACHE_PATH.exists():
+        return {}
+
+    try:
+        with SCAN_CACHE_PATH.open("r", encoding="utf-8") as file:
+            data = json.load(file)
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+    return data if isinstance(data, dict) else {}
+
+
+def save_scan_cache(cache: dict[str, dict[str, Any]]) -> None:
+    SHIELD_DATA_ROOT.mkdir(parents=True, exist_ok=True)
+    trimmed_items = list(cache.items())[-25000:]
+
+    with SCAN_CACHE_PATH.open("w", encoding="utf-8") as file:
+        json.dump(dict(trimmed_items), file)
+
+
+def cache_key_for(path_obj: Path) -> str:
+    return str(path_obj).lower()
+
+
+def file_fingerprint(path_obj: Path) -> dict[str, Any] | None:
+    try:
+        stats = path_obj.stat()
+    except OSError:
+        return None
+
+    return {
+        "size": stats.st_size,
+        "modified": int(stats.st_mtime),
+    }
 
 
 def get_quarantine_history() -> dict[str, Any]:
@@ -390,6 +431,12 @@ def load_settings() -> dict[str, Any]:
     if isinstance(data.get("auto_quarantine"), bool):
         result["auto_quarantine"] = data["auto_quarantine"]
 
+    if isinstance(data.get("fast_folder_scan"), bool):
+        result["fast_folder_scan"] = data["fast_folder_scan"]
+
+    if isinstance(data.get("svansai_assist"), bool):
+        result["svansai_assist"] = data["svansai_assist"]
+
     return result
 
 
@@ -421,6 +468,12 @@ def update_settings(updates: dict[str, Any]) -> dict[str, Any]:
 
     if "auto_quarantine" in updates and isinstance(updates["auto_quarantine"], bool):
         settings["auto_quarantine"] = updates["auto_quarantine"]
+
+    if "fast_folder_scan" in updates and isinstance(updates["fast_folder_scan"], bool):
+        settings["fast_folder_scan"] = updates["fast_folder_scan"]
+
+    if "svansai_assist" in updates and isinstance(updates["svansai_assist"], bool):
+        settings["svansai_assist"] = updates["svansai_assist"]
 
     save_settings(settings)
     return {"ok": True, "settings": settings}
@@ -706,6 +759,80 @@ def calculate_confidence(score: int, reasons: list[str]) -> str:
     return "review"
 
 
+def svansai_threat_analysis(finding: dict[str, Any]) -> dict[str, Any]:
+    analyzed = analyze_finding(finding)
+    tags = analyzed.get("context_tags", [])
+    reasons = analyzed.get("reasons", [])
+    score = int(analyzed.get("score", 0))
+    risk = str(analyzed.get("risk", "unknown"))
+    verdict = str(analyzed.get("verdict", "Review"))
+    path_lower = str(analyzed.get("path", "")).lower()
+    reason_text = " ".join(str(reason).lower() for reason in reasons)
+
+    strong_signals = [
+        "encoded command" in tags,
+        "execution policy bypass" in tags,
+        "hidden execution" in tags,
+        "persistence" in tags,
+        "double extension" in tags,
+        "lolbin abuse" in tags,
+    ]
+    likely_dev_tool = any(
+        marker in path_lower
+        for marker in [
+            "microsoft vs code",
+            ".vscode",
+            "playwright",
+            "node_modules",
+            "roblox",
+            "anthropicclaude",
+            "electron",
+        ]
+    )
+    temp_or_download = "temp" in path_lower or "downloads" in path_lower
+
+    if any(strong_signals) and score >= 55:
+        action = "Quarantine"
+        confidence = "high"
+        summary = "SVANSAI sees strong behavior-based threat signals, not just a risky file type."
+    elif risk in {"critical", "high"} and temp_or_download:
+        action = "Deep inspect, then quarantine if unexpected"
+        confidence = "medium"
+        summary = "SVANSAI sees a high-risk file in a location where dropped payloads commonly appear."
+    elif likely_dev_tool and not any(strong_signals):
+        action = "Mark safe if you recognize the app"
+        confidence = "medium"
+        summary = "SVANSAI sees developer/tooling context and no strong malicious behavior signals."
+    elif "script execution" in tags and score < 55:
+        action = "Inspect script contents before deciding"
+        confidence = "medium"
+        summary = "SVANSAI sees script execution capability, but not enough stacked evidence for automatic quarantine."
+    else:
+        action = "Review"
+        confidence = "low"
+        summary = "SVANSAI does not see enough context to make a stronger recommendation."
+
+    if "signed software" in tags and action == "Quarantine":
+        action = "Deep inspect before quarantine"
+        confidence = "medium"
+        summary += " The file also has signature context, so review before removing it."
+
+    return {
+        "ok": True,
+        "verdict": verdict,
+        "recommended_action": action,
+        "confidence": confidence,
+        "summary": summary,
+        "signals": tags,
+        "reasoning": [
+            f"Risk: {risk}, score: {score}.",
+            analyzed.get("explanation", ""),
+            "Key reasons: " + "; ".join(reasons[:5]) if reasons else "No detailed reasons were available.",
+            "This recommendation is advisory. Quarantine still requires your approval.",
+        ],
+    }
+
+
 def scan_file_content(file_path: Path, suffix: str) -> list[tuple[str, int]]:
     """Return a list of (reason, score_bonus) from script content analysis."""
     if suffix not in SCRIPT_CONTENT_EXTENSIONS:
@@ -899,8 +1026,16 @@ def scan_folder(
     deep_checks: bool = True,
     excluded_dir_names: set[str] | None = None,
     suspicious_only: bool = False,
+    max_duration_seconds: int | None = None,
+    use_cache: bool = True,
 ) -> dict[str, Any]:
     started_at = datetime.now(timezone.utc)
+    deadline = time.monotonic() + max_duration_seconds if max_duration_seconds else None
+    settings = load_settings()
+
+    if not suspicious_only and settings.get("fast_folder_scan", True):
+        suspicious_only = True
+        deep_checks = False
 
     try:
         path_obj = normalize_path(folder_path)
@@ -920,6 +1055,10 @@ def scan_folder(
     scanned_count = 0
     skipped_count = 0
     ignored_count = 0
+    cached_count = 0
+    timed_out = False
+    scan_cache = load_scan_cache() if use_cache else {}
+    cache_changed = False
     excluded_names = {
         "$recycle.bin",
         "system volume information",
@@ -931,6 +1070,10 @@ def scan_folder(
         skipped_count += 1
 
     for root, dirs, files in os.walk(path_obj, onerror=handle_walk_error):
+        if deadline and time.monotonic() >= deadline:
+            timed_out = True
+            break
+
         dirs[:] = [
             directory
             for directory in dirs
@@ -938,6 +1081,10 @@ def scan_folder(
         ]
 
         for file_name in files:
+            if deadline and time.monotonic() >= deadline:
+                timed_out = True
+                break
+
             if suspicious_only and not is_whole_pc_scan_candidate(file_name):
                 ignored_count += 1
                 continue
@@ -950,17 +1097,42 @@ def scan_folder(
             scanned_count += 1
 
             try:
-                result = assess_file(full_path, deep_checks=deep_checks)
+                fingerprint = file_fingerprint(full_path)
+                cache_key = cache_key_for(full_path)
+                cached = scan_cache.get(cache_key) if fingerprint else None
+
+                if (
+                    cached
+                    and cached.get("fingerprint") == fingerprint
+                    and cached.get("deep_checks") == deep_checks
+                ):
+                    cached_count += 1
+                    result = cached.get("finding")
+                else:
+                    result = assess_file(full_path, deep_checks=deep_checks)
+                    if fingerprint is not None:
+                        scan_cache[cache_key] = {
+                            "fingerprint": fingerprint,
+                            "deep_checks": deep_checks,
+                            "finding": result,
+                        }
+                        cache_changed = True
 
                 if result:
                     findings.append(analyze_finding(result))
             except (OSError, PermissionError):
                 skipped_count += 1
 
+        if timed_out:
+            break
+
     findings.sort(key=lambda item: item["score"], reverse=True)
-    findings = apply_settings_filter(findings, load_settings())
+    findings = apply_settings_filter(findings, settings)
     completed_at = datetime.now(timezone.utc)
     duration_seconds = round((completed_at - started_at).total_seconds(), 2)
+
+    if cache_changed:
+        save_scan_cache(scan_cache)
 
     return {
         "ok": True,
@@ -971,6 +1143,8 @@ def scan_folder(
         "scanned_count": scanned_count,
         "skipped_count": skipped_count,
         "ignored_count": ignored_count,
+        "cached_count": cached_count,
+        "timed_out": timed_out,
         "finding_count": len(findings),
         "findings": findings,
     }
@@ -1084,6 +1258,7 @@ def scan_all_quick_targets() -> dict[str, Any]:
     ignored_count = 0
     scanned_targets: list[str] = []
     skipped_targets: list[str] = []
+    timed_out = False
 
     for target in targets:
         result = scan_folder(
@@ -1092,6 +1267,7 @@ def scan_all_quick_targets() -> dict[str, Any]:
             deep_checks=False,
             excluded_dir_names=FULL_PC_EXCLUDED_DIR_NAMES,
             suspicious_only=True,
+            max_duration_seconds=FULL_PC_SCAN_MAX_SECONDS,
         )
 
         if result.get("ok"):
@@ -1099,6 +1275,7 @@ def scan_all_quick_targets() -> dict[str, Any]:
             scanned_count += int(result.get("scanned_count", 0))
             skipped_count += int(result.get("skipped_count", 0))
             ignored_count += int(result.get("ignored_count", 0))
+            timed_out = timed_out or bool(result.get("timed_out"))
 
             for finding in result.get("findings", []):
                 finding["scan_source"] = target["label"]
@@ -1121,6 +1298,7 @@ def scan_all_quick_targets() -> dict[str, Any]:
         "scanned_count": scanned_count,
         "skipped_count": skipped_count,
         "ignored_count": ignored_count,
+        "timed_out": timed_out,
         "finding_count": len(all_findings),
         "findings": all_findings,
     }

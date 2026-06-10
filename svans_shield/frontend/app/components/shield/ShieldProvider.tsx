@@ -21,6 +21,8 @@ export type ShieldSettings = {
   scan_mode: ScanMode;
   show_low_risk: boolean;
   auto_quarantine: boolean;
+  fast_folder_scan: boolean;
+  svansai_assist: boolean;
 };
 
 export type RiskLevel = "low" | "medium" | "high" | "critical" | "unknown";
@@ -56,6 +58,15 @@ export type QuarantineRecord = {
   restored_path?: string;
 };
 
+export type SvansaiThreatAnalysis = {
+  verdict: string;
+  recommended_action: string;
+  confidence: "low" | "medium" | "high" | string;
+  summary: string;
+  signals: string[];
+  reasoning: string[];
+};
+
 type ApiResponse<T> = T & {
   ok: boolean;
   error?: string;
@@ -79,6 +90,7 @@ type ShieldContextValue = {
   loadSettings: () => Promise<void>;
   updateSettings: (updates: Partial<ShieldSettings>) => Promise<void>;
   markFindingSafe: (sha256: string, filePath: string) => Promise<void>;
+  analyzeFinding: (finding: ShieldFinding) => Promise<SvansaiThreatAnalysis | null>;
   runScan: (folderPath: string) => Promise<void>;
   runScanAll: () => Promise<void>;
   cancelScan: () => void;
@@ -134,6 +146,8 @@ export function ShieldProvider({ children }: { children: React.ReactNode }) {
     scan_mode: "balanced",
     show_low_risk: false,
     auto_quarantine: false,
+    fast_folder_scan: true,
+    svansai_assist: true,
   });
   const scanAbortRef = useRef<AbortController | null>(null);
 
@@ -260,6 +274,27 @@ export function ShieldProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const analyzeFinding = useCallback(async (finding: ShieldFinding) => {
+    try {
+      const data = await apiFetch<SvansaiThreatAnalysis>("/shield/analyze", {
+        method: "POST",
+        body: JSON.stringify({ finding }),
+      });
+
+      if (!data.ok) {
+        setStatus(data.error || "SVANSAI could not analyze this finding.");
+        return null;
+      }
+
+      setStatus(`SVANSAI recommendation: ${data.recommended_action}`);
+
+      return data;
+    } catch {
+      setStatus("Could not connect to SVANSAI threat analyst.");
+      return null;
+    }
+  }, []);
+
   const runScan = useCallback(async (folderPath: string) => {
     const scanPath = folderPath.trim();
 
@@ -278,6 +313,8 @@ export function ShieldProvider({ children }: { children: React.ReactNode }) {
       const data = await apiFetch<{
         scanned_count: number;
         skipped_count: number;
+        cached_count?: number;
+        ignored_count?: number;
         finding_count: number;
         duration_seconds?: number;
         findings: ShieldFinding[];
@@ -300,6 +337,14 @@ export function ShieldProvider({ children }: { children: React.ReactNode }) {
         `Scan complete. Scanned ${(data.scanned_count || 0).toLocaleString()} files. ${
           data.finding_count || 0
         } items need review.${
+          typeof data.cached_count === "number" && data.cached_count > 0
+            ? ` Used ${data.cached_count.toLocaleString()} cached unchanged file result(s).`
+            : ""
+        }${
+          typeof data.ignored_count === "number" && data.ignored_count > 0
+            ? ` Ignored ${data.ignored_count.toLocaleString()} low-risk files for speed.`
+            : ""
+        }${
           typeof data.duration_seconds === "number"
             ? ` Finished in ${data.duration_seconds.toLocaleString()} seconds.`
             : ""
@@ -344,7 +389,9 @@ export function ShieldProvider({ children }: { children: React.ReactNode }) {
         scanned_targets: string[];
         scanned_count: number;
         skipped_count: number;
+        cached_count?: number;
         ignored_count?: number;
+        timed_out?: boolean;
         finding_count: number;
         duration_seconds?: number;
         findings: ShieldFinding[];
@@ -364,11 +411,19 @@ export function ShieldProvider({ children }: { children: React.ReactNode }) {
       setScannedTargets(data.scanned_targets || []);
       setLastScanDurationSeconds(data.duration_seconds ?? null);
       setStatus(
-        `Whole PC scan complete. Scanned ${(data.scanned_count || 0).toLocaleString()} files across ${
+        `${data.timed_out ? "Whole PC scan paused at the time limit" : "Whole PC scan complete"}. Scanned ${(data.scanned_count || 0).toLocaleString()} suspicious-capable files across ${
           data.scanned_targets?.length || 0
         } drive(s). ${data.finding_count || 0} items need review.${
           typeof data.ignored_count === "number"
             ? ` Ignored ${data.ignored_count.toLocaleString()} low-risk files for speed.`
+            : ""
+        }${
+          typeof data.cached_count === "number" && data.cached_count > 0
+            ? ` Used ${data.cached_count.toLocaleString()} cached unchanged file result(s).`
+            : ""
+        }${
+          data.timed_out
+            ? " Run it again later to continue sweeping high-risk file types."
             : ""
         }${
           data.skipped_targets?.length
@@ -489,6 +544,7 @@ export function ShieldProvider({ children }: { children: React.ReactNode }) {
       loadSettings,
       updateSettings,
       markFindingSafe,
+      analyzeFinding,
       runScan,
       runScanAll,
       cancelScan,
@@ -513,6 +569,7 @@ export function ShieldProvider({ children }: { children: React.ReactNode }) {
       loadSettings,
       updateSettings,
       markFindingSafe,
+      analyzeFinding,
       runScan,
       runScanAll,
       cancelScan,

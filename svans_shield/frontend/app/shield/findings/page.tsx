@@ -4,13 +4,14 @@ import { useMemo, useState } from "react";
 import {
   RiskLevel,
   ShieldFinding,
+  SvansaiThreatAnalysis,
   useShield,
 } from "../../components/shield/ShieldProvider";
 
 const MAX_VISIBLE_FINDINGS = 150;
 
 export default function FindingsPage() {
-  const { findings, quarantineFinding, markFindingSafe, loading, scannedCount } = useShield();
+  const { findings, quarantineFinding, markFindingSafe, analyzeFinding, loading, scannedCount, settings } = useShield();
   const [riskFilter, setRiskFilter] = useState<"all" | RiskLevel>("all");
   const [search, setSearch] = useState("");
 
@@ -118,6 +119,8 @@ export default function FindingsPage() {
                   disabled={loading}
                   onQuarantine={() => quarantineFinding(finding.path)}
                   onMarkSafe={() => markFindingSafe(finding.sha256, finding.path)}
+                  onAnalyze={() => analyzeFinding(finding)}
+                  svansaiEnabled={settings.svansai_assist}
                 />
               ))}
             </div>
@@ -133,12 +136,26 @@ function FindingRow({
   disabled,
   onQuarantine,
   onMarkSafe,
+  onAnalyze,
+  svansaiEnabled,
 }: {
   finding: ShieldFinding;
   disabled: boolean;
   onQuarantine: () => void;
   onMarkSafe: () => void;
+  onAnalyze: () => Promise<SvansaiThreatAnalysis | null>;
+  svansaiEnabled: boolean;
 }) {
+  const [analysis, setAnalysis] = useState<SvansaiThreatAnalysis | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+
+  async function handleAnalyze() {
+    setAnalyzing(true);
+    const result = await onAnalyze();
+    setAnalysis(result);
+    setAnalyzing(false);
+  }
+
   return (
     <article className="grid gap-4 bg-black/20 px-5 py-5 xl:grid-cols-[1.2fr_0.65fr_0.45fr_0.45fr_0.85fr] xl:items-center">
       <div className="min-w-0">
@@ -187,6 +204,30 @@ function FindingRow({
             </ul>
           </div>
         </details>
+
+        {analysis && (
+          <div className="mt-3 rounded-2xl border border-cyan-500/20 bg-cyan-500/10 p-4">
+            <p className="text-xs font-bold uppercase tracking-wider text-cyan-200">
+              SVANSAI Threat Analyst
+            </p>
+            <p className="mt-2 text-sm font-bold text-white">
+              {analysis.recommended_action}
+            </p>
+            <p className="mt-2 text-xs leading-5 text-zinc-300">
+              {analysis.summary}
+            </p>
+            <p className="mt-2 text-xs text-cyan-200">
+              Confidence: {analysis.confidence}
+            </p>
+            {analysis.reasoning.length > 0 && (
+              <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-zinc-400">
+                {analysis.reasoning.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
       </div>
 
       <p className="text-sm font-semibold text-zinc-300">
@@ -204,6 +245,15 @@ function FindingRow({
       <p className="text-sm font-bold text-zinc-300">{finding.score}</p>
 
       <div className="flex flex-col gap-2">
+        {svansaiEnabled && (
+          <button
+            disabled={disabled || analyzing}
+            onClick={handleAnalyze}
+            className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-sm font-bold text-cyan-100 transition hover:bg-cyan-500/20 disabled:opacity-50"
+          >
+            {analyzing ? "Analyzing..." : "Ask SVANSAI"}
+          </button>
+        )}
         <button
           disabled={disabled}
           onClick={onQuarantine}

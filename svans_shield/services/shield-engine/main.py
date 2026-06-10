@@ -35,6 +35,10 @@ class QuarantineRequest(BaseModel):
     file_path: str = Field(..., min_length=1, max_length=4096)
 
 
+class FindingAnalysisRequest(BaseModel):
+    finding: dict[str, object]
+
+
 class RestoreQuarantineRequest(BaseModel):
     record_id: str = Field(..., min_length=1, max_length=512)
 
@@ -43,6 +47,8 @@ class SettingsRequest(BaseModel):
     scan_mode: str | None = None
     show_low_risk: bool | None = None
     auto_quarantine: bool | None = None
+    fast_folder_scan: bool | None = None
+    svansai_assist: bool | None = None
 
 
 class AllowlistAddRequest(BaseModel):
@@ -77,6 +83,11 @@ def scan_all_quick_targets() -> dict[str, object]:
 @app.post("/shield/quarantine")
 def quarantine_file(request: QuarantineRequest) -> dict[str, object]:
     return shield.quarantine_file(request.file_path)
+
+
+@app.post("/shield/analyze")
+def analyze_finding(request: FindingAnalysisRequest) -> dict[str, object]:
+    return shield.svansai_threat_analysis(dict(request.finding))
 
 
 @app.get("/shield/quarantine")

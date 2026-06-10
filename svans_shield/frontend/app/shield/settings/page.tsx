@@ -94,6 +94,22 @@ export default function SettingsPage() {
             disabled={loading}
             onChange={(value) => set("auto_quarantine", value)}
           />
+
+          <Toggle
+            label="Fast folder scans"
+            description="Scan suspicious-capable file types first and use cached unchanged results. Turn off only for deep manual review."
+            checked={settings.fast_folder_scan}
+            disabled={loading}
+            onChange={(value) => set("fast_folder_scan", value)}
+          />
+
+          <Toggle
+            label="SVANSAI threat analyst"
+            description="Enable per-finding SVANSAI recommendations for quarantine, deep inspect, or mark-safe decisions."
+            checked={settings.svansai_assist}
+            disabled={loading}
+            onChange={(value) => set("svansai_assist", value)}
+          />
         </div>
       </section>
     </div>
