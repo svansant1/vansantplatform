@@ -334,8 +334,8 @@ export function ShieldProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const runScanAll = useCallback(async () => {
-    const controller = beginScan("Quick system scan");
-    setStatus("Running quick system scan. Previous findings remain visible until this scan finishes.");
+    const controller = beginScan("Whole PC scan");
+    setStatus("Running whole PC scan across available drives. Protected system folders are skipped and previous findings remain visible until this scan finishes.");
     setScannedCount(0);
     setSkippedCount(0);
 
@@ -344,9 +344,11 @@ export function ShieldProvider({ children }: { children: React.ReactNode }) {
         scanned_targets: string[];
         scanned_count: number;
         skipped_count: number;
+        ignored_count?: number;
         finding_count: number;
         duration_seconds?: number;
         findings: ShieldFinding[];
+        skipped_targets?: string[];
       }>("/shield/scan-all", {
         signal: controller.signal,
       });
@@ -362,9 +364,17 @@ export function ShieldProvider({ children }: { children: React.ReactNode }) {
       setScannedTargets(data.scanned_targets || []);
       setLastScanDurationSeconds(data.duration_seconds ?? null);
       setStatus(
-        `Quick scan complete. Scanned ${(data.scanned_count || 0).toLocaleString()} files across ${
+        `Whole PC scan complete. Scanned ${(data.scanned_count || 0).toLocaleString()} files across ${
           data.scanned_targets?.length || 0
-        } locations. ${data.finding_count || 0} items need review.${
+        } drive(s). ${data.finding_count || 0} items need review.${
+          typeof data.ignored_count === "number"
+            ? ` Ignored ${data.ignored_count.toLocaleString()} low-risk files for speed.`
+            : ""
+        }${
+          data.skipped_targets?.length
+            ? ` Skipped ${data.skipped_targets.length} unavailable drive(s).`
+            : ""
+        }${
           typeof data.duration_seconds === "number"
             ? ` Finished in ${data.duration_seconds.toLocaleString()} seconds.`
             : ""

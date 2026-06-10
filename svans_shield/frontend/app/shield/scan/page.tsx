@@ -58,9 +58,9 @@ export default function ScanPage() {
       <section className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-6 shadow-xl">
         <div className="mb-5 flex items-center justify-between gap-4">
           <div>
-            <h3 className="text-xl font-bold">Quick Scan</h3>
+            <h3 className="text-xl font-bold">Scan Options</h3>
             <p className="mt-1 text-sm text-zinc-500">
-              Recommended for normal use.
+              Use a common folder, or scan all available drives.
             </p>
           </div>
 
@@ -80,7 +80,7 @@ export default function ScanPage() {
               onClick={runScanAll}
               className="rounded-2xl bg-red-600 px-5 py-3 text-sm font-bold transition hover:bg-red-500 disabled:opacity-50"
             >
-              Scan All
+              Scan Whole PC
             </button>
           </div>
         </div>

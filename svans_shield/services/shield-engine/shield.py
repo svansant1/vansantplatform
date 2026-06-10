@@ -193,6 +193,19 @@ BLOCKED_SCAN_ROOTS = {
     "c:\\program files (x86)",
 }
 
+FULL_PC_EXCLUDED_DIR_NAMES = {
+    "$recycle.bin",
+    "system volume information",
+    "windows",
+    "program files",
+    "program files (x86)",
+    "programdata",
+    "recovery",
+    "config.msi",
+    "$windows.~bt",
+    "$windows.~ws",
+}
+
 DOUBLE_EXTENSION_PATTERN = re.compile(
     r".+\.(pdf|doc|docx|xls|xlsx|jpg|jpeg|png|txt)\.(exe|bat|cmd|js|vbs|scr)$",
     re.IGNORECASE,
@@ -203,6 +216,7 @@ MAX_CONTENT_SCAN_BYTES = 512 * 1024
 RECENT_FILE_DAYS = 7
 
 SCRIPT_CONTENT_EXTENSIONS = {".ps1", ".bat", ".cmd", ".vbs"}
+WHOLE_PC_SCAN_EXTENSIONS = SUSPICIOUS_EXTENSIONS | HIGH_RISK_EXTENSIONS | SCRIPT_CONTENT_EXTENSIONS
 
 # (compiled pattern, human-readable label, score bonus)
 PS1_SUSPICIOUS_PATTERNS: list[tuple[re.Pattern[str], str, int]] = [
@@ -470,6 +484,17 @@ def filename_contains_any(filename_lower: str, keywords: set[str]) -> bool:
     return any(keyword in filename_lower for keyword in keywords)
 
 
+def is_whole_pc_scan_candidate(file_name: str) -> bool:
+    suffix = Path(file_name).suffix.lower()
+    filename_lower = file_name.lower()
+
+    return (
+        suffix in WHOLE_PC_SCAN_EXTENSIONS
+        or filename_lower in SUSPICIOUS_FILENAMES
+        or DOUBLE_EXTENSION_PATTERN.match(file_name) is not None
+    )
+
+
 def detect_known_installer_patterns(path_obj: Path) -> list[tuple[str, int]]:
     context = f"{path_obj} {path_obj.name}".lower()
     matches: list[tuple[str, int]] = []
@@ -715,7 +740,7 @@ def is_recently_modified(file_path: Path) -> bool:
         return False
 
 
-def assess_file(file_path: str | Path) -> dict[str, Any] | None:
+def assess_file(file_path: str | Path, deep_checks: bool = True) -> dict[str, Any] | None:
     path_obj = Path(file_path)
 
     try:
@@ -817,14 +842,15 @@ def assess_file(file_path: str | Path) -> dict[str, Any] | None:
         score += score_delta
         trust_context["known_installer_pattern"] = True
 
-    signature_reasons, signature_delta, signature = signature_score_adjustment(path_obj)
-    if signature_reasons:
-        reasons.extend(signature_reasons)
-        score += signature_delta
-    if signature:
-        trust_context["signature"] = signature
+    if deep_checks:
+        signature_reasons, signature_delta, signature = signature_score_adjustment(path_obj)
+        if signature_reasons:
+            reasons.extend(signature_reasons)
+            score += signature_delta
+        if signature:
+            trust_context["signature"] = signature
 
-    if score >= 20 and ("appdata" in path_lower or "temp" in path_lower or "downloads" in path_lower):
+    if deep_checks and score >= 20 and ("appdata" in path_lower or "temp" in path_lower or "downloads" in path_lower):
         parent_reasons, parent_delta, parent_context = parent_context_adjustment(path_obj)
         if parent_reasons:
             reasons.extend(parent_reasons)
@@ -866,7 +892,14 @@ def assess_file(file_path: str | Path) -> dict[str, Any] | None:
     }
 
 
-def scan_folder(folder_path: str) -> dict[str, Any]:
+def scan_folder(
+    folder_path: str,
+    *,
+    allow_protected_root: bool = False,
+    deep_checks: bool = True,
+    excluded_dir_names: set[str] | None = None,
+    suspicious_only: bool = False,
+) -> dict[str, Any]:
     started_at = datetime.now(timezone.utc)
 
     try:
@@ -877,7 +910,7 @@ def scan_folder(folder_path: str) -> dict[str, Any]:
     if not path_obj.exists() or not path_obj.is_dir():
         return {"ok": False, "error": "Folder does not exist."}
 
-    if is_blocked_scan_path(path_obj):
+    if not allow_protected_root and is_blocked_scan_path(path_obj):
         return {
             "ok": False,
             "error": "This protected system path is blocked in the MVP scanner.",
@@ -886,23 +919,38 @@ def scan_folder(folder_path: str) -> dict[str, Any]:
     findings: list[dict[str, Any]] = []
     scanned_count = 0
     skipped_count = 0
+    ignored_count = 0
+    excluded_names = {
+        "$recycle.bin",
+        "system volume information",
+        *(excluded_dir_names or set()),
+    }
 
-    for root, dirs, files in os.walk(path_obj):
+    def handle_walk_error(_error: OSError) -> None:
+        nonlocal skipped_count
+        skipped_count += 1
+
+    for root, dirs, files in os.walk(path_obj, onerror=handle_walk_error):
         dirs[:] = [
             directory
             for directory in dirs
-            if directory.lower() not in {"$recycle.bin", "system volume information"}
+            if directory.lower() not in excluded_names
         ]
 
         for file_name in files:
-            scanned_count += 1
+            if suspicious_only and not is_whole_pc_scan_candidate(file_name):
+                ignored_count += 1
+                continue
+
             full_path = Path(root) / file_name
 
             if not full_path.is_file():
                 continue
 
+            scanned_count += 1
+
             try:
-                result = assess_file(full_path)
+                result = assess_file(full_path, deep_checks=deep_checks)
 
                 if result:
                     findings.append(analyze_finding(result))
@@ -922,6 +970,7 @@ def scan_folder(folder_path: str) -> dict[str, Any]:
         "duration_seconds": duration_seconds,
         "scanned_count": scanned_count,
         "skipped_count": skipped_count,
+        "ignored_count": ignored_count,
         "finding_count": len(findings),
         "findings": findings,
     }
@@ -1009,26 +1058,53 @@ def quarantine_file(file_path: str) -> dict[str, Any]:
         return {"ok": False, "error": f"Failed to quarantine file: {exc}"}
 
 
+def get_scan_drives() -> list[Path]:
+    if os.name == "nt":
+        if hasattr(os, "listdrives"):
+            return [Path(drive) for drive in os.listdrives() if Path(drive).exists()]
+
+        drives: list[Path] = []
+        for letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ":
+            drive = Path(f"{letter}:\\")
+            if drive.exists():
+                drives.append(drive)
+
+        return drives
+
+    return [Path("/")]
+
+
 def scan_all_quick_targets() -> dict[str, Any]:
     started_at = datetime.now(timezone.utc)
-    targets = get_quick_scan_targets()
+    targets = [{"label": str(drive), "path": str(drive)} for drive in get_scan_drives()]
 
     all_findings: list[dict[str, Any]] = []
     scanned_count = 0
     skipped_count = 0
+    ignored_count = 0
     scanned_targets: list[str] = []
+    skipped_targets: list[str] = []
 
     for target in targets:
-        result = scan_folder(target["path"])
+        result = scan_folder(
+            target["path"],
+            allow_protected_root=True,
+            deep_checks=False,
+            excluded_dir_names=FULL_PC_EXCLUDED_DIR_NAMES,
+            suspicious_only=True,
+        )
 
         if result.get("ok"):
             scanned_targets.append(target["label"])
             scanned_count += int(result.get("scanned_count", 0))
             skipped_count += int(result.get("skipped_count", 0))
+            ignored_count += int(result.get("ignored_count", 0))
 
             for finding in result.get("findings", []):
                 finding["scan_source"] = target["label"]
                 all_findings.append(finding)
+        else:
+            skipped_targets.append(target["label"])
 
     all_findings.sort(key=lambda item: item["score"], reverse=True)
     all_findings = apply_settings_filter(all_findings, load_settings())
@@ -1041,8 +1117,10 @@ def scan_all_quick_targets() -> dict[str, Any]:
         "completed_at": completed_at.isoformat(),
         "duration_seconds": duration_seconds,
         "scanned_targets": scanned_targets,
+        "skipped_targets": skipped_targets,
         "scanned_count": scanned_count,
         "skipped_count": skipped_count,
+        "ignored_count": ignored_count,
         "finding_count": len(all_findings),
         "findings": all_findings,
     }
