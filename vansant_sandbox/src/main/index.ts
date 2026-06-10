@@ -134,6 +134,13 @@ type RunFilePayload = {
   cwd?: string;
 };
 
+type PracticeLanguage = "javascript" | "typescript" | "python" | "powershell";
+
+type RunPracticePayload = {
+  language: PracticeLanguage;
+  code: string;
+};
+
 type RunResult = {
   ok: boolean;
   command: string;
@@ -1129,6 +1136,103 @@ async function runFile(payload: RunFilePayload): Promise<RunResult> {
     });
 
     child.on("close", (code) => {
+      resolve({
+        ok: code === 0,
+        command: `${command} ${args.join(" ")}`,
+        stdout,
+        stderr,
+        exitCode: code,
+      });
+    });
+  });
+}
+
+function getPracticeFileName(language: PracticeLanguage): string {
+  switch (language) {
+    case "python":
+      return "practice.py";
+    case "typescript":
+      return "practice.ts";
+    case "powershell":
+      return "practice.ps1";
+    case "javascript":
+    default:
+      return "practice.js";
+  }
+}
+
+function getPracticeCommand(
+  language: PracticeLanguage,
+  filePath: string,
+): { command: string; args: string[] } {
+  switch (language) {
+    case "python":
+      return { command: "python", args: [filePath] };
+    case "typescript":
+      return { command: "npx", args: ["tsx", filePath] };
+    case "powershell": {
+      const profiles = getWindowsTerminalProfiles();
+      const profile =
+        profiles.find((item) => item.id === "pwsh") ??
+        profiles.find((item) => item.id === "powershell");
+
+      if (!profile) {
+        throw new Error("PowerShell is not available on this machine.");
+      }
+
+      return {
+        command: profile.shell,
+        args: ["-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", filePath],
+      };
+    }
+    case "javascript":
+    default:
+      return { command: "node", args: [filePath] };
+  }
+}
+
+async function runPractice(payload: RunPracticePayload): Promise<RunResult> {
+  const code = payload.code.trimEnd();
+
+  if (!code.trim()) {
+    throw new Error("Write something in Practice before running.");
+  }
+
+  const sessionId = `practice_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const cwd = path.join(app.getPath("temp"), "vansant-sandbox-practice", sessionId);
+  const filePath = path.join(cwd, getPracticeFileName(payload.language));
+
+  await fs.mkdir(cwd, { recursive: true });
+  await fs.writeFile(filePath, code, "utf8");
+
+  const { command, args } = getPracticeCommand(payload.language, filePath);
+
+  return new Promise<RunResult>((resolve, reject) => {
+    const child = spawn(command, args, {
+      cwd,
+      shell: false,
+      windowsHide: true,
+    });
+
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+
+    child.on("error", async (error) => {
+      await fs.rm(cwd, { recursive: true, force: true }).catch(() => undefined);
+      reject(error);
+    });
+
+    child.on("close", async (code) => {
+      await fs.rm(cwd, { recursive: true, force: true }).catch(() => undefined);
+
       resolve({
         ok: code === 0,
         command: `${command} ${args.join(" ")}`,
@@ -2243,6 +2347,10 @@ app.whenReady().then(() => {
 
   ipcMain.handle("runner:run-file", async (_event, payload: RunFilePayload) => {
     return runFile(payload);
+  });
+
+  ipcMain.handle("runner:run-practice", async (_event, payload: RunPracticePayload) => {
+    return runPractice(payload);
   });
 
   ipcMain.handle("git:status", async (_event, folderPath: string) => {

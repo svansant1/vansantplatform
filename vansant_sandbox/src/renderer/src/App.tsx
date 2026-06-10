@@ -8,6 +8,8 @@ import StatusBar from "./components/StatusBar";
 import Commandbar from "./components/Commandbar";
 import AIAssistantPanel from "./components/AIAssistantPanel";
 import TrainingPanel from "./components/TrainingPanel";
+import DebugPanel from "./components/DebugPanel";
+import PracticePanel from "./components/PracticePanel";
 import type {
   DiagnosticSummary,
   FileNode,
@@ -294,7 +296,9 @@ export default function App() {
   const [editorFontSize, setEditorFontSize] = useState(DEFAULT_EDITOR_FONT_SIZE);
   const [imageZoom, setImageZoom] = useState(DEFAULT_IMAGE_ZOOM);
   const [assistantOpen, setAssistantOpen] = useState(false);
+  const [debugOpen, setDebugOpen] = useState(false);
   const [trainingOpen, setTrainingOpen] = useState(false);
+  const [practiceOpen, setPracticeOpen] = useState(false);
   const [diagnosticsByPath, setDiagnosticsByPath] = useState<
     Record<string, DiagnosticSummary>
   >({});
@@ -323,10 +327,10 @@ export default function App() {
 
   const activeTab = useMemo(
     () =>
-      trainingOpen
+      trainingOpen || practiceOpen
         ? null
         : openTabs.find((tab) => tab.path === activePath) ?? null,
-    [openTabs, activePath, trainingOpen],
+    [openTabs, activePath, trainingOpen, practiceOpen],
   );
 
   const dirtyTabs = useMemo(
@@ -699,6 +703,7 @@ export default function App() {
   async function openFile(filePath: string) {
     try {
       setTrainingOpen(false);
+      setPracticeOpen(false);
       const existing = openTabs.find((tab) => tab.path === filePath);
 
       if (existing) {
@@ -1007,15 +1012,15 @@ export default function App() {
     }
   }
 
-  async function runActiveFile() {
+  async function runActiveFile(): Promise<RunResult | null> {
     if (!activeTab) {
       setStatusMessage("Open a file before running.");
-      return;
+      return null;
     }
 
     if (activeTab.kind !== "text") {
       setStatusMessage("Image previews cannot be run.");
-      return;
+      return null;
     }
 
     if (activeTab.isDirty) {
@@ -1025,12 +1030,12 @@ export default function App() {
 
       if (!shouldSave) {
         setStatusMessage("Run canceled. Save the file or run after discarding changes.");
-        return;
+        return null;
       }
 
       const saved = await saveActiveFile();
 
-      if (!saved) return;
+      if (!saved) return null;
     }
 
     try {
@@ -1054,13 +1059,32 @@ export default function App() {
           ? `Run complete: ${activeTab.name}`
           : `Run finished with errors: ${activeTab.name}`,
       );
+
+      return result;
     } catch (error) {
       setRunResult(null);
       setStatusMessage(
         error instanceof Error ? error.message : "Failed to run file.",
       );
+
+      return null;
     } finally {
       setRunning(false);
+    }
+  }
+
+  async function debugActiveFile() {
+    setDebugOpen(true);
+    setAssistantOpen(false);
+
+    const result = await runActiveFile();
+
+    if (result) {
+      setStatusMessage(
+        result.ok
+          ? "Debug run complete: no runtime errors found."
+          : "Debug run complete: review Debug Center.",
+      );
     }
   }
 
@@ -1160,11 +1184,37 @@ export default function App() {
             className={`secondary-btn${trainingOpen ? " training-toolbar-btn-active" : ""}`}
             onClick={() => {
               setTrainingOpen(true);
+              setPracticeOpen(false);
               setStatusMessage("Training mode ready.");
             }}
             title="Open project tracing training"
           >
             Training
+          </button>
+
+          <button
+            className={`secondary-btn${practiceOpen ? " training-toolbar-btn-active" : ""}`}
+            onClick={() => {
+              setPracticeOpen(true);
+              setTrainingOpen(false);
+              setStatusMessage("Practice mode ready.");
+            }}
+            title="Open code practice scratch pad"
+          >
+            Practice
+          </button>
+
+          <button
+            className={`secondary-btn${debugOpen ? " debug-toolbar-btn-active" : ""}`}
+            onClick={() => {
+              setDebugOpen((open) => !open);
+              setAssistantOpen(false);
+              setStatusMessage(debugOpen ? "Debug Center closed." : "Debug Center ready.");
+            }}
+            title="Open Debug Center"
+            aria-pressed={debugOpen}
+          >
+            Debug
           </button>
 
           <button
@@ -1252,8 +1302,20 @@ export default function App() {
           </button>
 
           <button
+            className="secondary-btn"
+            onClick={() => void debugActiveFile()}
+            disabled={!activeTab || activeTab.kind !== "text" || running}
+            title="Debug active file"
+          >
+            Debug File
+          </button>
+
+          <button
             className={`assistant-toggle-btn${assistantOpen ? " assistant-toggle-btn-active" : ""}`}
-            onClick={() => setAssistantOpen((open) => !open)}
+            onClick={() => {
+              setAssistantOpen((open) => !open);
+              setDebugOpen(false);
+            }}
             disabled={!workspacePath}
             title="Open SVANSAI Code Assistant"
             aria-pressed={assistantOpen}
@@ -1264,7 +1326,7 @@ export default function App() {
         </div>
       </header>
 
-      <div className={`workspace-grid${assistantOpen ? " workspace-grid-assistant-open" : ""}`}>
+      <div className={`workspace-grid${assistantOpen || debugOpen ? " workspace-grid-side-open" : ""}`}>
         <aside className="sidebar-panel">
           <div className="panel-title-row">
             <h3>Explorer</h3>
@@ -1338,6 +1400,7 @@ export default function App() {
             activePath={activePath}
             onSelect={(path) => {
               setTrainingOpen(false);
+              setPracticeOpen(false);
               setActivePath(path);
             }}
             onClose={closeTab}
@@ -1346,6 +1409,11 @@ export default function App() {
           <div className="editor-wrapper">
             {trainingOpen ? (
               <TrainingPanel />
+            ) : practiceOpen ? (
+              <PracticePanel
+                onStatus={setStatusMessage}
+                onResult={setRunResult}
+              />
             ) : activeTab?.kind === "image" ? (
               <div className="image-preview">
                 <div className="image-preview-toolbar">
@@ -1446,6 +1514,17 @@ export default function App() {
             workspacePath={workspacePath}
             onEditsApplied={handleAssistantEditsApplied}
             onStatus={setStatusMessage}
+          />
+        )}
+
+        {debugOpen && (
+          <DebugPanel
+            activeTab={activeTab}
+            runResult={runResult}
+            diagnosticsByPath={diagnosticsByPath}
+            running={running}
+            onDebugFile={() => void debugActiveFile()}
+            onClose={() => setDebugOpen(false)}
           />
         )}
       </div>

@@ -31,6 +31,8 @@ export type RunResult = {
   exitCode: number | null;
 };
 
+export type PracticeLanguage = 'javascript' | 'typescript' | 'python' | 'powershell';
+
 export type DiagnosticSummary = {
   errors: number;
   warnings: number;

@@ -140,6 +140,12 @@ button {
     0 0 22px rgba(56, 189, 248, 0.22);
 }
 
+.debug-toolbar-btn-active {
+  border-color: rgba(167, 139, 250, 0.72);
+  background: rgba(167, 139, 250, 0.14);
+  color: #f5f3ff;
+}
+
 .assistant-toggle-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
@@ -293,7 +299,8 @@ button {
   overflow: hidden;
 }
 
-.workspace-grid-assistant-open {
+.workspace-grid-assistant-open,
+.workspace-grid-side-open {
   grid-template-columns:
     minmax(180px, 220px)
     minmax(0, 1fr)
@@ -303,6 +310,7 @@ button {
 .sidebar-panel,
 .editor-panel,
 .assistant-panel,
+.debug-panel,
 .terminal-panel {
   min-height: 0;
   min-width: 0;
@@ -1038,6 +1046,324 @@ button {
 }
 
 /* =========================
+   PRACTICE
+   ========================= */
+
+.practice-panel {
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  background:
+    radial-gradient(circle at top right, rgba(34, 211, 238, 0.08), transparent 34%),
+    #090b12;
+}
+
+.practice-hero {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(220px, 0.34fr);
+  gap: 18px;
+  align-items: end;
+  padding: 18px;
+  border-bottom: 1px solid #22242d;
+  background: rgba(11, 13, 19, 0.78);
+}
+
+.practice-hero h2 {
+  margin: 4px 0 8px;
+  font-size: 1.35rem;
+}
+
+.practice-hero p {
+  max-width: 720px;
+  margin: 0;
+  color: #a1a1aa;
+  line-height: 1.6;
+}
+
+.practice-controls label {
+  display: block;
+  margin-bottom: 7px;
+  color: #67e8f9;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.practice-controls select {
+  width: 100%;
+  border: 1px solid #2c2f3a;
+  border-radius: 12px;
+  padding: 10px 12px;
+  color: #f4f4f5;
+  background: #11131a;
+  outline: 0;
+}
+
+.practice-workbench {
+  min-height: 0;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.75fr);
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  gap: 12px;
+  padding: 12px;
+  overflow: hidden;
+}
+
+.practice-editor-card,
+.practice-output-card {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 14px;
+  background: #0b1020;
+}
+
+.practice-editor-card textarea,
+.practice-output-card pre {
+  width: 100%;
+  height: calc(100% - 38px);
+  margin: 0;
+  padding: 14px;
+  border: 0;
+  outline: 0;
+  resize: none;
+  overflow: auto;
+  color: #e5e7eb;
+  background: #070a11;
+  font-family: "Cascadia Code", Consolas, "Courier New", monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.practice-output-card pre {
+  color: #bfdbfe;
+}
+
+.practice-output-card .practice-output-error {
+  color: #fecaca;
+}
+
+.practice-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.practice-command {
+  grid-column: 1 / -1;
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+  padding: 11px 12px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.74);
+}
+
+.practice-command span {
+  color: #94a3b8;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.practice-command code {
+  min-width: 0;
+  color: #dbeafe;
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 0.78rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* =========================
+   DEBUG CENTER
+   ========================= */
+
+.debug-panel {
+  position: relative;
+  z-index: 10;
+  width: auto;
+  max-width: none;
+  display: grid;
+  grid-template-rows: auto auto auto auto auto auto minmax(0, 1fr);
+  gap: 10px;
+  padding: 10px;
+  border-left: 1px solid rgba(167, 139, 250, 0.28);
+  background: #0b1020;
+  overflow: hidden;
+  box-shadow: -18px 0 42px rgba(0, 0, 0, 0.18);
+}
+
+.debug-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 4px 10px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.debug-header h3 {
+  margin: 3px 0 0;
+  font-size: 0.95rem;
+}
+
+.debug-eyebrow {
+  color: #a78bfa;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.debug-close-btn {
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 999px;
+  padding: 5px 9px;
+  background: #11131a;
+  color: #c4b5fd;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.debug-card,
+.debug-stat {
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.78);
+}
+
+.debug-card {
+  min-width: 0;
+  overflow: hidden;
+  padding: 10px;
+}
+
+.debug-current-file {
+  display: grid;
+  gap: 5px;
+}
+
+.debug-current-file span,
+.debug-stat span,
+.debug-section-title span {
+  color: #94a3b8;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.debug-current-file strong {
+  min-width: 0;
+  color: #f8fafc;
+  font-size: 0.9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.debug-current-file p,
+.debug-muted {
+  margin: 0;
+  color: #a1a1aa;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.debug-run-btn {
+  width: 100%;
+}
+
+.debug-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.debug-stat {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+}
+
+.debug-stat strong {
+  color: #f8fafc;
+  font-size: 1rem;
+}
+
+.debug-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 9px;
+}
+
+.debug-section-title strong {
+  color: #c4b5fd;
+  font-size: 0.8rem;
+}
+
+.debug-problem-list {
+  display: grid;
+  gap: 8px;
+}
+
+.debug-problem {
+  border: 1px solid rgba(248, 113, 113, 0.2);
+  border-radius: 10px;
+  padding: 8px;
+  background: rgba(127, 29, 29, 0.18);
+}
+
+.debug-problem span {
+  color: #fca5a5;
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 0.72rem;
+}
+
+.debug-problem p {
+  margin: 5px 0 0;
+  color: #fee2e2;
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 0.74rem;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.debug-command,
+.debug-output-card pre {
+  display: block;
+  margin: 0;
+  color: #dbeafe;
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.debug-output-card {
+  min-height: 0;
+  overflow: auto;
+}
+
+.debug-output-card pre {
+  max-height: 100%;
+  overflow: auto;
+}
+
+/* =========================
    SVANSAI ASSISTANT
    ========================= */
 
@@ -1574,6 +1900,16 @@ button {
     grid-template-columns: 1fr;
   }
 
+  .practice-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .practice-workbench {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(260px, 1fr) minmax(220px, 0.8fr) auto auto;
+    overflow: auto;
+  }
+
   .training-workbench {
     grid-template-columns: 1fr;
     grid-template-rows: auto minmax(320px, 1fr) auto auto minmax(180px, 0.4fr);
@@ -1596,11 +1932,13 @@ button {
     grid-template-rows: minmax(0, 1fr);
   }
 
-  .workspace-grid-assistant-open {
+  .workspace-grid-assistant-open,
+  .workspace-grid-side-open {
     grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
   }
 
-  .assistant-panel {
+  .assistant-panel,
+  .debug-panel {
     position: fixed;
     z-index: 20000;
     top: clamp(72px, 11vh, 118px);
@@ -1640,6 +1978,10 @@ button {
     grid-template-columns: 1fr;
   }
 
+  .practice-workbench {
+    grid-template-rows: minmax(240px, 0.8fr) minmax(180px, 0.7fr) auto auto;
+  }
+
   .training-files {
     grid-template-columns: 1fr;
   }
@@ -1649,12 +1991,14 @@ button {
     grid-template-rows: minmax(150px, 30vh) minmax(0, 1fr);
   }
 
-  .workspace-grid-assistant-open {
+  .workspace-grid-assistant-open,
+  .workspace-grid-side-open {
     grid-template-columns: 1fr;
     grid-template-rows: minmax(150px, 30vh) minmax(0, 1fr);
   }
 
-  .assistant-panel {
+  .assistant-panel,
+  .debug-panel {
     inset: 76px 8px 42px;
     width: auto;
     max-width: none;
@@ -1715,7 +2059,8 @@ button {
     grid-template-rows: minmax(120px, 28vh) minmax(0, 1fr);
   }
 
-  .assistant-panel {
+  .assistant-panel,
+  .debug-panel {
     inset: 54px 6px 36px;
   }
 
