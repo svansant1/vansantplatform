@@ -24,6 +24,12 @@ type TrainingSaveState = {
   savedAt: number;
 };
 
+type TrainingConcept = {
+  title: string;
+  detail: string;
+  source: string;
+};
+
 const TRAINING_SAVE_KEY = "vansant-sandbox:training-state:v1";
 
 function createTrainingMetrics(): TrainingMetrics {
@@ -453,6 +459,186 @@ function getTrainingExplanation(file: TrainingFile | null, idea: string) {
   };
 }
 
+function pushConcept(concepts: TrainingConcept[], title: string, detail: string, source: string) {
+  if (concepts.some((concept) => concept.title === title && concept.source === source)) {
+    return;
+  }
+
+  concepts.push({ title, detail, source });
+}
+
+function explainTypedLine(file: TrainingFile, line: string): TrainingConcept[] {
+  const concepts: TrainingConcept[] = [];
+  const trimmed = line.trim();
+
+  if (!trimmed || trimmed === "}" || trimmed === "});" || trimmed.startsWith("</")) {
+    return concepts;
+  }
+
+  if (file.language === "HTML") {
+    if (trimmed.startsWith("<!doctype")) {
+      pushConcept(concepts, "Document type", "Tells the browser this file uses modern HTML rules.", trimmed);
+    }
+
+    if (trimmed.startsWith("<html")) {
+      pushConcept(concepts, "HTML root", "Starts the page and sets the language the browser should expect.", trimmed);
+    }
+
+    if (trimmed.startsWith("<head>")) {
+      pushConcept(concepts, "Head section", "Holds setup information for the browser, not visible page content.", trimmed);
+    }
+
+    if (trimmed.startsWith("<meta charset")) {
+      pushConcept(concepts, "Character encoding", "Lets the browser read normal letters, symbols, and punctuation correctly.", trimmed);
+    }
+
+    if (trimmed.startsWith("<meta name=\"viewport\"")) {
+      pushConcept(concepts, "Responsive viewport", "Makes the layout scale correctly on different screen sizes.", trimmed);
+    }
+
+    if (trimmed.startsWith("<title>")) {
+      pushConcept(concepts, "Page title", "Names the browser tab and helps identify the project.", trimmed);
+    }
+
+    if (trimmed.includes("rel=\"stylesheet\"")) {
+      pushConcept(concepts, "CSS link", "Connects the HTML file to the stylesheet so styles can affect the page.", trimmed);
+    }
+
+    if (trimmed.startsWith("<body>") || trimmed.startsWith("<main>")) {
+      pushConcept(concepts, "Visible page area", "Starts the part of the page that users actually see and use.", trimmed);
+    }
+
+    if (/^<h[1-6]/.test(trimmed)) {
+      pushConcept(concepts, "Heading", "Creates a clear title or section label so the page has structure.", trimmed);
+    }
+
+    if (trimmed.startsWith("<p")) {
+      pushConcept(concepts, "Paragraph text", "Adds readable explanation or status text to the interface.", trimmed);
+    }
+
+    if (trimmed.startsWith("<input")) {
+      pushConcept(concepts, "Input field", "Creates a place where the user can type information into the app.", trimmed);
+    }
+
+    if (trimmed.startsWith("<button")) {
+      pushConcept(concepts, "Button", "Creates an action the user can click, which JavaScript can listen for.", trimmed);
+    }
+
+    if (trimmed.startsWith("<ul") || trimmed.startsWith("<li")) {
+      pushConcept(concepts, "List content", "Groups repeated items so the app can show more than one thing cleanly.", trimmed);
+    }
+
+    if (trimmed.startsWith("<script")) {
+      pushConcept(concepts, "JavaScript link", "Loads the behavior file after the page structure is in place.", trimmed);
+    }
+  }
+
+  if (file.language === "CSS") {
+    if (trimmed.endsWith("{")) {
+      pushConcept(concepts, "Selector block", "Chooses which HTML elements or classes the next style rules will affect.", trimmed);
+    }
+
+    if (trimmed.startsWith("margin:") || trimmed.startsWith("padding:")) {
+      pushConcept(concepts, "Spacing", "Controls the room outside or inside an element so the design can breathe.", trimmed);
+    }
+
+    if (trimmed.startsWith("display:")) {
+      pushConcept(concepts, "Layout mode", "Changes how children inside this element are arranged on the page.", trimmed);
+    }
+
+    if (trimmed.startsWith("grid-template") || trimmed.startsWith("place-items") || trimmed.startsWith("gap:")) {
+      pushConcept(concepts, "Grid layout", "Uses CSS grid rules to align content and keep spacing consistent.", trimmed);
+    }
+
+    if (trimmed.startsWith("width:") || trimmed.startsWith("min-height:")) {
+      pushConcept(concepts, "Sizing rule", "Sets how much space an element can take up in the layout.", trimmed);
+    }
+
+    if (trimmed.startsWith("background:") || trimmed.startsWith("color:")) {
+      pushConcept(concepts, "Color styling", "Controls surface colors and text colors so the interface is readable.", trimmed);
+    }
+
+    if (trimmed.startsWith("font-") || trimmed.startsWith("font:")) {
+      pushConcept(concepts, "Typography", "Controls how text looks, including size, weight, and font family.", trimmed);
+    }
+
+    if (trimmed.startsWith("border") || trimmed.startsWith("box-shadow")) {
+      pushConcept(concepts, "Visual container", "Adds shape, edges, or depth so sections are easier to see.", trimmed);
+    }
+
+    if (trimmed.startsWith("line-height:")) {
+      pushConcept(concepts, "Readable text", "Controls space between lines so paragraphs are easier to read.", trimmed);
+    }
+  }
+
+  if (file.language === "JS") {
+    if (trimmed.startsWith("const ")) {
+      pushConcept(concepts, "Variable", "Stores a value with a name so the code can reuse it later.", trimmed);
+    }
+
+    if (trimmed.includes("document.querySelector")) {
+      pushConcept(concepts, "DOM selection", "Finds an HTML element so JavaScript can read it or change it.", trimmed);
+    }
+
+    if (trimmed.includes("addEventListener")) {
+      pushConcept(concepts, "Event listener", "Waits for a user action, like a click, then runs a block of code.", trimmed);
+    }
+
+    if (trimmed.startsWith("if ")) {
+      pushConcept(concepts, "Conditional block", "Runs code only when a condition is true, which lets the app make decisions.", trimmed);
+    }
+
+    if (trimmed.includes("return")) {
+      pushConcept(concepts, "Early stop", "Stops the current function so invalid or empty input does not continue.", trimmed);
+    }
+
+    if (trimmed.includes("createElement")) {
+      pushConcept(concepts, "Create element", "Builds a new HTML element from JavaScript instead of writing it by hand in HTML.", trimmed);
+    }
+
+    if (trimmed.includes(".textContent")) {
+      pushConcept(concepts, "Text update", "Changes what the user sees on the page without reloading.", trimmed);
+    }
+
+    if (trimmed.includes("appendChild")) {
+      pushConcept(concepts, "Add to page", "Places a newly created element inside an existing part of the page.", trimmed);
+    }
+
+    if (trimmed.includes(".value")) {
+      pushConcept(concepts, "Input value", "Reads or resets what the user typed into an input field.", trimmed);
+    }
+
+    if (trimmed.includes("Math.random")) {
+      pushConcept(concepts, "Random value", "Creates changing data so the interface can update with different numbers.", trimmed);
+    }
+  }
+
+  return concepts;
+}
+
+function getTypedTrainingConcepts(file: TrainingFile | null): TrainingConcept[] {
+  if (!file) return [];
+
+  const completedLines = file.typed.endsWith("\n")
+    ? file.typed.split("\n").slice(0, -1)
+    : file.typed.split("\n").slice(0, -1);
+
+  return completedLines.flatMap((line) => explainTypedLine(file, line)).slice(-8);
+}
+
+function getNextTrainingConcept(file: TrainingFile | null): TrainingConcept | null {
+  if (!file) return null;
+
+  const remainingLines = file.code.slice(file.typed.length).split("\n");
+
+  for (const line of remainingLines) {
+    const concepts = explainTypedLine(file, line);
+    if (concepts.length) return concepts[0];
+  }
+
+  return null;
+}
+
 export default function TrainingPanel() {
   const savedState = useMemo(() => readSavedTrainingState(), []);
   const [idea, setIdea] = useState(savedState?.idea ?? "");
@@ -487,6 +673,8 @@ export default function TrainingPanel() {
   const remaining = activeFile ? activeFile.code.slice(activeFile.typed.length) : "";
   const percent = activeFile ? Math.round((activeFile.typed.length / activeFile.code.length) * 100) : 0;
   const explanation = getTrainingExplanation(activeFile, idea);
+  const typedConcepts = getTypedTrainingConcepts(activeFile);
+  const nextConcept = getNextTrainingConcept(activeFile);
 
   const remainingPreview = useMemo(() => {
     if (!activeFile) return "";
@@ -694,12 +882,36 @@ export default function TrainingPanel() {
           </div>
 
           <div className="training-explanation">
-            <div className="training-panel-label">Explanation</div>
+            <div className="training-panel-label">Description</div>
             <div>
               <h3>{explanation.title}</h3>
               <p>{explanation.description}</p>
               <strong>What was learned</strong>
               <p>{explanation.learned}</p>
+              <strong>Typed breakdown</strong>
+              {typedConcepts.length ? (
+                <div className="training-concept-list">
+                  {typedConcepts.map((concept, index) => (
+                    <div className="training-concept-card" key={`${concept.title}-${index}`}>
+                      <span>{concept.title}</span>
+                      <p>{concept.detail}</p>
+                      <code>{concept.source}</code>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p>Finish a line and this panel will explain what that section does.</p>
+              )}
+              {nextConcept ? (
+                <>
+                  <strong>Coming next</strong>
+                  <div className="training-concept-card training-concept-next">
+                    <span>{nextConcept.title}</span>
+                    <p>{nextConcept.detail}</p>
+                    <code>{nextConcept.source}</code>
+                  </div>
+                </>
+              ) : null}
             </div>
           </div>
         </aside>

@@ -937,11 +937,57 @@ button {
 
 .training-explanation strong {
   display: block;
-  margin-bottom: 6px;
+  margin: 14px 0 6px;
   color: #bfdbfe;
   font-size: 0.72rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.training-explanation strong:first-of-type {
+  margin-top: 0;
+}
+
+.training-concept-list {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.training-concept-card {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid rgba(96, 165, 250, 0.16);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.training-concept-card span {
+  color: #f8fafc;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.training-concept-card p {
+  margin: 0;
+}
+
+.training-concept-card code {
+  display: block;
+  overflow-wrap: anywhere;
+  border-radius: 8px;
+  padding: 7px 8px;
+  background: #070a12;
+  color: #fbbf24;
+  font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.training-concept-next {
+  border-color: rgba(251, 146, 60, 0.28);
+  background: rgba(67, 20, 7, 0.28);
 }
 
 .training-editor-grid {
