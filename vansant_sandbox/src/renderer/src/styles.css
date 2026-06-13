@@ -801,7 +801,35 @@ button {
   text-transform: uppercase;
 }
 
-.training-prompt > div {
+.training-mode-group {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  margin-bottom: 10px;
+  padding: 4px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 12px;
+  background: rgba(8, 11, 18, 0.78);
+}
+
+.training-mode-group button {
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: #a1a1aa;
+  background: transparent;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.training-mode-group button:hover,
+.training-mode-group .training-mode-active {
+  color: #fff;
+  background: linear-gradient(135deg, #7c3aed, #f97316);
+}
+
+.training-prompt-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 10px;
@@ -2030,7 +2058,7 @@ button {
   }
 
   .training-editor-grid,
-  .training-prompt > div {
+  .training-prompt-row {
     grid-template-columns: 1fr;
   }
 

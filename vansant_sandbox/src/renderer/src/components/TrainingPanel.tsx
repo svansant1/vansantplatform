@@ -15,9 +15,12 @@ type TrainingMetrics = {
   completedAt: number | null;
 };
 
+type TrainingMode = "quick" | "full";
+
 type TrainingSaveState = {
   version: 1;
   idea: string;
+  mode: TrainingMode;
   files: TrainingFile[];
   activeIndex: number;
   previewHtml: string;
@@ -83,6 +86,7 @@ function readSavedTrainingState(): TrainingSaveState | null {
     return {
       version: 1,
       idea: parsed.idea,
+      mode: parsed.mode === "full" ? "full" : "quick",
       files,
       activeIndex: Math.max(0, Math.min(parsed.activeIndex, Math.max(files.length - 1, 0))),
       previewHtml: typeof parsed.previewHtml === "string" ? parsed.previewHtml : "",
@@ -169,7 +173,7 @@ function projectCopy(kind: string) {
   return copy[kind as keyof typeof copy] ?? copy.tasks;
 }
 
-function generateProjectFiles(idea: string): TrainingFile[] {
+function generateProjectFiles(idea: string, mode: TrainingMode): TrainingFile[] {
   const kind = inferProjectKind(idea);
   const name = titleCase(idea);
   const copy = projectCopy(kind);
@@ -284,6 +288,7 @@ function generateProjectFiles(idea: string): TrainingFile[] {
     `    <p>${copy.subhead}</p>`,
     ...bodyByKind[kind],
     "  </main>",
+    ...(mode === "full" ? ['  <script src="data.js"></script>'] : []),
     '  <script src="app.js"></script>',
     "</body>",
     "</html>",
@@ -366,10 +371,89 @@ function generateProjectFiles(idea: string): TrainingFile[] {
     "}",
   ].join("\n");
 
-  return [
+  const baseFiles: TrainingFile[] = [
     { name: "index.html", language: "HTML", code: html, typed: "", metrics: createTrainingMetrics() },
     { name: "styles.css", language: "CSS", code: css, typed: "", metrics: createTrainingMetrics() },
     { name: "app.js", language: "JS", code: scriptByKind[kind].join("\n"), typed: "", metrics: createTrainingMetrics() },
+  ];
+
+  if (mode === "quick") {
+    return baseFiles;
+  }
+
+  const readme = [
+    `# ${name}`,
+    "",
+    `This project turns the idea "${idea}" into a small working app.`,
+    "",
+    "## What you will build",
+    "- A page structure in `index.html`.",
+    "- A visual design in `styles.css`.",
+    "- Interactive behavior in `app.js`.",
+    "- Starter project data in `data.js`.",
+    "",
+    "## Beginner goal",
+    "Type each file slowly, then use the Description panel to understand what each section does.",
+  ].join("\n");
+
+  const projectPlan = [
+    `# Project Plan: ${name}`,
+    "",
+    "## Build order",
+    "1. Create the HTML structure.",
+    "2. Style the layout and controls.",
+    "3. Add starter data.",
+    "4. Add JavaScript behavior.",
+    "5. Preview and test the project.",
+    "",
+    "## What to check",
+    "- The page loads without errors.",
+    "- Buttons respond when clicked.",
+    "- Inputs clear or update when expected.",
+    "- The layout is readable on different window sizes.",
+  ].join("\n");
+
+  const data = [
+    "const projectData = {",
+    `  name: "${name}",`,
+    `  type: "${copy.accent}",`,
+    "  lessons: [",
+    '    "HTML creates the structure.",',
+    '    "CSS controls the design.",',
+    '    "JavaScript makes the page respond.",',
+    "  ],",
+    "};",
+  ].join("\n");
+
+  const testingChecklist = [
+    "# Testing Checklist",
+    "",
+    "- Open the preview after typing each file.",
+    "- Confirm the title and main text appear.",
+    "- Click the main button and watch for a visible change.",
+    "- Try empty input if the project uses a text box.",
+    "- Fix one mistake at a time before moving on.",
+  ].join("\n");
+
+  const nextSteps = [
+    "# Next Steps",
+    "",
+    "- Change the colors and spacing.",
+    "- Add one new button or section.",
+    "- Add more data to `data.js`.",
+    "- Explain the project out loud in your own words.",
+    "- Save a finished version before adding extra features.",
+  ].join("\n");
+
+  return [
+    { name: "README.md", language: "MD", code: readme, typed: "", metrics: createTrainingMetrics() },
+    { name: "project-plan.md", language: "MD", code: projectPlan, typed: "", metrics: createTrainingMetrics() },
+    baseFiles[0],
+    baseFiles[1],
+    { name: "data.js", language: "JS", code: data, typed: "", metrics: createTrainingMetrics() },
+    baseFiles[2],
+    { name: "testing-checklist.md", language: "MD", code: testingChecklist, typed: "", metrics: createTrainingMetrics() },
+    { name: "next-steps.md", language: "MD", code: nextSteps, typed: "", metrics: createTrainingMetrics() },
   ];
 }
 
@@ -383,6 +467,7 @@ function visibleKey(char: string | undefined): string {
 function assemblePreview(files: TrainingFile[]): string {
   const html = files.find((file) => file.name === "index.html")?.typed || "";
   const css = files.find((file) => file.name === "styles.css")?.typed || "";
+  const data = files.find((file) => file.name === "data.js")?.typed || "";
   const js = files.find((file) => file.name === "app.js")?.typed || "";
 
   return html
@@ -390,6 +475,7 @@ function assemblePreview(files: TrainingFile[]): string {
       '<link rel="stylesheet" href="styles.css" />',
       `<style>\n${css}\n</style>`,
     )
+    .replace('<script src="data.js"></script>', `<script>\n${data}\n</script>`)
     .replace('<script src="app.js"></script>', `<script>\n${js}\n</script>`);
 }
 
@@ -447,6 +533,16 @@ function getTrainingExplanation(file: TrainingFile | null, idea: string) {
         "This file controls the look and feel: spacing, colors, layout, borders, and responsive visual polish.",
       learned:
         "You are learning selectors, reusable classes, layout rules, and visual hierarchy.",
+    };
+  }
+
+  if (file.language === "MD") {
+    return {
+      title: "Project Notes",
+      description:
+        "This file explains the project in plain language so the learner understands the goal, order, checks, and next steps.",
+      learned:
+        "You are learning how project documentation guides the build before and after code is written.",
     };
   }
 
@@ -533,6 +629,24 @@ function explainTypedLine(file: TrainingFile, line: string): TrainingConcept[] {
     }
   }
 
+  if (file.language === "MD") {
+    if (trimmed.startsWith("#")) {
+      pushConcept(concepts, "Document heading", "Creates a clear section title so the project notes are easy to scan.", trimmed);
+    }
+
+    if (trimmed.startsWith("- ")) {
+      pushConcept(concepts, "Checklist item", "Breaks the project into small actions the learner can complete one at a time.", trimmed);
+    }
+
+    if (/^\d+\./.test(trimmed)) {
+      pushConcept(concepts, "Ordered step", "Shows a sequence where the order matters for building the project.", trimmed);
+    }
+
+    if (trimmed.includes("`")) {
+      pushConcept(concepts, "File reference", "Uses inline code formatting to point to an exact file or technical name.", trimmed);
+    }
+  }
+
   if (file.language === "CSS") {
     if (trimmed.endsWith("{")) {
       pushConcept(concepts, "Selector block", "Chooses which HTML elements or classes the next style rules will affect.", trimmed);
@@ -574,6 +688,14 @@ function explainTypedLine(file: TrainingFile, line: string): TrainingConcept[] {
   if (file.language === "JS") {
     if (trimmed.startsWith("const ")) {
       pushConcept(concepts, "Variable", "Stores a value with a name so the code can reuse it later.", trimmed);
+    }
+
+    if (trimmed.endsWith("[") || trimmed.includes("[")) {
+      pushConcept(concepts, "Array", "Stores a list of values together so the project can reuse repeated information.", trimmed);
+    }
+
+    if (trimmed.endsWith("{") || trimmed === "};") {
+      pushConcept(concepts, "Object block", "Groups related values under one name so the project data stays organized.", trimmed);
     }
 
     if (trimmed.includes("document.querySelector")) {
@@ -642,6 +764,7 @@ function getNextTrainingConcept(file: TrainingFile | null): TrainingConcept | nu
 export default function TrainingPanel() {
   const savedState = useMemo(() => readSavedTrainingState(), []);
   const [idea, setIdea] = useState(savedState?.idea ?? "");
+  const [mode, setMode] = useState<TrainingMode>(savedState?.mode ?? "quick");
   const [files, setFiles] = useState<TrainingFile[]>(savedState?.files ?? []);
   const [activeIndex, setActiveIndex] = useState(savedState?.activeIndex ?? 0);
   const [feedback, setFeedback] = useState(
@@ -656,11 +779,12 @@ export default function TrainingPanel() {
   useEffect(() => {
     writeSavedTrainingState({
       idea,
+      mode,
       files,
       activeIndex,
       previewHtml,
     });
-  }, [activeIndex, files, idea, previewHtml]);
+  }, [activeIndex, files, idea, mode, previewHtml]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
@@ -708,10 +832,14 @@ export default function TrainingPanel() {
       return;
     }
 
-    setFiles(generateProjectFiles(trimmedIdea));
+    setFiles(generateProjectFiles(trimmedIdea, mode));
     setActiveIndex(0);
     setPreviewHtml("");
-    setFeedback("Generated a multi-file project. Start typing index.html or choose another file.");
+    setFeedback(
+      mode === "full"
+        ? "Generated a full project package. Start with README.md or choose any file."
+        : "Generated a quick lesson project. Start typing index.html or choose another file.",
+    );
     window.setTimeout(() => inputRef.current?.focus(), 0);
   }
 
@@ -829,7 +957,23 @@ export default function TrainingPanel() {
 
         <div className="training-prompt">
           <label htmlFor="training-idea">Project idea</label>
-          <div>
+          <div className="training-mode-group" aria-label="Training mode">
+            <button
+              type="button"
+              className={mode === "quick" ? "training-mode-active" : ""}
+              onClick={() => setMode("quick")}
+            >
+              Quick Lesson
+            </button>
+            <button
+              type="button"
+              className={mode === "full" ? "training-mode-active" : ""}
+              onClick={() => setMode("full")}
+            >
+              Full Project
+            </button>
+          </div>
+          <div className="training-prompt-row">
             <input
               id="training-idea"
               value={idea}
@@ -1000,6 +1144,7 @@ export default function TrainingPanel() {
 
               clearSavedTrainingState();
               setIdea("");
+              setMode("quick");
               setFiles([]);
               setActiveIndex(0);
               setPreviewHtml("");
