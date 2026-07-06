@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
 import Editor, { loader } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
 import FileTree from "./components/FileTree";
@@ -63,6 +63,13 @@ type QuickOpenFile = {
 type DraftRecord = {
   content: string;
   savedAt: number;
+};
+
+type TextInputDialogState = {
+  title: string;
+  label: string;
+  value: string;
+  confirmLabel: string;
 };
 
 const DRAFT_PREFIX = "vansant-sandbox:draft:v1:";
@@ -299,9 +306,33 @@ export default function App() {
   const [debugOpen, setDebugOpen] = useState(false);
   const [trainingOpen, setTrainingOpen] = useState(false);
   const [practiceOpen, setPracticeOpen] = useState(false);
+  const [textInputDialog, setTextInputDialog] =
+    useState<TextInputDialogState | null>(null);
+  const textInputResolver = useRef<((value: string | null) => void) | null>(null);
   const [diagnosticsByPath, setDiagnosticsByPath] = useState<
     Record<string, DiagnosticSummary>
   >({});
+
+  function requestTextInput(
+    title: string,
+    label: string,
+    confirmLabel: string,
+    initialValue = "",
+  ): Promise<string | null> {
+    textInputResolver.current?.(null);
+
+    return new Promise((resolve) => {
+      textInputResolver.current = resolve;
+      setTextInputDialog({ title, label, confirmLabel, value: initialValue });
+    });
+  }
+
+  function closeTextInputDialog(value: string | null) {
+    const resolve = textInputResolver.current;
+    textInputResolver.current = null;
+    setTextInputDialog(null);
+    resolve?.(value);
+  }
 
   useEffect(() => {
     if (!isResizingTerminal) return;
@@ -872,7 +903,11 @@ export default function App() {
     }
 
     const label = type === "file" ? "file" : "folder";
-    const name = window.prompt(`Enter ${label} name:`);
+    const name = await requestTextInput(
+      `Create new ${label}`,
+      `${label === "file" ? "File" : "Folder"} name`,
+      `Create ${label}`,
+    );
 
     if (!name?.trim()) return;
 
@@ -906,7 +941,12 @@ export default function App() {
       return;
     }
 
-    const nextName = window.prompt("Enter new name:", node.name);
+    const nextName = await requestTextInput(
+      "Rename item",
+      "New name",
+      "Rename",
+      node.name,
+    );
 
     if (!nextName?.trim() || nextName.trim() === node.name) return;
 
@@ -1164,6 +1204,58 @@ export default function App() {
         onOpenFile={(filePath) => void openQuickFile(filePath)}
         onClose={() => setQuickOpenVisible(false)}
       />
+
+      {textInputDialog && (
+        <div
+          className="text-input-dialog-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              closeTextInputDialog(null);
+            }
+          }}
+        >
+          <form
+            className="text-input-dialog"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const value = textInputDialog.value.trim();
+              if (value) closeTextInputDialog(value);
+            }}
+          >
+            <h2>{textInputDialog.title}</h2>
+            <label htmlFor="workspace-entry-name">{textInputDialog.label}</label>
+            <input
+              id="workspace-entry-name"
+              value={textInputDialog.value}
+              onChange={(event) =>
+                setTextInputDialog((current) =>
+                  current ? { ...current, value: event.target.value } : current,
+                )
+              }
+              onFocus={(event) => event.currentTarget.select()}
+              autoFocus
+              spellCheck={false}
+            />
+            <div className="text-input-dialog-actions">
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={() => closeTextInputDialog(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="primary-btn"
+                disabled={!textInputDialog.value.trim()}
+              >
+                {textInputDialog.confirmLabel}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       <header className="topbar">
         <div>

@@ -209,6 +209,61 @@ button {
   background: rgba(2, 6, 23, 0.62);
 }
 
+.text-input-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(3, 5, 10, 0.76);
+}
+
+.text-input-dialog {
+  width: min(440px, 100%);
+  display: grid;
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid rgba(167, 139, 250, 0.3);
+  border-radius: 14px;
+  background: #11131a;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.52);
+}
+
+.text-input-dialog h2 {
+  margin: 0;
+  color: #f8fafc;
+  font-size: 1.1rem;
+}
+
+.text-input-dialog label {
+  color: #c4b5fd;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.text-input-dialog input {
+  width: 100%;
+  border: 1px solid #343746;
+  border-radius: 10px;
+  padding: 11px 12px;
+  color: #f8fafc;
+  background: #080b12;
+  outline: none;
+  font: inherit;
+}
+
+.text-input-dialog input:focus {
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.18);
+}
+
+.text-input-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .commandbar {
   width: min(760px, calc(100vw - 32px));
   max-height: min(560px, calc(100vh - 120px));
