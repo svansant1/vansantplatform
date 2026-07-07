@@ -2,7 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import path from "node:path";
 import fs from "node:fs/promises";
 import { constants as fsConstants, existsSync, watch, type FSWatcher } from "node:fs";
-import { spawn } from "node:child_process";
+import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { deflateSync } from "node:zlib";
 import * as pty from "node-pty";
 
@@ -133,6 +133,7 @@ type RenameEntryPayload = {
 type RunFilePayload = {
   filePath: string;
   cwd?: string;
+  content?: string;
 };
 
 type PracticeLanguage = "javascript" | "typescript" | "python" | "powershell" | "svans";
@@ -257,6 +258,7 @@ type ManagedTerminal = {
 };
 
 const terminals = new Map<string, ManagedTerminal>();
+const activeRunProcesses = new Map<number, ChildProcessWithoutNullStreams>();
 let currentWorkspaceRoot: string | null = null;
 let workspaceWatcher: FSWatcher | null = null;
 let workspaceChangeTimer: NodeJS.Timeout | null = null;
@@ -280,6 +282,26 @@ function killAllTerminals(): number {
   terminals.clear();
 
   return terminalCount;
+}
+
+function stopRunProcess(ownerId: number): boolean {
+  const child = activeRunProcesses.get(ownerId);
+  if (!child) return false;
+
+  activeRunProcesses.delete(ownerId);
+  child.kill();
+  return true;
+}
+
+function stopAllRunProcesses(): number {
+  const processCount = activeRunProcesses.size;
+
+  for (const child of activeRunProcesses.values()) {
+    child.kill();
+  }
+
+  activeRunProcesses.clear();
+  return processCount;
 }
 
 function normalizeForCompare(targetPath: string): string {
@@ -1099,28 +1121,131 @@ function getRunCommand(filePath: string): { command: string; args: string[] } {
   }
 }
 
-async function runFile(payload: RunFilePayload): Promise<RunResult> {
+function inferExtensionlessRunCommand(
+  filePath: string,
+  content: string,
+): { command: string; args: string[] } {
+  const pythonPattern = /(^|\n)\s*(#!.*python|print\s*\(|from\s+[\w.]+\s+import\s+|import\s+[\w.]+|def\s+\w+\s*\(|class\s+\w+\s*[:(]|if\s+__name__\s*==)/i;
+  const javascriptPattern = /(^|\n)\s*(#!.*node|console\.log\s*\(|(?:const|let|var)\s+\w+|function\s+\w+\s*\(|import\s+.+\s+from\s+|.+=>)/i;
+
+  if (pythonPattern.test(content)) {
+    return { command: "python", args: [filePath] };
+  }
+
+  if (javascriptPattern.test(content)) {
+    return { command: "node", args: [filePath] };
+  }
+
+  throw new Error(
+    "This file has no extension and its language could not be identified. Rename it with an extension such as .py or .js.",
+  );
+}
+
+function getBufferedRunCommand(
+  filePath: string,
+  content: string,
+): { command: string; args: string[]; displayCommand: string } {
+  const ext = path.extname(filePath).toLowerCase();
+
+  switch (ext) {
+    case ".py":
+      return {
+        command: "python",
+        args: ["-c", content],
+        displayCommand: `python [unsaved ${path.basename(filePath)}]`,
+      };
+
+    case ".js":
+    case ".cjs":
+      return {
+        command: "node",
+        args: ["-e", content],
+        displayCommand: `node [unsaved ${path.basename(filePath)}]`,
+      };
+
+    case ".mjs":
+      return {
+        command: "node",
+        args: ["--input-type=module", "-e", content],
+        displayCommand: `node [unsaved ${path.basename(filePath)}]`,
+      };
+
+    case ".ts":
+      return {
+        command: "npx",
+        args: ["tsx", "-e", content],
+        displayCommand: `tsx [unsaved ${path.basename(filePath)}]`,
+      };
+
+    case ".java":
+      throw new Error(
+        "Java files must be saved before running because the filename must match the class name.",
+      );
+
+    case "": {
+      const inferred = inferExtensionlessRunCommand(filePath, content);
+
+      return inferred.command === "python"
+        ? {
+            command: "python",
+            args: ["-c", content],
+            displayCommand: `python [unsaved ${path.basename(filePath)}]`,
+          }
+        : {
+            command: "node",
+            args: ["-e", content],
+            displayCommand: `node [unsaved ${path.basename(filePath)}]`,
+          };
+    }
+
+    default:
+      throw new Error(`This file type cannot be run yet: ${ext}`);
+  }
+}
+
+async function runFile(payload: RunFilePayload, ownerId: number): Promise<RunResult> {
   const normalizedPath = await assertExistingPathInsideWorkspace(
     payload.filePath,
     "Run target",
   );
   const ext = path.extname(normalizedPath).toLowerCase();
+  let runCommand: {
+    command: string;
+    args: string[];
+    displayCommand?: string;
+  };
 
-  if (!ALLOWED_RUN_EXTENSIONS.has(ext)) {
-    throw new Error(`This file type cannot be run yet: ${ext}`);
+  if (typeof payload.content === "string") {
+    if (Buffer.byteLength(payload.content, "utf8") > MAX_EDITOR_FILE_BYTES) {
+      throw new Error("The unsaved editor content is too large to run directly.");
+    }
+
+    runCommand = getBufferedRunCommand(normalizedPath, payload.content);
+  } else if (!ext) {
+    const content = await fs.readFile(normalizedPath, "utf8");
+    runCommand = inferExtensionlessRunCommand(normalizedPath, content);
+  } else {
+    if (!ALLOWED_RUN_EXTENSIONS.has(ext)) {
+      throw new Error(`This file type cannot be run yet: ${ext}`);
+    }
+
+    runCommand = getRunCommand(normalizedPath);
   }
 
-  const { command, args } = getRunCommand(normalizedPath);
+  const { command, args, displayCommand } = runCommand;
   const cwd = payload.cwd
     ? assertInsideWorkspace(payload.cwd, "Run working directory")
     : path.dirname(normalizedPath);
 
   return new Promise<RunResult>((resolve, reject) => {
+    stopRunProcess(ownerId);
+
     const child = spawn(command, args, {
       cwd,
       shell: false,
       windowsHide: true,
     });
+    activeRunProcesses.set(ownerId, child);
 
     let stdout = "";
     let stderr = "";
@@ -1134,10 +1259,16 @@ async function runFile(payload: RunFilePayload): Promise<RunResult> {
     });
 
     child.on("error", (error) => {
+      if (activeRunProcesses.get(ownerId) === child) {
+        activeRunProcesses.delete(ownerId);
+      }
       reject(error);
     });
 
     child.on("close", (code) => {
+      if (activeRunProcesses.get(ownerId) === child) {
+        activeRunProcesses.delete(ownerId);
+      }
       resolve({
         ok: code === 0,
         command: `${command} ${args.join(" ")}`,
@@ -1341,7 +1472,7 @@ async function runPractice(payload: RunPracticePayload): Promise<RunResult> {
 
       resolve({
         ok: code === 0,
-        command: `${command} ${args.join(" ")}`,
+        command: displayCommand ?? `${command} ${args.join(" ")}`,
         stdout,
         stderr,
         exitCode: code,
@@ -1634,6 +1765,7 @@ function createMainWindow(): BrowserWindow {
 
   win.on("closed", () => {
     killAllTerminals();
+    stopAllRunProcesses();
   });
 
   return win;
@@ -2257,6 +2389,7 @@ async function applyAssistantEdits(payload: ApplyAssistantEditsPayload) {
 app.on("before-quit", () => {
   stopWorkspaceWatcher();
   killAllTerminals();
+  stopAllRunProcesses();
 });
 
 app.whenReady().then(() => {
@@ -2451,8 +2584,12 @@ app.whenReady().then(() => {
     };
   });
 
-  ipcMain.handle("runner:run-file", async (_event, payload: RunFilePayload) => {
-    return runFile(payload);
+  ipcMain.handle("runner:run-file", async (event, payload: RunFilePayload) => {
+    return runFile(payload, event.sender.id);
+  });
+
+  ipcMain.handle("runner:stop", async (event) => {
+    return { ok: stopRunProcess(event.sender.id) };
   });
 
   ipcMain.handle("runner:run-practice", async (_event, payload: RunPracticePayload) => {
@@ -2540,6 +2677,7 @@ app.whenReady().then(() => {
 
 app.on("window-all-closed", () => {
   killAllTerminals();
+  stopAllRunProcesses();
 
   if (process.platform !== "darwin") {
     app.quit();

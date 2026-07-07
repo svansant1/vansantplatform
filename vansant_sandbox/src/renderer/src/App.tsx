@@ -72,6 +72,11 @@ type TextInputDialogState = {
   confirmLabel: string;
 };
 
+type TerminalRunRequest = {
+  id: number;
+  command: string;
+};
+
 const DRAFT_PREFIX = "vansant-sandbox:draft:v1:";
 const DEFAULT_EDITOR_FONT_SIZE = 14;
 const MIN_EDITOR_FONT_SIZE = 10;
@@ -284,6 +289,36 @@ function clampImageZoom(zoom: number): number {
   return Math.max(MIN_IMAGE_ZOOM, Math.min(MAX_IMAGE_ZOOM, zoom));
 }
 
+function encodeEditorContent(content: string): string {
+  const bytes = new TextEncoder().encode(content);
+  let binary = "";
+
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+
+  return window.btoa(binary);
+}
+
+function getInteractiveRunCommand(filePath: string, content: string): string | null {
+  const extension = getFileExtension(filePath);
+
+  if (extension === ".py" && /\binput\s*\(/.test(content)) {
+    const encoded = encodeEditorContent(content);
+    return `python -c "import base64;exec(compile(base64.b64decode('${encoded}'), '<editor>', 'exec'))"`;
+  }
+
+  if (
+    [".js", ".mjs", ".cjs"].includes(extension) &&
+    /\b(process\.stdin|readline(?:\/promises)?|createInterface)\b/.test(content)
+  ) {
+    const encoded = encodeEditorContent(content);
+    return `node -e "eval(Buffer.from('${encoded}','base64').toString('utf8'))"`;
+  }
+
+  return null;
+}
+
 export default function App() {
   const [workspacePath, setWorkspacePath] = useState<string | null>(null);
   const [tree, setTree] = useState<FileNode[]>([]);
@@ -308,7 +343,10 @@ export default function App() {
   const [practiceOpen, setPracticeOpen] = useState(false);
   const [textInputDialog, setTextInputDialog] =
     useState<TextInputDialogState | null>(null);
+  const [terminalRunRequest, setTerminalRunRequest] =
+    useState<TerminalRunRequest | null>(null);
   const textInputResolver = useRef<((value: string | null) => void) | null>(null);
+  const activeRunIdRef = useRef(0);
   const [diagnosticsByPath, setDiagnosticsByPath] = useState<
     Record<string, DiagnosticSummary>
   >({});
@@ -1063,29 +1101,37 @@ export default function App() {
       return null;
     }
 
-    if (activeTab.isDirty) {
-      const shouldSave = window.confirm(
-        `"${activeTab.name}" has unsaved changes. Save before running it?`,
+    const interactiveCommand = getInteractiveRunCommand(
+      activeTab.path,
+      activeTab.content,
+    );
+
+    if (interactiveCommand) {
+      setRunResult(null);
+      setRunning(false);
+      setTerminalRunRequest({
+        id: Date.now(),
+        command: interactiveCommand,
+      });
+      setStatusMessage(
+        `Running ${activeTab.name} interactively. Enter input in the Terminal.`,
       );
-
-      if (!shouldSave) {
-        setStatusMessage("Run canceled. Save the file or run after discarding changes.");
-        return null;
-      }
-
-      const saved = await saveActiveFile();
-
-      if (!saved) return null;
+      return null;
     }
 
     try {
+      const runId = activeRunIdRef.current + 1;
+      activeRunIdRef.current = runId;
       setRunning(true);
       setStatusMessage(`Running ${activeTab.name}...`);
 
       const result = await window.sandboxApi.runFile(
         activeTab.path,
         workspacePath ?? undefined,
+        activeTab.isDirty ? activeTab.content : undefined,
       );
+
+      if (activeRunIdRef.current !== runId) return null;
 
       setRunResult(result);
 
@@ -1102,14 +1148,36 @@ export default function App() {
 
       return result;
     } catch (error) {
-      setRunResult(null);
-      setStatusMessage(
-        error instanceof Error ? error.message : "Failed to run file.",
-      );
+      const runId = activeRunIdRef.current;
+      const message =
+        error instanceof Error ? error.message : "Failed to run file.";
+
+      if (activeRunIdRef.current !== runId) return null;
+
+      setRunResult({
+        ok: false,
+        command: `Run ${activeTab.name}`,
+        stdout: "",
+        stderr: message,
+        exitCode: null,
+      });
+      setStatusMessage(message);
 
       return null;
     } finally {
       setRunning(false);
+    }
+  }
+
+  async function stopActiveRun() {
+    activeRunIdRef.current += 1;
+
+    try {
+      await window.sandboxApi.stopRun();
+    } finally {
+      setRunning(false);
+      setRunResult(null);
+      setStatusMessage("Run stopped. You can edit and run again.");
     }
   }
 
@@ -1386,11 +1454,13 @@ export default function App() {
 
           <button
             className="accent-btn"
-            onClick={runActiveFile}
-            disabled={!activeTab || activeTab.kind !== "text" || running}
-            title="Run active file (Ctrl+Enter)"
+            onClick={() =>
+              running ? void stopActiveRun() : void runActiveFile()
+            }
+            disabled={!activeTab || activeTab.kind !== "text"}
+            title={running ? "Stop active run" : "Run active file (Ctrl+Enter)"}
           >
-            {running ? "Running..." : "Run File"}
+            {running ? "Stop Run" : "Run File"}
           </button>
 
           <button
@@ -1632,6 +1702,7 @@ export default function App() {
         loading={running}
         workspacePath={workspacePath}
         height={terminalHeight}
+        runRequest={terminalRunRequest}
       />
 
       <StatusBar

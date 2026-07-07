@@ -146,8 +146,15 @@ const sandboxApi = {
   ): Promise<{ folderPath: string; tree: FileNode[] }> =>
     ipcRenderer.invoke("workspace:refresh-tree", folderPath),
 
-  runFile: (filePath: string, cwd?: string): Promise<RunResult> =>
-    ipcRenderer.invoke("runner:run-file", { filePath, cwd }),
+  runFile: (
+    filePath: string,
+    cwd?: string,
+    content?: string,
+  ): Promise<RunResult> =>
+    ipcRenderer.invoke("runner:run-file", { filePath, cwd, content }),
+
+  stopRun: (): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke("runner:stop"),
 
   runPractice: (
     language: PracticeLanguage,

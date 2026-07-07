@@ -1944,8 +1944,7 @@ button {
 }
 
 .terminal-stdout,
-.terminal-stderr,
-.terminal-exit {
+.terminal-stderr {
   white-space: pre-wrap;
   word-break: break-word;
   font-family: "Cascadia Code", Consolas, monospace;
@@ -1957,11 +1956,6 @@ button {
 
 .terminal-stderr {
   color: #fca5a5;
-}
-
-.terminal-exit {
-  margin-top: 10px;
-  color: #a1a1aa;
 }
 
 .terminal-resize-handle {

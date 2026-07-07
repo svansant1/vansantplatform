@@ -10,6 +10,10 @@ type Props = {
   loading: boolean;
   workspacePath?: string | null;
   height: number;
+  runRequest?: {
+    id: number;
+    command: string;
+  } | null;
 };
 
 type TerminalProfile = {
@@ -189,6 +193,7 @@ export default function TerminalPanel({
   loading,
   workspacePath,
   height,
+  runRequest,
 }: Props) {
   const [viewMode, setViewMode] = useState<"terminal" | "output">("terminal");
   const [profiles, setProfiles] = useState<TerminalProfile[]>([]);
@@ -206,6 +211,7 @@ export default function TerminalPanel({
   const previousWorkspacePathRef = useRef<string | null | undefined>(
     workspacePath,
   );
+  const processedRunRequestRef = useRef<number | null>(null);
   const runProblems = useMemo(() => parseRunProblems(result), [result]);
 
   const activeSession = useMemo(
@@ -408,7 +414,7 @@ export default function TerminalPanel({
   }, [height, viewMode, sessions.length]);
 
   async function createTerminal(requestedProfileId?: string) {
-    if (!terminalRef.current || !fitAddonRef.current) return;
+    if (!terminalRef.current || !fitAddonRef.current) return null;
 
     try {
       setTerminalError("");
@@ -432,6 +438,7 @@ export default function TerminalPanel({
         `Launching ${created.label} in ${created.cwd}`,
       );
       terminalRef.current.focus();
+      return created;
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to create terminal.";
@@ -440,8 +447,46 @@ export default function TerminalPanel({
       terminalRef.current?.clear();
       terminalRef.current?.writeln("\x1b[31mFailed to create terminal.\x1b[0m");
       terminalRef.current?.writeln(message);
+      return null;
     }
   }
+
+  useEffect(() => {
+    if (
+      !runRequest ||
+      !terminalReady ||
+      processedRunRequestRef.current === runRequest.id
+    ) {
+      return;
+    }
+
+    processedRunRequestRef.current = runRequest.id;
+
+    const runInteractively = async () => {
+      setViewMode("terminal");
+      setTerminalError("");
+
+      let terminalId = activeTerminalIdRef.current;
+
+      if (!terminalId) {
+        const created = await createTerminal(profileId || profiles[0]?.id);
+        terminalId = created?.terminalId ?? null;
+      }
+
+      if (!terminalId) {
+        setTerminalError("Could not start a terminal for interactive input.");
+        return;
+      }
+
+      terminalRef.current?.focus();
+      await window.sandboxApi.writeTerminal(
+        terminalId,
+        `${runRequest.command}\r`,
+      );
+    };
+
+    void runInteractively();
+  }, [profileId, profiles, runRequest, terminalReady]);
 
   useEffect(() => {
     if (!terminalReady || profiles.length === 0 || sessions.length > 0) {
@@ -672,9 +717,6 @@ export default function TerminalPanel({
             {result.stderr ? (
               <pre className="terminal-stderr">{result.stderr}</pre>
             ) : null}
-            <div className="terminal-exit">
-              Exit code: {String(result.exitCode)}
-            </div>
           </div>
         ) : (
           <div className="empty-pane">
