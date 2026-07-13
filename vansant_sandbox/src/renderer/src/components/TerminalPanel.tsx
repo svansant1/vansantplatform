@@ -203,6 +203,7 @@ export default function TerminalPanel({
   const [terminalReady, setTerminalReady] = useState(false);
 
   const [terminalError, setTerminalError] = useState<string>("");
+  const [terminalNotice, setTerminalNotice] = useState<string>("");
   const terminalHostRef = useRef<HTMLDivElement | null>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
@@ -231,6 +232,46 @@ export default function TerminalPanel({
       terminalRef.current.cols,
       terminalRef.current.rows,
     );
+  }
+
+  async function copyTerminalSelection() {
+    const terminal = terminalRef.current;
+    if (!terminal?.hasSelection()) {
+      setTerminalNotice("Select terminal text first, then press Ctrl+C.");
+      window.setTimeout(() => setTerminalNotice(""), 1600);
+      return false;
+    }
+
+    const selectedText = terminal.getSelection();
+    if (!selectedText.trim()) return false;
+
+    try {
+      await navigator.clipboard.writeText(selectedText);
+      setTerminalNotice("Copied terminal selection.");
+      window.setTimeout(() => setTerminalNotice(""), 1600);
+      return true;
+    } catch {
+      setTerminalNotice("Could not copy terminal selection.");
+      window.setTimeout(() => setTerminalNotice(""), 1600);
+      return false;
+    }
+  }
+
+  async function pasteIntoTerminal() {
+    const terminalId = activeTerminalIdRef.current;
+    if (!terminalId) return false;
+
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text) return false;
+      await window.sandboxApi.writeTerminal(terminalId, text);
+      terminalRef.current?.focus();
+      return true;
+    } catch {
+      setTerminalNotice("Could not read clipboard.");
+      window.setTimeout(() => setTerminalNotice(""), 1600);
+      return false;
+    }
   }
 
   useEffect(() => {
@@ -324,6 +365,32 @@ export default function TerminalPanel({
     terminal.loadAddon(fitAddon);
     terminal.open(host);
     fitAddon.fit();
+    terminal.attachCustomKeyEventHandler((event) => {
+      if (event.type !== "keydown") return true;
+
+      const key = event.key.toLowerCase();
+      const usesCommandKey = event.ctrlKey || event.metaKey;
+
+      if (usesCommandKey && key === "c" && terminal.hasSelection()) {
+        void copyTerminalSelection();
+        return false;
+      }
+
+      if (usesCommandKey && event.shiftKey && key === "c") {
+        void copyTerminalSelection();
+        return false;
+      }
+
+      if (
+        (usesCommandKey && event.shiftKey && key === "v") ||
+        (event.shiftKey && event.key === "Insert")
+      ) {
+        void pasteIntoTerminal();
+        return false;
+      }
+
+      return true;
+    });
     const urlLinkProvider = terminal.registerLinkProvider({
       provideLinks: (bufferLineNumber, callback) => {
         callback(getTerminalUrlLinks(terminal, bufferLineNumber));
@@ -654,6 +721,12 @@ export default function TerminalPanel({
           {terminalError ? (
             <div className="terminal-status" style={{ color: "#fca5a5" }}>
               {terminalError}
+            </div>
+          ) : null}
+
+          {terminalNotice ? (
+            <div className="terminal-status" style={{ color: "#bae6fd" }}>
+              {terminalNotice}
             </div>
           ) : null}
 
