@@ -9,6 +9,7 @@ import {
   BrainCircuit,
   Settings,
   TerminalIcon,
+  AppWindow,
 } from "lucide-react";
 
 const navItems = [
@@ -17,6 +18,7 @@ const navItems = [
   { name: "Sandbox", href: "/sandbox", icon: BrainCircuit },
   { name: "Debugger", href: "/debugger", icon: TerminalIcon },
   { name: "Shield", href: "/shield", icon: ShieldCheck },
+  { name: "SV Browser", href: "/browser", icon: AppWindow },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 

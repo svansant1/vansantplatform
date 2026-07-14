@@ -357,7 +357,7 @@ export default function DashboardPage() {
 
       <section>
         <h2 className="mb-4 text-2xl font-semibold">Launch Actions</h2>
-        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
           <ActionCard
             title="Create Project"
             description="Start planning a new project idea and generate the system map."
@@ -388,6 +388,14 @@ export default function DashboardPage() {
             href="/shield"
             cta="Open Shield"
             mascotSrc="/mascots/shield.png"
+          />
+
+          <ActionCard
+            title="Get SV Browser"
+            description="Browse with VansantPlatform as your home and SVANSAI, Shield, and Debugger built in."
+            href="/browser"
+            cta="Download Browser"
+            mascotSrc="/sv-browser-logo.png"
           />
         </div>
       </section>
@@ -489,6 +497,11 @@ export default function DashboardPage() {
             title="Shield"
             description="Scan and protect your system from threats."
             href="/shield"
+          />
+          <ModuleCard
+            title="SV Browser"
+            description="Download the Vansant web browser with platform tools built in."
+            href="/browser"
           />
           <ModuleCard
             title="Settings"
