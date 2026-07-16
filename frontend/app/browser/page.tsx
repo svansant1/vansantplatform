@@ -3,6 +3,7 @@ import Link from "next/link";
 
 const features = [
   "VansantPlatform set as the home page",
+  "Private SV Search with no external search provider",
   "SVANSAI available from the browser toolbar",
   "SV Shield protection running in the background",
   "SV Debugger diagnostics when browsing issues arise",
@@ -45,7 +46,7 @@ export default function SvBrowserPage() {
             </div>
 
             <p className="mt-5 text-sm text-zinc-500">
-              Version 0.5.0 · Windows 10/11 · Self-contained app
+              Version 0.6.0 · Windows 10/11 · Self-contained app
             </p>
           </div>
 
