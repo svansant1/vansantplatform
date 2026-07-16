@@ -20,6 +20,8 @@ type SetString = (s: string) => void;
 
 type Params = {
   connected: boolean;
+  sessionCode: string;
+  deviceToken: string;
   selectedMode: ScanMode;
   setStatusText: SetString;
   setCaseNotes: SetString;
@@ -47,13 +49,15 @@ function saveHistoryToStorage(history: ScanHistoryEntry[]): void {
 }
 
 function buildReportText(entry: ScanHistoryEntry): string {
-  const goodCount = entry.findings.filter((f) => f.status === "good").length;
+  const goodCount = entry.findings.filter(
+    (f) => (f.health ?? (f.status === "good" ? "healthy" : f.status === "problem" ? "failed" : "degraded")) === "healthy",
+  ).length;
   const lines: string[] = [
     `SVANSAI Debugger — Scan Report`,
     `Mode: ${entry.scope.toUpperCase()}`,
     `Date: ${new Date(entry.scannedAt).toLocaleString()}`,
     `Summary: ${entry.summary}`,
-    `Counts: ${goodCount} good, ${entry.warningCount} warning, ${entry.problemCount} problem`,
+    `Counts: ${goodCount} verified healthy, ${entry.warningCount} attention, ${entry.problemCount} failed`,
     "",
     "=== FINDINGS ===",
   ];
@@ -91,6 +95,8 @@ function buildReportText(entry: ScanHistoryEntry): string {
 
 export function useScan({
   connected,
+  sessionCode,
+  deviceToken,
   selectedMode,
   setStatusText,
   setCaseNotes,
@@ -130,15 +136,18 @@ export function useScan({
   }, [isScanning]);
 
   const goodCount = useMemo(
-    () => findings.filter((f) => f.status === "good").length,
+    () => findings.filter((f) => (f.health ?? (f.status === "good" ? "healthy" : "unknown")) === "healthy").length,
     [findings],
   );
   const warningCount = useMemo(
-    () => findings.filter((f) => f.status === "warning").length,
+    () => findings.filter((f) => {
+      const health = f.health ?? (f.status === "warning" ? "degraded" : f.status === "problem" ? "failed" : "healthy");
+      return health !== "healthy" && health !== "failed";
+    }).length,
     [findings],
   );
   const problemCount = useMemo(
-    () => findings.filter((f) => f.status === "problem").length,
+    () => findings.filter((f) => (f.health ?? (f.status === "problem" ? "failed" : "healthy")) === "failed").length,
     [findings],
   );
 
@@ -185,7 +194,7 @@ export function useScan({
           result = await window.scanner.files(filesTarget || undefined);
           break;
         case "sites":
-          result = await window.scanner.sites();
+          result = await window.scanner.sites(sessionCode, deviceToken);
           break;
         default:
           selectedMode satisfies never;
@@ -207,10 +216,13 @@ export function useScan({
 
       // Save to history
       const problems = result.findings.filter(
-        (f) => f.status === "problem",
+        (f) => (f.health ?? (f.status === "problem" ? "failed" : "healthy")) === "failed",
       ).length;
       const warnings = result.findings.filter(
-        (f) => f.status === "warning",
+        (f) => {
+          const health = f.health ?? (f.status === "warning" ? "degraded" : f.status === "problem" ? "failed" : "healthy");
+          return health !== "healthy" && health !== "failed";
+        },
       ).length;
 
       const entry: ScanHistoryEntry = {
@@ -233,7 +245,7 @@ export function useScan({
       });
 
       const firstIssue =
-        result.findings.find((f) => f.status !== "good") ??
+        result.findings.find((f) => (f.health ?? (f.status === "good" ? "healthy" : "degraded")) !== "healthy") ??
         result.findings[0] ??
         null;
 

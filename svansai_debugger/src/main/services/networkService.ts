@@ -5,6 +5,7 @@ import { promisify } from "node:util";
 import type { ScanFinding, ScanResult } from "../../shared/types/scan";
 
 const execFileAsync = promisify(execFile);
+const HTTP_TIMEOUT_MS = 7000;
 
 const VPN_NAME_PATTERN =
   /tap|wireguard|vpn|tun0|nordvpn|expressvpn|surfshark|mullvad|protonvpn|openvpn|cisco\s*vpn|globalprotect|pulsesecure/i;
@@ -42,6 +43,39 @@ async function pingHost(
     return { reachable: false };
   } catch {
     return { reachable: false };
+  }
+}
+
+async function probeHttp(url: string): Promise<{ ok: boolean; status?: number; latencyMs?: number; body?: string; error?: string }> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), HTTP_TIMEOUT_MS);
+  const started = Date.now();
+  try {
+    const response = await fetch(url, { signal: controller.signal, redirect: "follow" });
+    return {
+      ok: response.status < 500,
+      status: response.status,
+      latencyMs: Date.now() - started,
+      body: (await response.text()).slice(0, 200),
+    };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "HTTP probe failed." };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function getProxyConfiguration(): Promise<string> {
+  try {
+    const { stdout } = await execFileAsync("powershell", [
+      "-NoProfile",
+      "-NonInteractive",
+      "-Command",
+      "$i=Get-ItemProperty 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings'; [pscustomobject]@{ProxyEnable=$i.ProxyEnable;ProxyServer=$i.ProxyServer;AutoConfigURL=$i.AutoConfigURL;AutoDetect=$i.AutoDetect} | ConvertTo-Json -Compress",
+    ]);
+    return stdout.trim();
+  } catch {
+    return "unavailable";
   }
 }
 
@@ -194,6 +228,62 @@ export async function scanNetwork(): Promise<ScanResult & { scope: "network" }> 
       logs.push("[NETWORK] Default gateway not found.");
     }
 
+    // HTTPS/TLS and captive-portal checks. These are stronger evidence than ICMP.
+    const [connectivityProbe, platformProbe, proxyConfiguration] = await Promise.all([
+      probeHttp("https://www.msftconnecttest.com/connecttest.txt"),
+      probeHttp("https://vansant-backend.onrender.com/"),
+      getProxyConfiguration(),
+    ]);
+    const captivePortal = connectivityProbe.ok && connectivityProbe.body?.trim() !== "Microsoft Connect Test";
+    findings.push({
+      category: "Network",
+      item: "HTTPS and captive-portal check",
+      status: !connectivityProbe.ok ? "problem" : captivePortal ? "warning" : "good",
+      health: !connectivityProbe.ok ? "failed" : captivePortal ? "degraded" : "healthy",
+      confidence: 0.94,
+      detector: "https-connectivity",
+      evidence: [
+        { source: "HTTPS probe", signal: "status", value: connectivityProbe.status ?? null, observedAt: new Date().toISOString() },
+        { source: "HTTPS probe", signal: "latency-ms", value: connectivityProbe.latencyMs ?? null, observedAt: new Date().toISOString() },
+        { source: "HTTPS probe", signal: "captive-portal", value: Boolean(captivePortal), observedAt: new Date().toISOString() },
+      ],
+      detail: !connectivityProbe.ok
+        ? `HTTPS connectivity failed: ${connectivityProbe.error || "unknown error"}`
+        : captivePortal
+          ? "The connectivity-check response was replaced, which can indicate a captive portal or network filter."
+          : `HTTPS connectivity succeeded in ${connectivityProbe.latencyMs ?? "?"} ms.`,
+      fix: !connectivityProbe.ok
+        ? "Inspect DNS, TLS, proxy, VPN, firewall, and secure-DNS configuration."
+        : captivePortal
+          ? "Open a normal browser page and complete the network sign-in or inspect filtering software."
+          : "No action needed.",
+    });
+    findings.push({
+      category: "Network",
+      item: "SVANSAI service path",
+      status: platformProbe.ok ? "good" : "warning",
+      health: platformProbe.ok ? "healthy" : "degraded",
+      confidence: 0.9,
+      detector: "target-service-probe",
+      evidence: [{ source: "HTTPS probe", signal: "status", value: platformProbe.status ?? null, observedAt: new Date().toISOString() }],
+      detail: platformProbe.ok
+        ? `The SVANSAI backend path is reachable (HTTP ${platformProbe.status}).`
+        : `The SVANSAI backend path could not be reached: ${platformProbe.error || "unknown error"}`,
+      fix: platformProbe.ok ? "No action needed." : "Check service status, firewall, VPN, proxy, and DNS behavior for vansant-backend.onrender.com.",
+    });
+    findings.push({
+      category: "Network",
+      item: "Windows browser proxy configuration",
+      status: "good",
+      health: "detected",
+      confidence: 0.99,
+      detector: "proxy-configuration",
+      evidence: [{ source: "Windows Internet Settings", signal: "configuration", value: proxyConfiguration, observedAt: new Date().toISOString() }],
+      detail: "Proxy and automatic-configuration settings were recorded for correlation. Detection alone does not mean the proxy is faulty.",
+      fix: "No action needed.",
+    });
+    logs.push("[NETWORK] Completed HTTPS, captive-portal, target-service, and proxy checks.");
+
     // Latency to 1.1.1.1
     const externalPing = await pingHost("1.1.1.1");
     if (externalPing.reachable) {
@@ -215,9 +305,12 @@ export async function scanNetwork(): Promise<ScanResult & { scope: "network" }> 
       findings.push({
         category: "Network",
         item: "External latency (1.1.1.1)",
-        status: "problem",
-        detail: "Cannot reach 1.1.1.1. Internet connectivity may be blocked.",
-        fix: "Check firewall rules, router connection, or whether ICMP is blocked on the network.",
+        status: "warning",
+        health: "unknown",
+        confidence: 0.99,
+        detector: "icmp-probe",
+        detail: "1.1.1.1 did not answer ICMP. This is inconclusive because networks may block ping while HTTPS still works.",
+        fix: "Use the DNS, TCP, TLS, and HTTPS findings to determine whether connectivity is actually broken.",
       });
       logs.push("[NETWORK] External ping to 1.1.1.1 failed.");
     }

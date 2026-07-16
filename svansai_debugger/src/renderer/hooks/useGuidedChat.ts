@@ -164,6 +164,9 @@ Debugger Mode: ${selectedMode}
 Finding Category: ${finding.category}
 Finding Item: ${finding.item}
 Finding Status: ${finding.status}
+Health State: ${finding.health || "unknown"}
+Detector: ${finding.detector || "unspecified"}
+Confidence: ${typeof finding.confidence === "number" ? `${Math.round(finding.confidence * 100)}%` : "not scored"}
 Issue Detail: ${finding.detail}
 Suggested Fix: ${finding.fix}
 Current Scan Summary: ${activeSummary}
@@ -174,6 +177,13 @@ ${logs.length > 0 ? logs.join("\n") : "No logs available."}
 Recommendations:
 ${recommendations.length > 0 ? recommendations.join("\n") : "No recommendations available."}
 
+Structured Evidence:
+${finding.evidence && finding.evidence.length > 0
+  ? finding.evidence.map((item) =>
+      `- ${item.observedAt} | ${item.source} | ${item.signal}${item.value !== undefined ? ` = ${String(item.value)}` : ""}`,
+    ).join("\n")
+  : "No structured evidence was captured."}
+
 Attempted Fixes:
 ${attempted.length > 0 ? attempted.join("\n") : "None yet."}
 ${priorConversation ? `\nConversation so far:\n${priorConversation}\n` : ""}
@@ -182,6 +192,9 @@ ${userMessage}
 
 Instructions:
 - Give a practical step-by-step troubleshooting walkthrough.
+- Separate observed facts from hypotheses.
+- Rank the most likely root causes and include a confidence estimate for each.
+- Request one targeted diagnostic test when the evidence cannot distinguish between causes.
 - Prioritize actionable steps over explanations.
 - Use markdown: numbered lists for steps, code blocks for commands, bold for emphasis.
 - Do not repeat any steps already listed under "Attempted Fixes" or covered in "Conversation so far".

@@ -6,7 +6,16 @@ It can scan:
 - Apps: running processes grouped by memory and instance count.
 - Network: adapters, DNS, gateway, VPN/tunnel indicators, and latency.
 - Files: selected folders with bounded recursive health checks.
-- Sites: open browser tabs through the opt-in Site Bridge extension.
+- Sites: authenticated, opt-in browser health monitoring with navigation,
+  request, page-state, authentication, performance, and targeted service probes.
+
+Health states are evidence-based:
+
+- `DETECTED`: the item exists, but health is not proven.
+- `HEALTHY`: required health evidence passed.
+- `DEGRADED`: evidence indicates partial failure or abnormal behavior.
+- `FAILED`: strong evidence confirms that the operation failed.
+- `UNKNOWN` / `NOT TESTED`: coverage was unavailable or inconclusive.
 
 Local Development
 
@@ -63,12 +72,12 @@ Load it in Chrome or Edge:
 3. Choose Load unpacked.
 4. Select the `browser_extension` folder.
 
-The Site Bridge is opt-in. It does not send tabs until you:
+The Site Monitor is opt-in. It does not send telemetry until you:
 
 1. Open the SVANSAI Site Bridge extension popup.
 2. Enter the same session code used in Debugger.
 3. Confirm the backend URL.
-4. Enable "Share open tabs with Debugger".
+4. Enable monitoring in the extension.
 5. Click Sync Now or leave sync enabled.
 
 The extension sends tab data to:
@@ -85,14 +94,19 @@ Payload fields include:
 - `updated_at`
 - `tabs`
 
-Backend Browser Bridge
+The backend isolates telemetry by connected session, requires the desktop
+device token to read it, and expires browser telemetry after five minutes.
+URLs are reduced to scheme, host, port, and path. Credentials, query strings,
+fragments, cookies, page contents, and form values are not uploaded.
 
-The backend needs browser bridge routes registered. Example:
+Browser Evidence
 
-```python
-from browser_bridge_routes import router as browser_bridge_router
-app.include_router(browser_bridge_router)
-```
+The monitor captures bounded navigation and request failures, HTTP error
+statuses, recognized visible error signatures, blank pages, authentication
+paths, runtime/resource error counts, readiness, and page timing. The desktop
+agent correlates those signals with independent DNS, TLS, and HTTP probes.
+SVANSAI receives the structured evidence and confidence score, not private page
+content, and can request a follow-up test before recommending a fix.
 
 Packaging Notes
 

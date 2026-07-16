@@ -14,7 +14,12 @@ contextBridge.exposeInMainWorld("scanner", {
   apps: () => ipcRenderer.invoke("scan:apps"),
   network: () => ipcRenderer.invoke("scan:network"),
   files: (dir?: string) => ipcRenderer.invoke("scan:files", optionalString(dir)),
-  sites: () => ipcRenderer.invoke("scan:sites"),
+  sites: (sessionCode: string, deviceToken: string) =>
+    ipcRenderer.invoke(
+      "scan:sites",
+      requiredString(sessionCode),
+      requiredString(deviceToken),
+    ),
   pickFolder: () => ipcRenderer.invoke("dialog:pick-folder"),
   saveReport: (content: string, defaultName: string) =>
     ipcRenderer.invoke(

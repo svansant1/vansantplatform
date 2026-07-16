@@ -6,7 +6,9 @@ import type {
   ParsedIssue,
 } from "../types/debugger";
 
-const API_BASE_URL = "process.env.NEXT_PUBLIC_API_BASE_URL";
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ||
+  "https://vansant-backend.onrender.com";
 
 function normalizeDebugRunResponse(
   payload: Partial<DebugRunResponse> | null | undefined,

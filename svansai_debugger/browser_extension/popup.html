@@ -23,8 +23,19 @@
 
       <label class="toggle">
         <input id="enabled" type="checkbox" />
-        <span>Share open tabs with Debugger</span>
+        <span>Monitor tabs, page health, and request failures</span>
       </label>
+
+      <label class="toggle">
+        <input id="deepInspection" type="checkbox" />
+        <span>Temporary deep inspection for active tabs</span>
+      </label>
+
+      <p class="privacy-note">
+        Monitoring is opt-in. Query strings, fragments, passwords, cookies, and
+        page contents are not sent. Deep inspection requires separate browser
+        approval and records only error metadata. Disable monitoring to clear buffered events.
+      </p>
 
       <div class="actions">
         <button id="save" type="button">Save</button>

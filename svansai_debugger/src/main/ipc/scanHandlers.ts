@@ -57,8 +57,11 @@ export function registerScanHandlers(): void {
     return await scanFiles(normalizeOptionalString(dir, 2048));
   });
 
-  ipcMain.handle("scan:sites", async () => {
-    return await scanSites();
+  ipcMain.handle("scan:sites", async (_, sessionCode?: unknown, deviceToken?: unknown) => {
+    return await scanSites(
+      normalizeOptionalString(sessionCode, 32),
+      normalizeOptionalString(deviceToken, 256),
+    );
   });
 
   ipcMain.handle("dialog:pick-folder", async () => {

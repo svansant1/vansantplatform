@@ -7,6 +7,7 @@ type GuidedFixChatProps = {
   onInputChange: (value: string) => void;
   onSend: () => void;
   onMarkTried: () => void;
+  onVerify: () => void;
   onKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
   isLoading: boolean;
   disabled: boolean;
@@ -180,6 +181,7 @@ export function GuidedFixChat({
   onInputChange,
   onSend,
   onMarkTried,
+  onVerify,
   onKeyDown,
   isLoading,
   disabled,
@@ -254,6 +256,15 @@ export function GuidedFixChat({
               disabled={disabled || isLoading}
             >
               I Tried That
+            </button>
+
+            <button
+              type="button"
+              className="button button--accent"
+              onClick={onVerify}
+              disabled={disabled || isLoading}
+            >
+              Re-scan to Verify
             </button>
           </div>
 

@@ -4,17 +4,30 @@ type FindingsPanelProps = {
   onOpenGuidedFixChat: (finding: ScanFinding) => void;
 };
 
-const STATUS_LABEL: Record<ScanStatus, string> = {
-  good: "Good",
-  warning: "Warning",
-  problem: "Problem",
+const HEALTH_LABEL: Record<HealthState, string> = {
+  detected: "Detected",
+  healthy: "Healthy",
+  degraded: "Degraded",
+  failed: "Failed",
+  unknown: "Unknown",
+  not_tested: "Not tested",
 };
 
-const STATUS_STYLE: Record<ScanStatus, string> = {
-  good: "finding-badge--good",
-  warning: "finding-badge--warning",
-  problem: "finding-badge--problem",
+const HEALTH_STYLE: Record<HealthState, string> = {
+  detected: "finding-badge--warning",
+  healthy: "finding-badge--good",
+  degraded: "finding-badge--warning",
+  failed: "finding-badge--problem",
+  unknown: "finding-badge--warning",
+  not_tested: "finding-badge--warning",
 };
+
+function healthForFinding(finding: ScanFinding): HealthState {
+  if (finding.health) return finding.health;
+  if (finding.status === "problem") return "failed";
+  if (finding.status === "warning") return "degraded";
+  return "healthy";
+}
 
 export function FindingsPanel({
   findings,
@@ -27,11 +40,13 @@ export function FindingsPanel({
 
   return (
     <div className="findings-list">
-      {findings.map((finding, index) => (
+      {findings.map((finding, index) => {
+        const health = healthForFinding(finding);
+        return (
         <div key={`${finding.item}-${index}`} className="finding-card">
           <div className="finding-card__header">
-            <span className={`finding-badge ${STATUS_STYLE[finding.status]}`}>
-              {STATUS_LABEL[finding.status]}
+            <span className={`finding-badge ${HEALTH_STYLE[health]}`}>
+              {HEALTH_LABEL[health]}
             </span>
             <span className="finding-card__item">{finding.item}</span>
           </div>
@@ -39,13 +54,34 @@ export function FindingsPanel({
           <div className="finding-card__category">{finding.category}</div>
           <div className="finding-card__detail">{finding.detail}</div>
 
+          {typeof finding.confidence === "number" && (
+            <div className="finding-card__category">
+              Confidence: {Math.round(finding.confidence * 100)}%
+              {finding.detector ? ` · ${finding.detector}` : ""}
+            </div>
+          )}
+
+          {finding.evidence && finding.evidence.length > 0 && (
+            <details className="finding-card__evidence">
+              <summary>Evidence ({finding.evidence.length})</summary>
+              <ul>
+                {finding.evidence.map((item, evidenceIndex) => (
+                  <li key={`${item.signal}-${evidenceIndex}`}>
+                    {item.signal}
+                    {item.value !== undefined ? `: ${String(item.value)}` : ""}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+
           {finding.fix && finding.fix !== "No action needed." && (
             <div className="finding-card__fix">
               <strong>Fix:</strong> {finding.fix}
             </div>
           )}
 
-          {(finding.status === "warning" || finding.status === "problem") && (
+          {health !== "healthy" && health !== "detected" && (
             <div className="finding-card__actions">
               <button
                 type="button"
@@ -58,7 +94,7 @@ export function FindingsPanel({
             </div>
           )}
         </div>
-      ))}
+      )})}
     </div>
   );
 }

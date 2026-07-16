@@ -5,6 +5,7 @@ import svDebuggerMascot from "../public/svdebugger.png";
 import { ModeCard } from "../components/ModeCard";
 import { FindingsPanel } from "../components/FindingsPanel";
 import { GuidedFixChat } from "../components/GuidedFixChat";
+import { EvidenceTimeline } from "../components/EvidenceTimeline";
 import { useConnection } from "../hooks/useConnection";
 import { useGuidedChat } from "../hooks/useGuidedChat";
 import { useScan } from "../hooks/useScan";
@@ -79,6 +80,8 @@ export default function App() {
 
   const scan = useScan({
     connected: connection.connected,
+    sessionCode: connection.connectedSessionCode,
+    deviceToken: connection.deviceToken,
     selectedMode,
     setStatusText,
     setCaseNotes,
@@ -266,6 +269,7 @@ export default function App() {
               onInputChange={guidedChat.setGuidedInput}
               onSend={() => void guidedChat.handleSendMessage()}
               onMarkTried={() => void guidedChat.handleMarkTried()}
+              onVerify={() => void scan.handleStartScan()}
               onKeyDown={handleChatKeyDown}
               isLoading={guidedChat.isGuidedLoading}
               disabled={!connection.connected}
@@ -292,13 +296,13 @@ export default function App() {
                 style={{ display: "flex", gap: 20, flexWrap: "wrap" }}
               >
                 <span>
-                  <strong>Good</strong> {scan.goodCount}
+                  <strong>Verified Healthy</strong> {scan.goodCount}
                 </span>
                 <span>
-                  <strong>Warning</strong> {scan.warningCount}
+                  <strong>Needs Attention</strong> {scan.warningCount}
                 </span>
                 <span>
-                  <strong>Problem</strong> {scan.problemCount}
+                  <strong>Failed</strong> {scan.problemCount}
                 </span>
               </div>
 
@@ -412,6 +416,8 @@ export default function App() {
                 }
               />
             </div>
+
+            <EvidenceTimeline findings={scan.findings} />
           </section>
         </main>
       </div>

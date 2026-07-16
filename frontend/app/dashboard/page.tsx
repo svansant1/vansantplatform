@@ -306,7 +306,10 @@ export default function DashboardPage() {
     setShieldStatus("Scanning...");
 
     try {
-      const res = await fetch("process.env.NEXT_PUBLIC_API_BASE_URL");
+      const apiBaseUrl =
+        process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ||
+        "https://vansant-backend.onrender.com";
+      const res = await fetch(`${apiBaseUrl}/sentry/system-snapshot`);
       const data = await res.json();
 
       if (data.ok) {

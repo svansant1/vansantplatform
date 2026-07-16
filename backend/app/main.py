@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, WebSocket, WebSocketDisconnect, Body
+from fastapi import FastAPI, UploadFile, File, WebSocket, WebSocketDisconnect, Body, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -6,12 +6,15 @@ from dotenv import load_dotenv
 import asyncio
 import os
 import re
+import secrets
 import subprocess
 import threading
 import time
+from datetime import datetime, timezone
 from collections import Counter, deque
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlsplit, urlunsplit
 
 import chromadb
 import psutil
@@ -20,7 +23,6 @@ import requests
 from sentence_transformers import SentenceTransformer
 
 from app.core.ai_logic import SVANSAI
-from app.services.debugger import read_process_memory
 from app.services.sentry import (
     get_system_stats,
     get_suspicious_processes,
@@ -48,13 +50,22 @@ app.include_router(debug_router)
 
 conversation_memory = deque(maxlen=6)
 
-browser_tabs_store: list[dict] = []
+browser_tabs_store: dict[str, dict[str, Any]] = {}
 
 load_dotenv()
 
+configured_origins = [
+    origin.strip()
+    for origin in os.getenv(
+        "CORS_ALLOWED_ORIGINS",
+        "https://vansantplatform.com,https://www.vansantplatform.com,http://localhost:3000,http://127.0.0.1:3000",
+    ).split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=configured_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -1128,38 +1139,6 @@ async def upload_knowledge(file: UploadFile = File(...)):
         return {"ok": False, "error": str(e)}
 
 
-@app.get("/api/debug/inspect/{pid}/{address}")
-async def inspect_memory(pid: int, address: str):
-    # Convert hex string (e.g., "0x4000") to integer
-    addr_int = int(address, 16)
-    raw_hex = read_process_memory(pid, addr_int)
-
-    if not raw_hex:
-        return {"error": "Could not access process memory. Try running as Admin."}
-
-    # Here is where SVANSAI comes in
-    # We send the raw_hex to your AI logic to explain what it means
-    analysis = await analyze_with_svansai(raw_hex)
-
-    return {"pid": pid, "address": address, "hex": raw_hex, "ai_analysis": analysis}
-
-
-async def analyze_with_svansai(hex_data):
-    # This calls your existing AI reasoning layer
-    prompt = f"Analyze this raw memory hex from a running process and explain the logic: {hex_data}"
-    # Replace this with your actual SVANSAI call logic
-    return f"SVANSAI suggests this looks like a [Logic Pattern]. Potential Fix: Check pointer at {hex_data[:4]}."
-
-
-@app.post("/api/debug/solve")
-async def get_ai_solution(hex_dump: str, context: str):
-    # This sends the data to your SVANSAI reasoning layer
-    solution = build_answer(
-        question=f"Analyze this memory hex: {hex_dump}", context=context
-    )
-    return {"patch": solution, "explanation": "Identified Null Pointer at offset..."}
-
-
 @app.post("/debug/run")
 def debug_run(data: DebugRunRequest):
     allowed_commands = {
@@ -1613,6 +1592,7 @@ def sentry_system_snapshot():
     intel_feed = generate_intel_feed(threats)
 
     return {
+        "ok": True,
         "cpu_usage": stats["cpu_usage"],
         "memory": stats["memory"],
         "threats": threats,
@@ -1660,7 +1640,7 @@ def debugger_create_pair_code():
     return {
         "ok": True,
         "code": session["code"],
-        "expires_at": session["expires_at"],
+        "expires_at": session.get("connected_expires_at") or session["expires_at"],
         "connected": session["connected"],
     }
 
@@ -1677,7 +1657,7 @@ def debugger_pair_status(code: str):
         "code": session["code"],
         "connected": session["connected"],
         "device_name": session["device_name"],
-        "expires_at": session["expires_at"],
+        "expires_at": session.get("connected_expires_at") or session["expires_at"],
         "used": session["used"],
     }
 
@@ -1700,6 +1680,8 @@ def debugger_connect(data: dict):
         "message": "Debugger connected successfully",
         "device_name": session["device_name"],
         "code": session["code"],
+        "device_token": session["device_token"],
+        "expires_at": session["connected_expires_at"],
     }
 
 
@@ -1713,16 +1695,146 @@ def learning_status():
     }
 
 
+def _bounded_text(value: Any, limit: int = 500) -> str:
+    return str(value or "")[:limit]
+
+
+def _bounded_int(value: Any, minimum: int = 0, maximum: int = 100000) -> int:
+    try:
+        return max(minimum, min(maximum, int(value or 0)))
+    except (TypeError, ValueError):
+        return minimum
+
+
+def _redact_browser_url(value: Any) -> str:
+    raw = _bounded_text(value, 4096)
+    try:
+        parsed = urlsplit(raw)
+        if parsed.scheme not in {"http", "https"}:
+            return ""
+        hostname = parsed.hostname or ""
+        port = f":{parsed.port}" if parsed.port else ""
+        return urlunsplit((parsed.scheme, f"{hostname}{port}", parsed.path, "", ""))
+    except (TypeError, ValueError):
+        return ""
+
+
+def _sanitize_browser_event(event: Any) -> dict[str, Any] | None:
+    if not isinstance(event, dict):
+        return None
+    allowed_kinds = {
+        "navigation-start",
+        "navigation-complete",
+        "navigation-error",
+        "request-complete",
+        "request-error",
+        "page-error",
+        "resource-error",
+        "page-health",
+    }
+    kind = _bounded_text(event.get("kind"), 40)
+    if kind not in allowed_kinds:
+        return None
+    return {
+        "kind": kind,
+        "url": _redact_browser_url(event.get("url")),
+        "method": _bounded_text(event.get("method"), 12),
+        "status_code": event.get("status_code")
+        if isinstance(event.get("status_code"), int)
+        else None,
+        "error": _bounded_text(event.get("error"), 300),
+        "resource_type": _bounded_text(event.get("resource_type"), 40),
+        "timestamp": _bounded_text(event.get("timestamp"), 64),
+        "duration_ms": event.get("duration_ms")
+        if isinstance(event.get("duration_ms"), (int, float))
+        else None,
+    }
+
+
+def _sanitize_browser_tab(tab: Any) -> dict[str, Any] | None:
+    if not isinstance(tab, dict):
+        return None
+    url = _redact_browser_url(tab.get("url"))
+    if not url:
+        return None
+    page = tab.get("page") if isinstance(tab.get("page"), dict) else {}
+    events = [
+        sanitized
+        for event in list(tab.get("events") or [])[:100]
+        if (sanitized := _sanitize_browser_event(event)) is not None
+    ]
+    return {
+        "id": tab.get("id") if isinstance(tab.get("id"), int) else None,
+        "title": _bounded_text(tab.get("title"), 300),
+        "url": url,
+        "active": bool(tab.get("active")),
+        "discarded": bool(tab.get("discarded")),
+        "status": _bounded_text(tab.get("status"), 40),
+        "navigation_error": _bounded_text(tab.get("navigation_error"), 300),
+        "page": {
+            "observed_at": _bounded_text(page.get("observed_at"), 64),
+            "ready_state": _bounded_text(page.get("ready_state"), 30),
+            "load_duration_ms": page.get("load_duration_ms")
+            if isinstance(page.get("load_duration_ms"), (int, float))
+            else None,
+            "blank_page": bool(page.get("blank_page")),
+            "visible_error": _bounded_text(page.get("visible_error"), 500),
+            "login_detected": bool(page.get("login_detected")),
+            "auth_redirect": bool(page.get("auth_redirect")),
+            "online": bool(page.get("online", True)),
+            "cookies_enabled": bool(page.get("cookies_enabled", True)),
+            "service_worker_controlled": bool(page.get("service_worker_controlled")),
+            "long_task_count": _bounded_int(page.get("long_task_count"), maximum=100000),
+            "max_event_loop_lag_ms": _bounded_int(page.get("max_event_loop_lag_ms"), maximum=600000),
+            "error_count": _bounded_int(page.get("error_count"), maximum=10000),
+            "resource_error_count": _bounded_int(page.get("resource_error_count"), maximum=10000),
+        },
+        "events": events,
+    }
+
+
 @app.post("/browser/tabs")
 async def receive_tabs(data: dict = Body(...)):
-    global browser_tabs_store
-    browser_tabs_store = data.get("tabs", [])
-    return {"status": "received", "count": len(browser_tabs_store)}
+    code = _bounded_text(data.get("session_code"), 12).upper()
+    session = get_pair_session(code)
+    if not session or not session.get("connected"):
+        raise HTTPException(status_code=401, detail="Invalid or expired debugger session")
+
+    tabs = [
+        sanitized
+        for tab in list(data.get("tabs") or [])[:50]
+        if (sanitized := _sanitize_browser_tab(tab)) is not None
+    ]
+    updated_at = datetime.now(timezone.utc).isoformat()
+    browser_tabs_store[code] = {
+        "tabs": tabs,
+        "updated_at": updated_at,
+        "device_id": _bounded_text(data.get("device_id"), 100),
+    }
+    return {"ok": True, "count": len(tabs), "updated_at": updated_at}
 
 
 @app.get("/browser/tabs")
-async def get_tabs():
-    return {"tabs": browser_tabs_store}
+async def get_tabs(session_code: str, x_debugger_token: str = Header(default="")):
+    code = _bounded_text(session_code, 12).upper()
+    session = get_pair_session(code)
+    if not session or not session.get("connected"):
+        raise HTTPException(status_code=401, detail="Invalid or expired debugger session")
+    expected_token = str(session.get("device_token") or "")
+    if not expected_token or not secrets.compare_digest(expected_token, x_debugger_token):
+        raise HTTPException(status_code=403, detail="Debugger device token is invalid")
+
+    payload = browser_tabs_store.get(code)
+    if not payload:
+        return {"ok": True, "tabs": [], "updated_at": None}
+
+    updated = datetime.fromisoformat(payload["updated_at"])
+    age_seconds = (datetime.now(timezone.utc) - updated).total_seconds()
+    if age_seconds > 300:
+        browser_tabs_store.pop(code, None)
+        return {"ok": True, "tabs": [], "updated_at": None, "stale": True}
+
+    return {"ok": True, **payload}
 
 
 @app.post("/sandbox/run")

@@ -5,6 +5,7 @@ type SetString = (s: string) => void;
 
 type ClaimResponse = {
   ok: boolean;
+  device_token?: string;
   message?: string;
   error?: string;
 };
@@ -12,6 +13,8 @@ type ClaimResponse = {
 export function useConnection(setStatusText: SetString, setCaseNotes: SetString) {
   const [sessionCode, setSessionCode] = useState("");
   const [connected, setConnected] = useState(false);
+  const [connectedSessionCode, setConnectedSessionCode] = useState("");
+  const [deviceToken, setDeviceToken] = useState("");
   const [isConnecting, setIsConnecting] = useState(false);
 
   const handleConnect = async () => {
@@ -37,17 +40,23 @@ export function useConnection(setStatusText: SetString, setCaseNotes: SetString)
 
       if (data.ok) {
         setConnected(true);
+        setConnectedSessionCode(trimmedCode);
+        setDeviceToken(data.device_token || "");
         setStatusText(data.message || "Connected successfully.");
         setCaseNotes(
           "Debugger session connected through the Platform backend. Scans and Guided Fix Chat are now unlocked.",
         );
       } else {
         setConnected(false);
+        setConnectedSessionCode("");
+        setDeviceToken("");
         setStatusText(data.error || "Connection failed.");
         setCaseNotes("Connection failed. Enter a valid session code before scanning.");
       }
     } catch (error) {
       setConnected(false);
+      setConnectedSessionCode("");
+      setDeviceToken("");
       setStatusText(
         error instanceof Error
           ? `Connection failed: ${error.message}`
@@ -63,6 +72,8 @@ export function useConnection(setStatusText: SetString, setCaseNotes: SetString)
 
   const disconnect = () => {
     setConnected(false);
+    setConnectedSessionCode("");
+    setDeviceToken("");
     setSessionCode("");
     setStatusText("Disconnected.");
   };
@@ -71,6 +82,8 @@ export function useConnection(setStatusText: SetString, setCaseNotes: SetString)
     sessionCode,
     setSessionCode,
     connected,
+    connectedSessionCode,
+    deviceToken,
     isConnecting,
     handleConnect,
     disconnect,

@@ -1,6 +1,7 @@
 const DEFAULT_API_BASE_URL = "https://vansant-backend.onrender.com";
 
 const enabledInput = document.getElementById("enabled");
+const deepInspectionInput = document.getElementById("deepInspection");
 const sessionCodeInput = document.getElementById("sessionCode");
 const apiBaseUrlInput = document.getElementById("apiBaseUrl");
 const saveButton = document.getElementById("save");
@@ -20,9 +21,11 @@ async function loadSettings() {
     enabled: false,
     sessionCode: "",
     apiBaseUrl: DEFAULT_API_BASE_URL,
+    deepInspection: false,
   });
 
   enabledInput.checked = Boolean(settings.enabled);
+  deepInspectionInput.checked = Boolean(settings.deepInspection);
   sessionCodeInput.value = settings.sessionCode || "";
   apiBaseUrlInput.value = settings.apiBaseUrl || DEFAULT_API_BASE_URL;
   setStatus(settings.enabled ? "Sync is on." : "Sync is off.");
@@ -31,6 +34,7 @@ async function loadSettings() {
 async function saveSettings() {
   const sessionCode = sessionCodeInput.value.trim().toUpperCase();
   const enabled = enabledInput.checked;
+  let deepInspection = deepInspectionInput.checked;
   const apiBaseUrl = normalizeUrl(apiBaseUrlInput.value);
 
   if (enabled && !sessionCode) {
@@ -39,15 +43,31 @@ async function saveSettings() {
       enabled: false,
       sessionCode: "",
       apiBaseUrl,
+      deepInspection: false,
     });
     setStatus("Enter a session code before enabling sync.");
     return;
+  }
+
+  if (deepInspection && !enabled) {
+    deepInspection = false;
+    deepInspectionInput.checked = false;
+  }
+
+  if (deepInspection) {
+    const granted = await chrome.permissions.request({ permissions: ["debugger"] });
+    if (!granted) {
+      deepInspection = false;
+      deepInspectionInput.checked = false;
+      setStatus("Deep inspection permission was not granted; standard monitoring remains available.");
+    }
   }
 
   await chrome.storage.local.set({
     enabled,
     sessionCode,
     apiBaseUrl,
+    deepInspection,
   });
 
   setStatus(enabled ? "Saved. Sync is on." : "Saved. Sync is off.");
