@@ -42,7 +42,8 @@ export const metadata: Metadata = {
   },
 };
 
-const downloadUrl = "/downloads/VOS-Founding-Beta-0.15.0-Windows-Setup.exe";
+const downloadUrl = "/downloads/VOS-Founding-Beta-0.15.0-Windows-Setup.exe?build=2";
+const checksumUrl = "/downloads/VOS-Founding-Beta-0.15.0-Windows-Setup.exe.sha256?build=2";
 
 const modules = [
   {
@@ -138,7 +139,7 @@ export default function VosPage() {
               Free founding beta · 4.7 MB installer · Windows 10/11 · Unsigned preview release
             </p>
             <a
-              href={`${downloadUrl}.sha256`}
+              href={checksumUrl}
               download
               className="mt-2 inline-block text-xs text-zinc-500 underline decoration-zinc-700 underline-offset-4 transition hover:text-zinc-300"
             >
