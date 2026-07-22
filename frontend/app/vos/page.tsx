@@ -42,7 +42,7 @@ export const metadata: Metadata = {
   },
 };
 
-const downloadUrl = "/downloads/VOS-Founding-Beta-0.15.0-Windows.zip";
+const downloadUrl = "/downloads/VOS-Founding-Beta-0.15.0-Windows-Setup.exe";
 
 const modules = [
   {
@@ -124,7 +124,7 @@ export default function VosPage() {
                 className="inline-flex items-center gap-3 rounded-2xl bg-gradient-to-r from-violet-600 to-cyan-500 px-6 py-4 font-bold text-white shadow-[0_0_40px_rgba(34,211,238,0.18)] transition hover:-translate-y-0.5 hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-cyan-300"
               >
                 <Download size={21} aria-hidden="true" />
-                Download VOS for Windows
+                Download VOS Setup
               </a>
               <a
                 href="#inside-vos"
@@ -135,7 +135,7 @@ export default function VosPage() {
             </div>
 
             <p className="mt-5 text-sm text-zinc-500">
-              Free founding beta · Lightweight installer · Windows 10/11 · Unsigned preview release
+              Free founding beta · 4.7 MB installer · Windows 10/11 · Unsigned preview release
             </p>
             <a
               href={`${downloadUrl}.sha256`}
@@ -191,9 +191,9 @@ export default function VosPage() {
             <h2 className="text-2xl font-black">Start using VOS</h2>
           </div>
           <ol className="mt-6 space-y-5 text-sm leading-6 text-zinc-300">
-            <li className="flex gap-4"><span className="font-black text-cyan-300">01</span><span>Download and extract the founding-beta package to a normal folder.</span></li>
-            <li className="flex gap-4"><span className="font-black text-cyan-300">02</span><span>Run <strong className="text-white">Install VOS.cmd</strong> once to verify the desktop requirements and add the Start menu shortcut.</span></li>
-            <li className="flex gap-4"><span className="font-black text-cyan-300">03</span><span>Launch <strong className="text-white">VOS Founding Beta</strong> from the Start menu or run <strong className="text-white">Start VOS.cmd</strong>.</span></li>
+            <li className="flex gap-4"><span className="font-black text-cyan-300">01</span><span>Download and open the single <strong className="text-white">VOS Setup.exe</strong> file.</span></li>
+            <li className="flex gap-4"><span className="font-black text-cyan-300">02</span><span>Select <strong className="text-white">Install and open VOS</strong>. Setup verifies the desktop requirements and downloads the real SV modules.</span></li>
+            <li className="flex gap-4"><span className="font-black text-cyan-300">03</span><span>VOS opens automatically and remains available as <strong className="text-white">VOS Founding Beta</strong> in the Windows Start menu.</span></li>
           </ol>
         </div>
 
