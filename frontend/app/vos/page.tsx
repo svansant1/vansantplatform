@@ -13,6 +13,7 @@ import {
   Sparkles,
   SquareTerminal,
 } from "lucide-react";
+import { VosLaunchButton } from "./VosLaunchButton";
 
 export const metadata: Metadata = {
   title: "VOS Founding Beta | Vansant Platform",
@@ -42,8 +43,8 @@ export const metadata: Metadata = {
   },
 };
 
-const downloadUrl = "/downloads/VOS-Founding-Beta-0.15.0-Windows-Setup-R2.exe";
-const checksumUrl = "/downloads/VOS-Founding-Beta-0.15.0-Windows-Setup-R2.exe.sha256";
+const downloadUrl = "/downloads/VOS-Founding-Beta-0.15.0-Windows-Setup-R3.exe";
+const checksumUrl = "/downloads/VOS-Founding-Beta-0.15.0-Windows-Setup-R3.exe.sha256";
 
 const modules = [
   {
@@ -119,13 +120,14 @@ export default function VosPage() {
             </p>
 
             <div className="mt-9 flex flex-wrap gap-4">
+              <VosLaunchButton />
               <a
                 href={downloadUrl}
                 download
                 className="inline-flex items-center gap-3 rounded-2xl bg-gradient-to-r from-violet-600 to-cyan-500 px-6 py-4 font-bold text-white shadow-[0_0_40px_rgba(34,211,238,0.18)] transition hover:-translate-y-0.5 hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-cyan-300"
               >
                 <Download size={21} aria-hidden="true" />
-                Download VOS Setup
+                Install VOS
               </a>
               <a
                 href="#inside-vos"

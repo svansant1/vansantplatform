@@ -4,7 +4,9 @@ import type {
   PairStatusResponse,
 } from "../types/pairing";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ||
+  "https://vansant-backend.onrender.com";
 
 function normalizeCreatePairCodeResponse(
   payload: Partial<CreatePairCodeResponse> | null | undefined,
