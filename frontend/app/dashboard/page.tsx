@@ -362,6 +362,14 @@ export default function DashboardPage() {
         <h2 className="mb-4 text-2xl font-semibold">Launch Actions</h2>
         <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
           <ActionCard
+            title="Download VOS"
+            description="Get the connected Windows desktop with the real Sandbox, Shield, Debugger, SV Browser, and Guardian Core."
+            href="/vos"
+            cta="Explore VOS"
+            mascotSrc="/branding/vos-sv-logo.png"
+          />
+
+          <ActionCard
             title="Create Project"
             description="Start planning a new project idea and generate the system map."
             href="/projects"
@@ -481,6 +489,11 @@ export default function DashboardPage() {
       <section>
         <h2 className="mb-4 text-2xl font-semibold">Core Modules</h2>
         <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+          <ModuleCard
+            title="Vansant Operating System"
+            description="Download the VOS Founding Beta and use the Vansant ecosystem from one Windows desktop."
+            href="/vos"
+          />
           <ModuleCard
             title="Projects"
             description="Turn ideas into full system architecture using SVANSAI."
