@@ -1299,12 +1299,14 @@ function getPracticeFileName(language: PracticeLanguage): string {
 function getPracticeCommand(
   language: PracticeLanguage,
   filePath: string,
-): { command: string; args: string[] } {
+): { command: string; args: string[]; displayCommand: string } {
+  const fileName = path.basename(filePath);
+
   switch (language) {
     case "python":
-      return { command: "python", args: [filePath] };
+      return { command: "python", args: [filePath], displayCommand: `python ${fileName}` };
     case "typescript":
-      return { command: "npx", args: ["tsx", filePath] };
+      return { command: "npx", args: ["tsx", filePath], displayCommand: `tsx ${fileName}` };
     case "powershell": {
       const profiles = getWindowsTerminalProfiles();
       const profile =
@@ -1318,11 +1320,12 @@ function getPracticeCommand(
       return {
         command: profile.shell,
         args: ["-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", filePath],
+        displayCommand: `powershell ${fileName}`,
       };
     }
     case "javascript":
     default:
-      return { command: "node", args: [filePath] };
+      return { command: "node", args: [filePath], displayCommand: `node ${fileName}` };
   }
 }
 
@@ -1407,7 +1410,7 @@ async function runPractice(payload: RunPracticePayload): Promise<RunResult> {
   await fs.mkdir(cwd, { recursive: true });
   await fs.writeFile(filePath, code, "utf8");
 
-  const { command, args } = getPracticeCommand(payload.language, filePath);
+  const { command, args, displayCommand } = getPracticeCommand(payload.language, filePath);
 
   return new Promise<RunResult>((resolve, reject) => {
     const child = spawn(command, args, {
@@ -1433,7 +1436,7 @@ async function runPractice(payload: RunPracticePayload): Promise<RunResult> {
 
       resolve({
         ok: false,
-        command: `${command} ${args.join(" ")}`,
+        command: displayCommand,
         stdout,
         stderr: `${stderr}${stderr ? "\n" : ""}Practice run stopped after ${PRACTICE_RUN_TIMEOUT_MS / 1000} seconds. Check for infinite loops or code waiting for input.`,
         exitCode: null,
