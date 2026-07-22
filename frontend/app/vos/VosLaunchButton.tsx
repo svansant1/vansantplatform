@@ -14,7 +14,7 @@ export function VosLaunchButton() {
     if (!result.ok || !result.code) return;
 
     setAttempted(true);
-    window.location.href = `vansantos://launch?code=${encodeURIComponent(result.code)}`;
+    window.location.href = "vansantos://launch";
   }
 
   const connected = Boolean(status?.connected);
@@ -35,13 +35,13 @@ export function VosLaunchButton() {
       {pairing?.code && (
         <p className="max-w-sm text-xs leading-5 text-zinc-400" role="status">
           Pair code <strong className="tracking-[0.18em] text-cyan-200">{pairing.code}</strong>
-          {connected ? " confirmed. VOS is connected." : " created. Approve the browser prompt to open VOS."}
+          {connected ? " confirmed. VOS is connected." : " created. Open VOS, then enter this code on its lock screen."}
         </p>
       )}
       {error && <p className="max-w-sm text-xs text-rose-300" role="alert">{error}</p>}
       {attempted && !connected && (
         <p className="max-w-sm text-xs text-zinc-500">
-          Nothing opened? Install VOS once, then return and select Open VOS again.
+          Approve the browser prompt. If no lock screen opens, install VOS once and try again.
         </p>
       )}
     </div>
