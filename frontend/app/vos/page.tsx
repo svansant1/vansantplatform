@@ -43,8 +43,8 @@ export const metadata: Metadata = {
   },
 };
 
-const downloadUrl = "/downloads/VOS-Founding-Beta-0.15.0-Windows-Setup-R4.exe";
-const checksumUrl = "/downloads/VOS-Founding-Beta-0.15.0-Windows-Setup-R4.exe.sha256";
+const downloadUrl = "/downloads/VOS-Founding-Beta-0.15.0-Windows-Setup-R5.exe";
+const checksumUrl = "/downloads/VOS-Founding-Beta-0.15.0-Windows-Setup-R5.exe.sha256";
 
 const modules = [
   {
