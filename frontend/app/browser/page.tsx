@@ -5,6 +5,7 @@ const features = [
   "VansantPlatform set as the home page",
   "Private SV Search with no external search provider",
   "Encrypted password saving and autofill controls",
+  "DeVry and zyBooks LTI sign-in support across new tabs",
   "Highlight page text and ask SVANSAI to explain, summarize, or answer",
   "SVANSAI available from the browser toolbar",
   "SV Shield protection running in the background",
@@ -48,7 +49,7 @@ export default function SvBrowserPage() {
             </div>
 
             <p className="mt-5 text-sm text-zinc-500">
-              Version 0.8.0 · Windows 10/11 · Self-contained app
+              Version 0.8.1 · Windows 10/11 · Self-contained app
             </p>
           </div>
 
