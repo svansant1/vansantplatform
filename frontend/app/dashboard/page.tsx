@@ -160,6 +160,24 @@ function StatCard({
   );
 }
 
+function BrandWordmark({ name }: { name: string }) {
+  const platformIndex = name.toLowerCase().indexOf("platform");
+
+  if (platformIndex === -1) {
+    return <span className="text-purple-400">{name}</span>;
+  }
+
+  const prefix = name.slice(0, platformIndex) || "Vansant";
+  const suffix = name.slice(platformIndex);
+
+  return (
+    <>
+      <span className="text-purple-400">{prefix}</span>
+      <span className="text-orange-400">{suffix}</span>
+    </>
+  );
+}
+
 function MascotRoster() {
   const mascots = [
     {
@@ -328,12 +346,12 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-8 shadow-lg">
-        <h1 className="text-4xl font-bold">
+      <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-8 text-center shadow-lg">
+        <h1 className="text-4xl font-bold text-white">
           Welcome to{" "}
-          <span className="text-purple-400">{settings.platformName}</span>
+          <BrandWordmark name={settings.platformName} />
         </h1>
-        <p className="mt-3 max-w-3xl text-zinc-400">
+        <p className="mx-auto mt-3 max-w-3xl text-zinc-400">
           Your AI development operating system for planning, building,
           debugging, and protecting projects through one connected workflow.
         </p>
