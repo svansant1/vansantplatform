@@ -3,6 +3,9 @@
 import Link from "next/link";
 import {
   AppWindow,
+  ArrowLeft,
+  ArrowRight,
+  Bookmark,
   Bot,
   Bug,
   Calculator,
@@ -14,12 +17,19 @@ import {
   Files,
   FolderKanban,
   Globe2,
+  History,
+  Home,
   Maximize2,
   Minus,
   Network,
   NotebookPen,
+  PanelRightClose,
+  PanelRightOpen,
   Play,
+  Plus,
+  RefreshCw,
   RotateCcw,
+  Search,
   Settings,
   ShieldCheck,
   Sparkles,
@@ -51,6 +61,26 @@ type PreviewApp = {
   icon: LucideIcon;
   color: string;
   localOnly?: boolean;
+};
+
+type BrowserPage = "home" | "platform" | "vos" | "shield" | "debugger" | "svansai";
+
+type BrowserTab = {
+  id: number;
+  page: BrowserPage;
+  title: string;
+  address: string;
+  history: BrowserPage[];
+  historyIndex: number;
+};
+
+const browserRoutes: Record<BrowserPage, { title: string; address: string }> = {
+  home: { title: "New Tab", address: "sv://new-tab" },
+  platform: { title: "Vansant Platform", address: "vansantplatform.com" },
+  vos: { title: "Vansant OS", address: "vansantplatform.com/vos" },
+  shield: { title: "SVANS Shield", address: "vansantplatform.com/shield" },
+  debugger: { title: "SVANSAI Debugger", address: "vansantplatform.com/debugger" },
+  svansai: { title: "SVANSAI", address: "svansai.com" },
 };
 
 const apps: PreviewApp[] = [
@@ -122,8 +152,21 @@ export function VosOnlineDesktop() {
   const [debugState, setDebugState] = useState<"idle" | "running" | "complete">("idle");
   const [guideQuestion, setGuideQuestion] = useState("");
   const [guideAnswer, setGuideAnswer] = useState("Ask what Guardian, Shield, Sandbox, or the full installation does.");
-  const [browserAddress, setBrowserAddress] = useState("vansantplatform.com");
-  const [browserPage, setBrowserPage] = useState<"home" | "vos" | "shield">("home");
+  const [browserTabs, setBrowserTabs] = useState<BrowserTab[]>([
+    { id: 1, page: "home", ...browserRoutes.home, history: ["home"], historyIndex: 0 },
+  ]);
+  const [activeBrowserTabId, setActiveBrowserTabId] = useState(1);
+  const [nextBrowserTabId, setNextBrowserTabId] = useState(2);
+  const [browserAddress, setBrowserAddress] = useState(browserRoutes.home.address);
+  const [browserSidebarOpen, setBrowserSidebarOpen] = useState(true);
+  const [browserSelection, setBrowserSelection] = useState("");
+  const [browserQuestion, setBrowserQuestion] = useState("");
+  const [browserAnswer, setBrowserAnswer] = useState(
+    "Highlight text in the page, then choose Explain, Summarize, or Ask.",
+  );
+  const [browserBookmarks, setBrowserBookmarks] = useState<BrowserPage[]>(["platform", "vos"]);
+  const [browserVisits, setBrowserVisits] = useState<BrowserPage[]>(["home"]);
+  const [browserNotice, setBrowserNotice] = useState("Online protection preview active");
 
   useEffect(() => {
     const saved = window.localStorage.getItem("vos-online-notes");
@@ -140,6 +183,8 @@ export function VosOnlineDesktop() {
   }, [notes]);
 
   const active = activeApp ? appById[activeApp] : null;
+  const activeBrowserTab =
+    browserTabs.find((tab) => tab.id === activeBrowserTabId) ?? browserTabs[0];
   const clock = useMemo(
     () => new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(new Date()),
     [],
@@ -198,11 +243,138 @@ export function VosOnlineDesktop() {
     else setGuideAnswer("VOS Online is the safe showroom. Install and pair VOS when you want local files, real SV apps, Git, terminals, Guardian, and system diagnostics.");
   }
 
+  function browserPageFromAddress(address: string): BrowserPage {
+    const value = address.trim().toLowerCase();
+    if (value.includes("debug")) return "debugger";
+    if (value.includes("shield")) return "shield";
+    if (value.includes("svansai")) return "svansai";
+    if (value.includes("/vos") || value === "vos") return "vos";
+    if (value.includes("vansantplatform")) return "platform";
+    return "home";
+  }
+
+  function visitBrowserPage(page: BrowserPage, preserveForwardHistory = false) {
+    const route = browserRoutes[page];
+    setBrowserTabs((tabs) =>
+      tabs.map((tab) => {
+        if (tab.id !== activeBrowserTabId) return tab;
+        const nextHistory = preserveForwardHistory
+          ? tab.history
+          : [...tab.history.slice(0, tab.historyIndex + 1), page];
+        return {
+          ...tab,
+          page,
+          title: route.title,
+          address: route.address,
+          history: nextHistory,
+          historyIndex: preserveForwardHistory ? tab.historyIndex : nextHistory.length - 1,
+        };
+      }),
+    );
+    setBrowserAddress(route.address);
+    setBrowserVisits((visits) => [page, ...visits.filter((item) => item !== page)].slice(0, 6));
+    setBrowserNotice(`${route.title} loaded in the online-safe browser`);
+  }
+
   function navigateBrowser() {
-    const address = browserAddress.toLowerCase();
-    if (address.includes("shield")) setBrowserPage("shield");
-    else if (address.includes("vos")) setBrowserPage("vos");
-    else setBrowserPage("home");
+    visitBrowserPage(browserPageFromAddress(browserAddress));
+  }
+
+  function moveBrowserHistory(offset: -1 | 1) {
+    if (!activeBrowserTab) return;
+    const nextIndex = activeBrowserTab.historyIndex + offset;
+    const page = activeBrowserTab.history[nextIndex];
+    if (!page) return;
+    const route = browserRoutes[page];
+    setBrowserTabs((tabs) =>
+      tabs.map((tab) =>
+        tab.id === activeBrowserTabId
+          ? { ...tab, page, title: route.title, address: route.address, historyIndex: nextIndex }
+          : tab,
+      ),
+    );
+    setBrowserAddress(route.address);
+    setBrowserNotice(`${route.title} restored from tab history`);
+  }
+
+  function addBrowserTab(page: BrowserPage = "home") {
+    const route = browserRoutes[page];
+    const id = nextBrowserTabId;
+    setNextBrowserTabId((value) => value + 1);
+    setBrowserTabs((tabs) => [
+      ...tabs,
+      { id, page, ...route, history: [page], historyIndex: 0 },
+    ]);
+    setActiveBrowserTabId(id);
+    setBrowserAddress(route.address);
+    setBrowserNotice("New private preview tab opened");
+  }
+
+  function activateBrowserTab(tab: BrowserTab) {
+    setActiveBrowserTabId(tab.id);
+    setBrowserAddress(tab.address);
+    setBrowserNotice(`${tab.title} tab selected`);
+  }
+
+  function closeBrowserTab(id: number) {
+    if (browserTabs.length === 1) {
+      visitBrowserPage("home");
+      return;
+    }
+    const index = browserTabs.findIndex((tab) => tab.id === id);
+    const remaining = browserTabs.filter((tab) => tab.id !== id);
+    setBrowserTabs(remaining);
+    if (id === activeBrowserTabId) {
+      const next = remaining[Math.max(0, index - 1)] ?? remaining[0];
+      setActiveBrowserTabId(next.id);
+      setBrowserAddress(next.address);
+    }
+  }
+
+  function toggleBrowserBookmark() {
+    if (!activeBrowserTab) return;
+    setBrowserBookmarks((bookmarks) =>
+      bookmarks.includes(activeBrowserTab.page)
+        ? bookmarks.filter((page) => page !== activeBrowserTab.page)
+        : [...bookmarks, activeBrowserTab.page],
+    );
+  }
+
+  function captureBrowserSelection() {
+    const selection = window.getSelection()?.toString().trim() ?? "";
+    if (!selection) {
+      setBrowserNotice("Highlight words in the page first, then choose Check highlight");
+      return;
+    }
+    setBrowserSelection(selection.slice(0, 1800));
+    setBrowserAnswer("New highlight captured. Choose an SVANSAI action when ready.");
+    setBrowserSidebarOpen(true);
+    setBrowserNotice("Highlighted text is ready for SVANSAI");
+  }
+
+  function respondToBrowserSelection(action: "explain" | "summarize" | "ask") {
+    if (!browserSelection) {
+      setBrowserAnswer("Highlight text in the page and choose Check highlight first.");
+      return;
+    }
+    if (action === "ask" && !browserQuestion.trim()) {
+      setBrowserAnswer("Enter a question about the highlighted text first.");
+      return;
+    }
+    const compact = browserSelection.replace(/\s+/g, " ").trim();
+    if (action === "summarize") {
+      setBrowserAnswer(
+        `Preview summary: ${compact.length > 260 ? `${compact.slice(0, 257)}…` : compact}`,
+      );
+    } else if (action === "explain") {
+      setBrowserAnswer(
+        `Preview explanation: This passage describes ${compact.toLowerCase()}. The installed SV Browser can send the complete selection to SVANSAI for a deeper, live response.`,
+      );
+    } else {
+      setBrowserAnswer(
+        `Preview answer to “${browserQuestion.trim()}”: The highlighted passage indicates that ${compact.toLowerCase()}`,
+      );
+    }
   }
 
   if (!unlocked) {
@@ -364,17 +536,322 @@ export function VosOnlineDesktop() {
             <div className="mt-4 flex gap-2"><input value={guideQuestion} onChange={(event) => setGuideQuestion(event.target.value)} onKeyDown={(event) => event.key === "Enter" && askGuide()} placeholder="Ask about VOS…" className="min-w-0 flex-1 rounded-xl border border-white/10 bg-black/30 px-4 py-3 outline-none focus:border-violet-400" /><button onClick={askGuide} className="rounded-xl bg-violet-500 px-5 font-bold">Ask</button></div>
           </div>
         );
-      case "browser":
+      case "browser": {
+        const page = activeBrowserTab?.page ?? "home";
+        const isBookmarked = browserBookmarks.includes(page);
         return (
-          <div className="flex h-full min-h-[430px] flex-col bg-[#080b12]">
-            <div className="flex gap-2 border-b border-white/10 p-3"><input value={browserAddress} onChange={(event) => setBrowserAddress(event.target.value)} onKeyDown={(event) => event.key === "Enter" && navigateBrowser()} className="min-w-0 flex-1 rounded-xl border border-white/10 bg-black/30 px-4 py-2 text-sm outline-none focus:border-sky-400" /><button onClick={navigateBrowser} className="rounded-xl bg-sky-500 px-4 font-bold">Go</button></div>
-            <div className="flex-1 overflow-auto p-7">
-              {browserPage === "home" && <><p className="text-sm font-bold uppercase tracking-[0.25em] text-sky-300">SV Browser Online</p><h3 className="mt-3 text-3xl font-black">Explore the Vansant ecosystem safely.</h3><div className="mt-6 grid gap-3 sm:grid-cols-2"><button onClick={() => { setBrowserPage("vos"); setBrowserAddress("vansantplatform.com/vos"); }} className="rounded-2xl border border-white/10 bg-white/5 p-5 text-left hover:bg-white/10"><strong>VOS</strong><p className="mt-2 text-sm text-slate-400">Desktop, installer, and online preview</p></button><button onClick={() => { setBrowserPage("shield"); setBrowserAddress("vansantplatform.com/shield"); }} className="rounded-2xl border border-white/10 bg-white/5 p-5 text-left hover:bg-white/10"><strong>SVANS Shield</strong><p className="mt-2 text-sm text-slate-400">Protection capabilities and scan preview</p></button></div></>}
-              {browserPage === "vos" && <><h3 className="text-3xl font-black">Vansant Operating System</h3><p className="mt-3 max-w-xl leading-7 text-slate-300">One desktop for Sandbox, Shield, Debugger, SVANSAI, SV Browser, and Guardian.</p><Link href="/vos" className="mt-6 inline-flex items-center gap-2 rounded-xl bg-violet-500 px-5 py-3 font-bold">Visit the VOS page <ExternalLink size={16} /></Link></>}
-              {browserPage === "shield" && <><h3 className="text-3xl font-black">SVANS Shield</h3><p className="mt-3 max-w-xl leading-7 text-slate-300">Explore the protection model, then install VOS for local scanning and Guardian evidence.</p><Link href="/shield" className="mt-6 inline-flex items-center gap-2 rounded-xl bg-rose-500 px-5 py-3 font-bold">Visit Shield <ExternalLink size={16} /></Link></>}
+          <div className="flex h-full min-h-[520px] flex-col bg-[#080b12]">
+            <div className="flex items-end gap-1 overflow-x-auto border-b border-white/10 bg-[#070a10] px-2 pt-2">
+              {browserTabs.map((tab) => (
+                <div
+                  key={tab.id}
+                  className={`flex min-w-[145px] max-w-[210px] items-center gap-2 rounded-t-xl border border-b-0 px-3 py-2 text-xs ${
+                    tab.id === activeBrowserTabId
+                      ? "border-white/15 bg-[#111827] text-white"
+                      : "border-transparent bg-white/[0.03] text-slate-400"
+                  }`}
+                >
+                  <button
+                    onClick={() => activateBrowserTab(tab)}
+                    className="min-w-0 flex-1 truncate text-left font-bold"
+                  >
+                    {tab.title}
+                  </button>
+                  <button
+                    onClick={() => closeBrowserTab(tab.id)}
+                    className="rounded p-0.5 hover:bg-white/10"
+                    aria-label={`Close ${tab.title} tab`}
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              ))}
+              <button
+                onClick={() => addBrowserTab()}
+                className="mb-1 rounded-lg p-2 text-slate-400 hover:bg-white/10 hover:text-white"
+                aria-label="Open new tab"
+              >
+                <Plus size={15} />
+              </button>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 border-b border-white/10 bg-[#111827] p-2">
+              <div className="flex items-center">
+                <button
+                  onClick={() => moveBrowserHistory(-1)}
+                  disabled={!activeBrowserTab || activeBrowserTab.historyIndex === 0}
+                  className="rounded-lg p-2 text-slate-300 hover:bg-white/10 disabled:opacity-30"
+                  aria-label="Back"
+                >
+                  <ArrowLeft size={16} />
+                </button>
+                <button
+                  onClick={() => moveBrowserHistory(1)}
+                  disabled={
+                    !activeBrowserTab ||
+                    activeBrowserTab.historyIndex >= activeBrowserTab.history.length - 1
+                  }
+                  className="rounded-lg p-2 text-slate-300 hover:bg-white/10 disabled:opacity-30"
+                  aria-label="Forward"
+                >
+                  <ArrowRight size={16} />
+                </button>
+                <button
+                  onClick={() => setBrowserNotice(`${activeBrowserTab?.title ?? "Page"} refreshed`)}
+                  className="rounded-lg p-2 text-slate-300 hover:bg-white/10"
+                  aria-label="Refresh"
+                >
+                  <RefreshCw size={15} />
+                </button>
+                <button
+                  onClick={() => visitBrowserPage("home")}
+                  className="rounded-lg p-2 text-slate-300 hover:bg-white/10"
+                  aria-label="Home"
+                >
+                  <Home size={16} />
+                </button>
+              </div>
+              <div className="flex min-w-[240px] flex-1 items-center rounded-xl border border-white/10 bg-black/30 px-3">
+                <ShieldCheck size={14} className="mr-2 text-emerald-300" />
+                <input
+                  value={browserAddress}
+                  onChange={(event) => setBrowserAddress(event.target.value)}
+                  onKeyDown={(event) => event.key === "Enter" && navigateBrowser()}
+                  className="min-w-0 flex-1 bg-transparent py-2 text-sm outline-none"
+                  aria-label="SV Browser address"
+                />
+                <button
+                  onClick={toggleBrowserBookmark}
+                  className={isBookmarked ? "text-amber-300" : "text-slate-500 hover:text-white"}
+                  aria-label={isBookmarked ? "Remove bookmark" : "Bookmark page"}
+                >
+                  <Bookmark size={15} fill={isBookmarked ? "currentColor" : "none"} />
+                </button>
+              </div>
+              <button onClick={navigateBrowser} className="rounded-xl bg-sky-500 px-4 py-2 text-sm font-bold">
+                Go
+              </button>
+              <button
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={captureBrowserSelection}
+                className="rounded-xl border border-violet-400/30 bg-violet-500/10 px-3 py-2 text-xs font-bold text-violet-200"
+              >
+                Check highlight
+              </button>
+              <button
+                onClick={() => setBrowserSidebarOpen((value) => !value)}
+                className="rounded-xl border border-white/10 p-2 text-violet-200 hover:bg-white/10"
+                aria-label="Toggle SVANSAI panel"
+              >
+                {browserSidebarOpen ? <PanelRightClose size={17} /> : <PanelRightOpen size={17} />}
+              </button>
+            </div>
+
+            <div className="flex gap-2 overflow-x-auto border-b border-white/10 bg-[#0b1020] px-3 py-2">
+              {browserBookmarks.map((bookmark) => (
+                <button
+                  key={bookmark}
+                  onClick={() => visitBrowserPage(bookmark)}
+                  className="shrink-0 rounded-lg bg-white/5 px-3 py-1.5 text-xs font-bold text-slate-300 hover:bg-white/10"
+                >
+                  {browserRoutes[bookmark].title}
+                </button>
+              ))}
+              <span className="ml-auto hidden items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-emerald-300 sm:flex">
+                <ShieldCheck size={12} /> Safe online routes
+              </span>
+            </div>
+
+            <div className={`grid min-h-0 flex-1 ${browserSidebarOpen ? "lg:grid-cols-[1fr_315px]" : ""}`}>
+              <div className="min-h-0 overflow-auto bg-[radial-gradient(circle_at_85%_15%,rgba(14,165,233,0.12),transparent_30%),#080b12] p-6 selection:bg-violet-500/60">
+                {page === "home" && (
+                  <>
+                    <p className="text-xs font-black uppercase tracking-[0.25em] text-sky-300">
+                      SV Browser Online
+                    </p>
+                    <h3 className="mt-3 max-w-2xl text-3xl font-black">
+                      Explore the Vansant ecosystem before installing.
+                    </h3>
+                    <p className="mt-3 max-w-2xl leading-7 text-slate-300">
+                      Open tabs, visit web-safe Vansant destinations, bookmark pages, highlight
+                      this text, and try the SVANSAI selection workflow from the side panel.
+                    </p>
+                    <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                      {(["platform", "vos", "shield", "debugger", "svansai"] as BrowserPage[]).map(
+                        (destination) => (
+                          <button
+                            key={destination}
+                            onClick={() => visitBrowserPage(destination)}
+                            className="rounded-2xl border border-white/10 bg-white/5 p-5 text-left transition hover:-translate-y-0.5 hover:border-sky-400/30 hover:bg-white/10"
+                          >
+                            <strong>{browserRoutes[destination].title}</strong>
+                            <p className="mt-2 text-sm text-slate-400">
+                              {destination === "platform" && "Projects, downloads, and the Vansant ecosystem"}
+                              {destination === "vos" && "Desktop, Guardian, and integrated SV tools"}
+                              {destination === "shield" && "Protection layers and scan demonstrations"}
+                              {destination === "debugger" && "Diagnostics, findings, and guided fixes"}
+                              {destination === "svansai" && "Selection-aware assistance inside the browser"}
+                            </p>
+                          </button>
+                        ),
+                      )}
+                    </div>
+                    <div className="mt-6 rounded-2xl border border-emerald-400/15 bg-emerald-400/5 p-5">
+                      <p className="font-bold text-emerald-200">Try the highlight workflow</p>
+                      <p className="mt-2 text-sm leading-6 text-slate-300">
+                        SVANSAI can explain selected material without losing the page you are
+                        reading. Drag across this sentence, choose Check highlight, and test an
+                        action in the panel.
+                      </p>
+                    </div>
+                  </>
+                )}
+
+                {page === "platform" && (
+                  <>
+                    <p className="text-xs font-black uppercase tracking-[0.25em] text-orange-300">
+                      Vansant Platform
+                    </p>
+                    <h3 className="mt-3 text-3xl font-black">One home for every SV project.</h3>
+                    <p className="mt-3 max-w-2xl leading-7 text-slate-300">
+                      Vansant Platform connects VOS, SV Browser, SVANSAI, Shield, Debugger, and
+                      your project workspace through one consistent experience.
+                    </p>
+                    <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                      {["Explore products", "Pair your desktop", "Continue projects"].map((item) => (
+                        <div key={item} className="rounded-2xl border border-white/10 bg-white/5 p-5">
+                          <CheckCircle2 className="text-orange-300" size={20} />
+                          <p className="mt-3 font-bold">{item}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <Link href="/" className="mt-6 inline-flex items-center gap-2 rounded-xl bg-orange-500 px-5 py-3 font-bold">
+                      Open full Platform <ExternalLink size={16} />
+                    </Link>
+                  </>
+                )}
+
+                {page === "vos" && (
+                  <>
+                    <p className="text-xs font-black uppercase tracking-[0.25em] text-violet-300">Vansant Operating System</p>
+                    <h3 className="mt-3 text-3xl font-black">The armor and guide layer for your SV workspace.</h3>
+                    <p className="mt-3 max-w-2xl leading-7 text-slate-300">
+                      VOS brings Sandbox, Shield, Debugger, SV Browser, SVANSAI, and Guardian
+                      into one desktop where applications stay contained inside the operating
+                      environment.
+                    </p>
+                    <div className="mt-6 flex flex-wrap gap-3">
+                      <Link href="/vos" className="inline-flex items-center gap-2 rounded-xl bg-violet-500 px-5 py-3 font-bold">
+                        Explore VOS <ExternalLink size={16} />
+                      </Link>
+                      <a href="/downloads/VOS-Founding-Beta-0.15.0-Windows-Setup-R5.exe" download className="inline-flex items-center gap-2 rounded-xl border border-white/15 px-5 py-3 font-bold hover:bg-white/10">
+                        Download VOS <ExternalLink size={16} />
+                      </a>
+                    </div>
+                  </>
+                )}
+
+                {page === "shield" && (
+                  <>
+                    <p className="text-xs font-black uppercase tracking-[0.25em] text-rose-300">SVANS Shield</p>
+                    <h3 className="mt-3 text-3xl font-black">Protection that explains what it sees.</h3>
+                    <p className="mt-3 max-w-2xl leading-7 text-slate-300">
+                      The online Shield experience demonstrates risk layers, findings, and
+                      Guardian evidence. The installed edition is required for real local file,
+                      process, and network inspection.
+                    </p>
+                    <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                      {["Application armor", "Download inspection", "Incident evidence", "Guardian coordination"].map((item) => (
+                        <div key={item} className="flex items-center gap-3 rounded-xl border border-rose-400/15 bg-rose-400/5 p-4">
+                          <ShieldCheck size={18} className="text-rose-300" /><span>{item}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <Link href="/shield" className="mt-6 inline-flex items-center gap-2 rounded-xl bg-rose-500 px-5 py-3 font-bold">
+                      Open Shield demonstration <ExternalLink size={16} />
+                    </Link>
+                  </>
+                )}
+
+                {page === "debugger" && (
+                  <>
+                    <p className="text-xs font-black uppercase tracking-[0.25em] text-purple-300">SVANSAI Debugger</p>
+                    <h3 className="mt-3 text-3xl font-black">Turn technical failures into guided fixes.</h3>
+                    <p className="mt-3 max-w-2xl leading-7 text-slate-300">
+                      The Debugger organizes logs, diagnostics, likely causes, and recovery
+                      actions. Pairing connects the website experience to an authorized desktop
+                      session without giving the webpage unrestricted device access.
+                    </p>
+                    <Link href="/debugger" className="mt-6 inline-flex items-center gap-2 rounded-xl bg-purple-500 px-5 py-3 font-bold">
+                      Try Debugger pairing <ExternalLink size={16} />
+                    </Link>
+                  </>
+                )}
+
+                {page === "svansai" && (
+                  <>
+                    <p className="text-xs font-black uppercase tracking-[0.25em] text-cyan-300">SVANSAI</p>
+                    <h3 className="mt-3 text-3xl font-black">Ask questions without leaving what you are reading.</h3>
+                    <p className="mt-3 max-w-2xl leading-7 text-slate-300">
+                      Highlight a passage on any online-safe page and open it in the SVANSAI
+                      panel. The online version demonstrates the selection workflow; the desktop
+                      browser adds live responses, broader browsing, and local Vansant tools.
+                    </p>
+                    <div className="mt-6 rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-5 text-sm leading-6 text-slate-200">
+                      Sample selection: Guardian Core coordinates trusted modules and records
+                      evidence so security findings can become understandable, reviewable
+                      incidents instead of unexplained warnings.
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {browserSidebarOpen && (
+                <aside className="min-h-0 overflow-auto border-l border-white/10 bg-[#080d18] p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-wider text-violet-300">SVANSAI selection</p>
+                      <p className="mt-1 text-[11px] text-slate-500">Online demonstration</p>
+                    </div>
+                    <Bot size={20} className="text-violet-300" />
+                  </div>
+                  <p className="mt-4 text-xs font-bold text-slate-300">Highlighted text</p>
+                  <div className="mt-2 min-h-28 rounded-xl border border-white/10 bg-black/30 p-3 text-xs leading-5 text-slate-300">
+                    {browserSelection || "Highlight text on the page, then choose Check highlight."}
+                  </div>
+                  <input
+                    value={browserQuestion}
+                    onChange={(event) => setBrowserQuestion(event.target.value)}
+                    onKeyDown={(event) => event.key === "Enter" && respondToBrowserSelection("ask")}
+                    placeholder="Optional question…"
+                    className="mt-3 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs outline-none focus:border-violet-400"
+                  />
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    <button onClick={() => respondToBrowserSelection("explain")} className="rounded-lg bg-blue-500 px-2 py-2 text-[11px] font-bold">Explain</button>
+                    <button onClick={() => respondToBrowserSelection("summarize")} className="rounded-lg bg-amber-600 px-2 py-2 text-[11px] font-bold">Summarize</button>
+                    <button onClick={() => respondToBrowserSelection("ask")} className="rounded-lg bg-emerald-600 px-2 py-2 text-[11px] font-bold">Ask</button>
+                  </div>
+                  <p className="mt-4 text-xs font-bold text-slate-300">SVANSAI response</p>
+                  <div className="mt-2 min-h-36 rounded-xl border border-violet-400/20 bg-violet-400/5 p-3 text-xs leading-5 text-slate-200">
+                    {browserAnswer}
+                  </div>
+                  <a href="/downloads/SV-Browser.exe" download className="mt-4 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-sky-500 px-4 py-3 text-xs font-bold">
+                    Continue in SV Browser <ExternalLink size={14} />
+                  </a>
+                </aside>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 border-t border-white/10 bg-[#070a10] px-3 py-2 text-[10px] text-slate-400">
+              <span className="flex items-center gap-1 text-emerald-300"><ShieldCheck size={11} /> {browserNotice}</span>
+              <button onClick={() => setBrowserNotice(`Recent: ${browserVisits.map((item) => browserRoutes[item].title).join(" · ")}`)} className="ml-auto flex items-center gap-1 hover:text-white">
+                <History size={11} /> History
+              </button>
+              <span>Desktop-only protection remains disabled online</span>
             </div>
           </div>
         );
+      }
       case "projects":
         return <div className="p-6"><h3 className="text-xl font-black">Projects</h3><div className="mt-5 grid gap-3 sm:grid-cols-2">{["VOS Online Tour","My First SV App","Shield Review","Sandbox Practice"].map((project) => <div key={project} className="rounded-xl border border-white/10 bg-black/20 p-5"><FolderKanban className="text-cyan-300" /><p className="mt-3 font-bold">{project}</p><p className="mt-1 text-xs text-slate-500">Preview workspace</p></div>)}</div></div>;
       case "settings":
