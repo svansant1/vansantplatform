@@ -34,6 +34,12 @@ export default function SvBrowserPage() {
             </p>
 
             <div className="mt-8 flex flex-wrap gap-4">
+              <Link
+                href="/vos/online#browser"
+                className="rounded-2xl bg-white px-6 py-4 font-bold text-[#080b16] transition hover:bg-sky-50"
+              >
+                Try SV Browser Online
+              </Link>
               <a
                 href="/downloads/SV-Browser.exe"
                 download="SV Browser.exe"
