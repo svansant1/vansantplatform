@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { VosOnlineLaunchButton } from "../vos/VosOnlineLaunchButton";
 
 const features = [
   "VansantPlatform set as the home page",
@@ -34,12 +35,7 @@ export default function SvBrowserPage() {
             </p>
 
             <div className="mt-8 flex flex-wrap gap-4">
-              <Link
-                href="/vos/online#browser"
-                className="rounded-2xl bg-white px-6 py-4 font-bold text-[#080b16] transition hover:bg-sky-50"
-              >
-                Try SV Browser Online
-              </Link>
+              <VosOnlineLaunchButton label="Try SV Browser Online" app="browser" />
               <a
                 href="/downloads/SV-Browser.exe"
                 download="SV Browser.exe"

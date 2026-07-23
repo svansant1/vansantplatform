@@ -9,12 +9,12 @@ import {
   Download,
   FolderCode,
   Network,
-  MonitorPlay,
   ShieldCheck,
   Sparkles,
   SquareTerminal,
 } from "lucide-react";
 import { VosLaunchButton } from "./VosLaunchButton";
+import { VosOnlineLaunchButton } from "./VosOnlineLaunchButton";
 
 export const metadata: Metadata = {
   title: "VOS Founding Beta | Vansant Platform",
@@ -121,13 +121,7 @@ export default function VosPage() {
             </p>
 
             <div className="mt-9 flex flex-wrap gap-4">
-              <Link
-                href="/vos/online"
-                className="inline-flex items-center gap-3 rounded-2xl bg-white px-6 py-4 font-bold text-[#080b16] shadow-[0_0_40px_rgba(255,255,255,0.12)] transition hover:-translate-y-0.5 hover:bg-cyan-50 focus:outline-none focus:ring-2 focus:ring-cyan-300"
-              >
-                <MonitorPlay size={21} aria-hidden="true" />
-                Explore VOS Online
-              </Link>
+              <VosOnlineLaunchButton />
               <VosLaunchButton />
               <a
                 href={downloadUrl}

@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { connectDebugger } from "../../../services/pairingService";
 
 type AppId =
   | "files"
@@ -104,6 +105,10 @@ function runGuidedCode(source: string): string {
 }
 
 export function VosOnlineDesktop() {
+  const [unlocked, setUnlocked] = useState(false);
+  const [pairCode, setPairCode] = useState("");
+  const [pairing, setPairing] = useState(false);
+  const [pairError, setPairError] = useState("");
   const [openApps, setOpenApps] = useState<AppId[]>([]);
   const [activeApp, setActiveApp] = useState<AppId | null>(null);
   const [maximized, setMaximized] = useState(false);
@@ -139,6 +144,24 @@ export function VosOnlineDesktop() {
     () => new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(new Date()),
     [],
   );
+
+  async function unlockPreview() {
+    const normalized = pairCode.replace(/[^a-z0-9]/gi, "").toUpperCase();
+    if (normalized.length !== 6) {
+      setPairError("Enter the complete six-character code shown on the VOS page.");
+      return;
+    }
+    setPairing(true);
+    setPairError("");
+    const result = await connectDebugger(normalized, "VOS Online Preview");
+    setPairing(false);
+    if (!result.ok) {
+      setPairError(result.error || "That code is invalid, expired, or already used.");
+      return;
+    }
+    window.sessionStorage.setItem("vos-online-paired", "true");
+    setUnlocked(true);
+  }
 
   function openApp(id: AppId) {
     setOpenApps((current) => (current.includes(id) ? current : [...current, id]));
@@ -180,6 +203,67 @@ export function VosOnlineDesktop() {
     if (address.includes("shield")) setBrowserPage("shield");
     else if (address.includes("vos")) setBrowserPage("vos");
     else setBrowserPage("home");
+  }
+
+  if (!unlocked) {
+    return (
+      <main className="grid min-h-[calc(100vh-4rem)] place-items-center overflow-hidden rounded-[1.75rem] border border-white/10 bg-[radial-gradient(circle_at_80%_20%,rgba(124,58,237,0.35),transparent_35%),radial-gradient(circle_at_20%_90%,rgba(6,182,212,0.22),transparent_38%),#050711] p-6 text-white shadow-2xl">
+        <section className="w-full max-w-xl rounded-[2rem] border border-white/15 bg-[#0a1020]/95 p-7 text-center shadow-[0_30px_100px_rgba(0,0,0,0.6)] backdrop-blur sm:p-10">
+          <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br from-violet-600 to-cyan-500 shadow-[0_0_35px_rgba(34,211,238,0.25)]">
+            <ShieldCheck size={32} />
+          </div>
+          <p className="mt-6 text-xs font-black uppercase tracking-[0.25em] text-cyan-300">
+            Secure VOS preview
+          </p>
+          <h1 className="mt-3 text-3xl font-black sm:text-4xl">
+            Pair to unlock VOS Online
+          </h1>
+          <p className="mx-auto mt-4 max-w-md text-sm leading-6 text-slate-300">
+            Keep the VOS page open and enter the one-time code shown beneath
+            <strong className="text-white"> Explore VOS Online</strong>.
+          </p>
+
+          <input
+            value={pairCode}
+            onChange={(event) =>
+              setPairCode(
+                event.target.value.replace(/[^a-z0-9]/gi, "").toUpperCase().slice(0, 6),
+              )
+            }
+            onKeyDown={(event) => event.key === "Enter" && unlockPreview()}
+            placeholder="------"
+            maxLength={6}
+            autoFocus
+            className="mx-auto mt-7 block w-64 rounded-2xl border-2 border-white/15 bg-black/30 px-5 py-4 text-center font-mono text-3xl font-black tracking-[0.3em] outline-none transition focus:border-cyan-400"
+            aria-label="VOS Online pairing code"
+          />
+          {pairError && (
+            <p className="mt-3 text-sm text-rose-300" role="alert">
+              {pairError}
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={unlockPreview}
+            disabled={pairing}
+            className="mt-5 w-64 rounded-2xl bg-gradient-to-r from-violet-600 to-cyan-500 px-5 py-4 font-bold transition hover:brightness-110 disabled:cursor-wait disabled:opacity-60"
+          >
+            {pairing ? "Confirming code…" : "Pair and enter preview"}
+          </button>
+          <div className="mt-6 border-t border-white/10 pt-5">
+            <Link
+              href="/vos"
+              className="text-sm font-bold text-cyan-300 hover:text-cyan-200"
+            >
+              Return to the VOS page to generate a code
+            </Link>
+          </div>
+          <p className="mt-4 text-xs text-slate-500">
+            Codes expire shortly and can only unlock one session.
+          </p>
+        </section>
+      </main>
+    );
   }
 
   function renderApp(id: AppId) {
