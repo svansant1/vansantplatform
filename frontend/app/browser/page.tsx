@@ -9,7 +9,8 @@ const features = [
   "Private local history with address-bar suggestions and management",
   "DeVry and zyBooks LTI sign-in support across new tabs",
   "Dockable SVANSAI sidebar with a movable, modeless pop-out window",
-  "Highlight text and open SVANSAI directly from the right-click menu",
+  "Automatic highlight detection with USE NEW and CHECK controls",
+  "Focused SVANSAI answers that follow your highlighted text and question",
   "SVANSAI available from the browser toolbar",
   "SV Shield protection running in the background",
   "SV Debugger diagnostics when browsing issues arise",
@@ -53,7 +54,7 @@ export default function SvBrowserPage() {
             </div>
 
             <p className="mt-5 text-sm text-zinc-500">
-              Version 0.10.0 · Windows 10/11 · Self-contained app
+              Version 0.11.0 · Windows 10/11 · Self-contained app
             </p>
           </div>
 
