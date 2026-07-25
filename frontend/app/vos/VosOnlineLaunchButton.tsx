@@ -1,7 +1,6 @@
 "use client";
 
 import { LoaderCircle, MonitorPlay } from "lucide-react";
-import { useState } from "react";
 import { usePairing } from "../../hooks/usePairing";
 
 type VosOnlineLaunchButtonProps = {
@@ -14,28 +13,10 @@ export function VosOnlineLaunchButton({
   app,
 }: VosOnlineLaunchButtonProps) {
   const { pairing, status, isCreating, createPairCode } = usePairing();
-  const [popupBlocked, setPopupBlocked] = useState(false);
+  const previewUrl = `/vos/online${app ? `#${encodeURIComponent(app)}` : ""}`;
 
   async function launchPreview() {
-    setPopupBlocked(false);
-    const preview = window.open("", "_blank");
-    if (!preview) {
-      setPopupBlocked(true);
-      return;
-    }
-
-    preview.document.title = "Preparing VOS Online";
-    preview.document.body.style.cssText =
-      "margin:0;display:grid;place-items:center;min-height:100vh;background:#050711;color:white;font:16px Arial";
-    preview.document.body.textContent = "Creating a secure VOS preview session…";
-
-    const result = await createPairCode();
-    if (!result.ok || !result.code) {
-      preview.close();
-      return;
-    }
-
-    preview.location.href = `/vos/online${app ? `#${encodeURIComponent(app)}` : ""}`;
+    await createPairCode();
   }
 
   const connected = Boolean(status?.connected);
@@ -54,29 +35,57 @@ export function VosOnlineLaunchButton({
         ) : (
           <MonitorPlay size={21} aria-hidden="true" />
         )}
-        {isCreating ? "Creating preview code…" : label}
+        {isCreating
+          ? "Creating preview code…"
+          : pairing?.code
+            ? "Create another code"
+            : label}
       </button>
 
       {pairing?.code && (
-        <p className="max-w-sm text-xs leading-5 text-zinc-400" role="status">
-          Preview code{" "}
-          <strong className="tracking-[0.18em] text-cyan-200">
+        <div
+          className="w-full max-w-md rounded-2xl border border-cyan-300/20 bg-cyan-300/[0.06] p-4"
+          role="status"
+        >
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-300">
+            Your one-time preview code
+          </p>
+          <p className="mt-2 select-all font-mono text-2xl font-black tracking-[0.24em] text-white">
             {pairing.code}
-          </strong>
-          {connected
-            ? " confirmed. VOS Online is unlocked."
-            : " created. Enter it in the new VOS Online tab."}
-        </p>
+          </p>
+          <p className="mt-2 text-xs leading-5 text-zinc-400">
+            {connected
+              ? "Code confirmed. Your online preview is connected."
+              : "Keep this page available, open the preview, and enter this code on its lock screen."}
+          </p>
+          {!connected && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              <a
+                href={previewUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-xl bg-gradient-to-r from-violet-600 to-cyan-500 px-4 py-3 text-xs font-bold text-white transition hover:brightness-110"
+              >
+                Open preview in a new tab
+              </a>
+              <a
+                href={previewUrl}
+                className="rounded-xl border border-white/15 px-4 py-3 text-xs font-bold text-white transition hover:bg-white/10"
+              >
+                Open in this tab
+              </a>
+            </div>
+          )}
+          {!connected && (
+            <p className="mt-3 text-[11px] leading-4 text-amber-200/80">
+              If your work browser blocks new tabs, use “Open in this tab.”
+            </p>
+          )}
+        </div>
       )}
       {error && (
         <p className="max-w-sm text-xs text-rose-300" role="alert">
           {error}
-        </p>
-      )}
-      {popupBlocked && (
-        <p className="max-w-sm text-xs text-amber-300" role="alert">
-          Allow pop-ups for Vansant Platform, then try again so the code remains
-          visible while VOS Online opens.
         </p>
       )}
     </div>
