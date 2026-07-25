@@ -4,9 +4,7 @@ import type {
   PairStatusResponse,
 } from "../types/pairing";
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ||
-  "https://vansant-backend.onrender.com";
+const PAIRING_API_BASE_URL = "/api/pairing";
 
 function normalizeCreatePairCodeResponse(
   payload: Partial<CreatePairCodeResponse> | null | undefined,
@@ -48,7 +46,7 @@ function normalizeConnectResponse(
 
 export async function createPairCode(): Promise<CreatePairCodeResponse> {
   try {
-    const response = await fetch(`${API_BASE_URL}/debugger/create-pair-code`, {
+    const response = await fetch(`${PAIRING_API_BASE_URL}/create`, {
       method: "POST",
     });
 
@@ -70,7 +68,7 @@ export async function getPairStatus(
 ): Promise<PairStatusResponse> {
   try {
     const response = await fetch(
-      `${API_BASE_URL}/debugger/pair-status/${encodeURIComponent(code)}`,
+      `${PAIRING_API_BASE_URL}/status/${encodeURIComponent(code)}`,
       { cache: "no-store" },
     );
 
@@ -92,7 +90,7 @@ export async function connectDebugger(
   deviceName: string,
 ): Promise<DebuggerConnectResponse> {
   try {
-    const response = await fetch(`${API_BASE_URL}/debugger/connect`, {
+    const response = await fetch(`${PAIRING_API_BASE_URL}/connect`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
