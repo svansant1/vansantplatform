@@ -868,7 +868,10 @@ export function VosOnlineDesktop() {
       </div>
 
       <div className="relative min-h-[760px] overflow-hidden bg-gradient-to-br from-[#050814] via-[#091225] to-[#12102a]">
-        <div className="pointer-events-none absolute right-6 top-[350px] hidden w-[clamp(210px,22vw,330px)] lg:block">
+        <div
+          className="pointer-events-none absolute bottom-20 right-4 w-[clamp(130px,22vw,330px)] sm:right-6"
+          data-vos-position="bottom-right"
+        >
           <Image
             src="/branding/vos-desktop-emblem.png"
             alt=""
