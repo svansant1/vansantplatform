@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import {
   AppWindow,
@@ -867,9 +868,16 @@ export function VosOnlineDesktop() {
       </div>
 
       <div className="relative min-h-[760px] overflow-hidden bg-gradient-to-br from-[#050814] via-[#091225] to-[#12102a]">
-        <div className="pointer-events-none absolute -bottom-36 right-4 h-[390px] w-[390px] rounded-full border-4 border-violet-500/25" />
-        <div className="pointer-events-none absolute -bottom-32 right-8 h-[370px] w-[370px] rounded-full border-2 border-cyan-400/25" />
-        <div className="pointer-events-none absolute bottom-8 right-28 text-7xl font-black text-white/[0.035]">SV</div>
+        <div className="pointer-events-none absolute right-6 top-[350px] hidden w-[clamp(210px,22vw,330px)] lg:block">
+          <Image
+            src="/branding/vos-desktop-emblem.png"
+            alt=""
+            width={500}
+            height={500}
+            className="h-auto w-full opacity-80"
+            aria-hidden="true"
+          />
+        </div>
 
         <div className="relative p-4 pb-24 sm:p-6 sm:pb-24">
           <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-white/10 bg-[#091225]/95 px-4 py-3 shadow-xl">
