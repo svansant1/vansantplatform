@@ -15,6 +15,7 @@ const features = [
   "SV Shield protection running in the background",
   "SV Debugger diagnostics when browsing issues arise",
   "Compact pinned tabs with pin and unpin controls in the tab menu",
+  "Drag tabs out into their own independent SV Browser windows",
 ];
 
 export default function SvBrowserPage() {
@@ -54,7 +55,7 @@ export default function SvBrowserPage() {
             </div>
 
             <p className="mt-5 text-sm text-zinc-500">
-              Version 0.12.0 · Windows 10/11 · Self-contained app
+              Version 0.13.0 · Windows 10/11 · Self-contained app
             </p>
           </div>
 
