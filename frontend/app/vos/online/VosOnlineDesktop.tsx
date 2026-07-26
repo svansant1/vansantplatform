@@ -866,18 +866,60 @@ export function VosOnlineDesktop() {
         <div className="flex items-center gap-3"><span className="hidden rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-xs text-amber-200 sm:inline">Demonstration mode</span><Link href="/vos" className="text-xs font-bold text-cyan-300 hover:text-cyan-200">Get full VOS</Link></div>
       </div>
 
-      <div className="relative min-h-[720px] overflow-hidden bg-gradient-to-br from-[#050711] via-[#0a1021] to-[#17102d]">
-        <div className="pointer-events-none absolute -right-24 top-8 h-96 w-96 rounded-full bg-violet-600/50 blur-sm" />
-        <div className="pointer-events-none absolute bottom-[-150px] right-24 h-[470px] w-[470px] rounded-full bg-cyan-500/35 blur-sm" />
-        <div className="relative p-6 pb-24 sm:p-9 sm:pb-24">
-          <h1 className="text-3xl font-black tracking-tight sm:text-4xl">VANSANT OS</h1>
-          <p className="mt-2 text-sm text-slate-300">Explore the web-safe experience before installing.</p>
-          <div className="mt-8 grid max-w-[690px] grid-cols-3 gap-3 sm:grid-cols-4">
-            {apps.map(({ id, name, icon: Icon, color, localOnly }) => (
-              <button key={id} onClick={() => openApp(id)} className="group relative flex min-h-28 flex-col items-center justify-center rounded-xl border border-white/15 bg-[#0c1426]/90 p-3 text-center shadow-lg transition hover:-translate-y-1 hover:border-white/30 hover:bg-[#121d34] focus:outline-none focus:ring-2 focus:ring-cyan-300">
-                <span className={`grid h-10 w-10 place-items-center rounded-lg ${color}`}><Icon size={22} /></span>
-                <span className="mt-3 text-xs font-bold">{name}</span>
-                {localOnly && <span className="mt-1 text-[9px] uppercase tracking-wide text-amber-300">guided preview</span>}
+      <div className="relative min-h-[760px] overflow-hidden bg-gradient-to-br from-[#050814] via-[#091225] to-[#12102a]">
+        <div className="pointer-events-none absolute -bottom-36 right-4 h-[390px] w-[390px] rounded-full border-4 border-violet-500/25" />
+        <div className="pointer-events-none absolute -bottom-32 right-8 h-[370px] w-[370px] rounded-full border-2 border-cyan-400/25" />
+        <div className="pointer-events-none absolute bottom-8 right-28 text-7xl font-black text-white/[0.035]">SV</div>
+
+        <div className="relative p-4 pb-24 sm:p-6 sm:pb-24">
+          <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-white/10 bg-[#091225]/95 px-4 py-3 shadow-xl">
+            <div className="grid h-11 w-11 place-items-center rounded-full border-2 border-cyan-300 bg-violet-600 font-black">SV</div>
+            <div>
+              <p className="text-sm font-black tracking-wide">VANSANT OS</p>
+              <p className="text-[11px] text-slate-400">Personal workspace</p>
+            </div>
+            <div className="ml-auto flex items-center gap-2">
+              <button onClick={() => setStartOpen(true)} className="hidden items-center gap-2 rounded-xl bg-cyan-400/10 px-4 py-2 text-xs font-bold text-cyan-200 hover:bg-cyan-400/20 sm:flex"><Search size={14} /> Search apps</button>
+              <button onClick={() => openApp("guardian")} className="rounded-xl bg-white/5 px-4 py-2 text-xs font-bold hover:bg-white/10">Notifications</button>
+              <button onClick={() => openApp("settings")} className="rounded-xl bg-white/5 p-2.5 text-slate-300 hover:bg-white/10" aria-label="Open settings"><Settings size={16} /></button>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-4 lg:grid-cols-[1.55fr_0.85fr]">
+            <section className="rounded-2xl border border-white/10 bg-[#0c172b]/95 p-5 shadow-xl sm:p-6">
+              <p className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-300">Your VOS workspace</p>
+              <h1 className="mt-2 text-2xl font-black tracking-tight sm:text-3xl">Good to see you, Shawn.</h1>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">Continue a project, ask SVANSAI, or review protection without leaving the desktop.</p>
+              <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                <button onClick={() => openApp("projects")} className="rounded-xl bg-cyan-700/80 p-4 text-left transition hover:-translate-y-0.5 hover:bg-cyan-600"><FolderKanban size={20} /><strong className="mt-3 block text-sm">Open Projects</strong><span className="mt-1 block text-[11px] text-cyan-100/80">Continue recent work</span></button>
+                <button onClick={() => openApp("guide")} className="rounded-xl bg-violet-700/80 p-4 text-left transition hover:-translate-y-0.5 hover:bg-violet-600"><Bot size={20} /><strong className="mt-3 block text-sm">Ask SVANSAI</strong><span className="mt-1 block text-[11px] text-violet-100/80">Get guidance in context</span></button>
+                <button onClick={() => openApp("sandbox")} className="rounded-xl bg-emerald-700/80 p-4 text-left transition hover:-translate-y-0.5 hover:bg-emerald-600"><Code2 size={20} /><strong className="mt-3 block text-sm">Launch Sandbox</strong><span className="mt-1 block text-[11px] text-emerald-100/80">Build and test safely</span></button>
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-emerald-400/20 bg-[#0a1627]/95 p-5 shadow-xl">
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-emerald-300">Security Center</p>
+                <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-[10px] font-black text-emerald-300">PREVIEW PROTECTED</span>
+              </div>
+              <h2 className="mt-3 text-lg font-black">Guardian is watching the workspace.</h2>
+              <p className="mt-2 text-xs leading-5 text-slate-400">Demonstration modules are connected. Local protection activates after installation.</p>
+              <div className="mt-4 space-y-2">
+                {[["Shield","Ready","text-emerald-300"],["Network Armor","Normal","text-cyan-300"],["Open incidents","Review","text-amber-300"]].map(([label,value,color]) => <div key={label} className="flex items-center rounded-xl bg-white/5 px-3 py-2 text-xs"><span className={`mr-2 ${color}`}>●</span><span>{label}</span><strong className={`ml-auto ${color}`}>{value}</strong></div>)}
+              </div>
+              <button onClick={() => openApp("guardian")} className="mt-4 w-full rounded-xl bg-emerald-500 px-4 py-2.5 text-xs font-black text-[#06110d] hover:bg-emerald-400">Open Security Center</button>
+            </section>
+          </div>
+
+          <div className="mt-5 flex items-end justify-between">
+            <div><h2 className="text-sm font-black">Pinned apps</h2><p className="mt-1 text-[11px] text-slate-500">Your everyday Vansant tools</p></div>
+            <button onClick={() => setStartOpen(true)} className="text-xs font-bold text-cyan-300 hover:text-cyan-200">View all apps</button>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            {apps.filter((app) => ["files","projects","browser","guide","sandbox"].includes(app.id)).map(({ id, name, icon: Icon, color }) => (
+              <button key={id} onClick={() => openApp(id)} className="group flex min-h-20 items-center rounded-xl border border-white/10 bg-[#111c31]/90 p-3 text-left shadow-lg transition hover:-translate-y-0.5 hover:border-cyan-300/30 hover:bg-[#172642]">
+                <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg ${color}`}><Icon size={20} /></span>
+                <span className="ml-3"><strong className="block text-xs">{name === "SVANSAI Guide" ? "SVANSAI" : name}</strong><span className="mt-1 block text-[10px] text-slate-500">{id === "files" ? "Your files" : id === "projects" ? "Recent work" : id === "browser" ? "Secure browsing" : id === "guide" ? "AI guidance" : "Build safely"}</span></span>
               </button>
             ))}
           </div>
@@ -885,8 +927,8 @@ export function VosOnlineDesktop() {
 
         {active && (
           <section className={`absolute z-20 overflow-hidden rounded-2xl border border-white/15 bg-[#0c1220] shadow-[0_28px_100px_rgba(0,0,0,0.65)] ${maximized ? "inset-3 bottom-20" : "inset-x-4 top-20 bottom-24 sm:left-[12%] sm:right-[5%] sm:top-16"}`} aria-label={`${active.name} window`}>
-            <header className="flex items-center justify-between border-b border-white/10 bg-[#111827] px-4 py-3">
-              <div className="flex items-center gap-3"><span className={`grid h-8 w-8 place-items-center rounded-lg ${active.color}`}><active.icon size={17} /></span><div><h2 className="text-sm font-bold">{active.name}</h2>{active.localOnly && <p className="text-[10px] text-amber-300">Guided online preview</p>}</div></div>
+            <header className="flex items-center justify-between border-b border-white/10 border-l-4 border-l-cyan-400 bg-[#0d1a30] px-4 py-3">
+              <div className="flex items-center gap-3"><span className={`grid h-8 w-8 place-items-center rounded-lg ${active.color}`}><active.icon size={17} /></span><div><div className="flex items-center gap-2"><h2 className="text-sm font-bold">{active.name}</h2><span className="text-[8px] font-black tracking-wider text-slate-500">VOS APP</span></div>{active.localOnly && <p className="text-[10px] text-amber-300">Guided online preview</p>}</div></div>
               <div className="flex gap-1"><button onClick={() => setActiveApp(null)} className="rounded-lg p-2 text-slate-400 hover:bg-white/10 hover:text-white" aria-label="Minimize"><Minus size={16} /></button><button onClick={() => setMaximized((value) => !value)} className="rounded-lg p-2 text-slate-400 hover:bg-white/10 hover:text-white" aria-label="Toggle maximize"><Maximize2 size={15} /></button><button onClick={() => closeApp(active.id)} className="rounded-lg p-2 text-slate-400 hover:bg-rose-500 hover:text-white" aria-label="Close"><X size={16} /></button></div>
             </header>
             <div className="h-[calc(100%-57px)] overflow-auto">{renderApp(active.id)}</div>
@@ -894,15 +936,18 @@ export function VosOnlineDesktop() {
         )}
 
         {startOpen && (
-          <div className="absolute bottom-16 left-3 z-30 w-[310px] rounded-2xl border border-white/15 bg-[#090f1e]/95 p-4 shadow-2xl backdrop-blur-xl">
-            <p className="px-2 pb-3 text-sm font-black">VOS Start</p>
-            <div className="grid grid-cols-2 gap-2">{apps.map(({ id, shortName, icon: Icon }) => <button key={id} onClick={() => openApp(id)} className="flex items-center gap-2 rounded-xl p-3 text-left text-xs font-bold hover:bg-white/10"><Icon size={16} />{shortName}</button>)}</div>
+          <div className="absolute bottom-16 left-3 z-30 w-[min(590px,calc(100%-24px))] rounded-2xl border border-white/15 bg-[#091326]/95 p-4 shadow-2xl backdrop-blur-xl">
+            <div className="flex items-center gap-3 border-b border-white/10 pb-4"><div className="grid h-10 w-10 place-items-center rounded-full border border-cyan-300 bg-violet-600 font-black">S</div><div><p className="text-sm font-black">Shawn&apos;s workspace</p><p className="text-[10px] text-slate-500">Vansant OS</p></div><button onClick={() => openApp("settings")} className="ml-auto rounded-xl bg-white/5 px-3 py-2 text-xs font-bold hover:bg-white/10">Settings</button></div>
+            <button className="mt-4 flex w-full items-center gap-2 rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-left text-xs text-slate-500"><Search size={14} /> Search apps, settings, and tools</button>
+            <p className="px-1 pb-2 pt-4 text-xs font-black">Pinned</p>
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">{apps.map(({ id, shortName, icon: Icon, color }) => <button key={id} onClick={() => openApp(id)} className="flex min-h-16 flex-col items-center justify-center gap-2 rounded-xl bg-white/5 p-2 text-center text-[10px] font-bold hover:bg-white/10"><span className={`grid h-7 w-7 place-items-center rounded-lg ${color}`}><Icon size={14} /></span>{shortName}</button>)}</div>
             <Link href="/vos" className="mt-3 flex items-center justify-between rounded-xl bg-gradient-to-r from-violet-600 to-cyan-500 px-4 py-3 text-sm font-bold">Install full VOS <ChevronRight size={16} /></Link>
           </div>
         )}
 
         <footer className="absolute inset-x-0 bottom-0 z-40 flex h-16 items-center gap-2 border-t border-white/10 bg-[#05070d]/95 px-3 backdrop-blur-xl">
-          <button onClick={() => setStartOpen((value) => !value)} className="rounded-xl bg-violet-600 px-5 py-3 text-sm font-black">VOS</button>
+          <button onClick={() => setStartOpen((value) => !value)} className="grid h-11 w-11 place-items-center rounded-xl bg-violet-600 text-sm font-black">SV</button>
+          <span className="hidden text-xs font-black sm:inline">VOS</span>
           <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto">
             {openApps.map((id) => {
               const app = appById[id];
@@ -910,7 +955,7 @@ export function VosOnlineDesktop() {
               return <button key={id} onClick={() => setActiveApp(id)} className={`flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold ${activeApp === id ? "bg-white/15" : "bg-white/5 hover:bg-white/10"}`}><Icon size={15} />{app.shortName}</button>;
             })}
           </div>
-          <div className="hidden items-center gap-2 rounded-xl bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-300 sm:flex"><span className="h-2 w-2 rounded-full bg-emerald-400" />Guardian preview</div>
+          <div className="hidden items-center gap-2 rounded-xl bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-300 sm:flex"><span className="h-2 w-2 rounded-full bg-emerald-400" />Guardian online preview</div>
           <span className="shrink-0 text-xs text-slate-400">{clock}</span>
         </footer>
       </div>
