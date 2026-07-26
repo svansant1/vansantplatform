@@ -14,7 +14,7 @@ const features = [
   "SVANSAI available from the browser toolbar",
   "SV Shield protection running in the background",
   "SV Debugger diagnostics when browsing issues arise",
-  "Independent tabs with an in-tab close button",
+  "Compact pinned tabs with pin and unpin controls in the tab menu",
 ];
 
 export default function SvBrowserPage() {
@@ -54,7 +54,7 @@ export default function SvBrowserPage() {
             </div>
 
             <p className="mt-5 text-sm text-zinc-500">
-              Version 0.11.0 · Windows 10/11 · Self-contained app
+              Version 0.12.0 · Windows 10/11 · Self-contained app
             </p>
           </div>
 
