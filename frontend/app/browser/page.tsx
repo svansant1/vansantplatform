@@ -55,7 +55,7 @@ export default function SvBrowserPage() {
             </div>
 
             <p className="mt-5 text-sm text-zinc-500">
-              Version 0.13.2 · Windows 10/11 · Self-contained app
+              Version 0.13.3 · Windows 10/11 · Self-contained app
             </p>
           </div>
 
