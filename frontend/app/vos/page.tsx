@@ -44,8 +44,8 @@ export const metadata: Metadata = {
   },
 };
 
-const downloadUrl = "/downloads/VOS-Founding-Beta-0.15.0-Windows-Setup-R5.exe";
-const checksumUrl = "/downloads/VOS-Founding-Beta-0.15.0-Windows-Setup-R5.exe.sha256";
+const downloadUrl = "/downloads/VOS-Founding-Beta-0.15.0-Windows-Setup-R6.exe";
+const checksumUrl = "/downloads/VOS-Founding-Beta-0.15.0-Windows-Setup-R6.exe.sha256";
 
 const modules = [
   {
@@ -88,7 +88,7 @@ const modules = [
 
 const requirements = [
   "Windows 10 or Windows 11 (64-bit)",
-  "Python 3.10 or newer for the VOS desktop layer",
+  "No separate Python installation required",
   "Internet access during first-time setup",
   "Approximately 1 GB of available disk space",
 ];
@@ -140,7 +140,7 @@ export default function VosPage() {
             </div>
 
             <p className="mt-5 text-sm text-zinc-500">
-              Free founding beta · 4.7 MB installer · Windows 10/11 · Unsigned preview release
+              Free founding beta · 28.1 MB installer · Windows 10/11 64-bit · Private VOS runtime included
             </p>
             <a
               href={checksumUrl}
