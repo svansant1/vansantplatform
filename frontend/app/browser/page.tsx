@@ -16,6 +16,7 @@ const features = [
   "SV Debugger diagnostics when browsing issues arise",
   "Compact pinned tabs with pin and unpin controls in the tab menu",
   "Drag tabs into separate windows or merge them back onto another tab bar",
+  "Checks for Microsoft WebView2 and offers to install it when missing",
 ];
 
 export default function SvBrowserPage() {
@@ -43,7 +44,15 @@ export default function SvBrowserPage() {
                 download="SV Browser.exe"
                 className="rounded-2xl bg-gradient-to-r from-purple-600 to-orange-500 px-6 py-4 font-bold text-white transition hover:opacity-90"
               >
-                Download for Windows
+                Download for Windows (x64)
+              </a>
+
+              <a
+                href="/downloads/SV-Browser-ARM64.exe"
+                download="SV Browser ARM64.exe"
+                className="rounded-2xl border border-purple-400/30 px-6 py-4 font-bold text-white transition hover:bg-purple-500/10"
+              >
+                Windows ARM64
               </a>
 
               <Link
@@ -55,7 +64,7 @@ export default function SvBrowserPage() {
             </div>
 
             <p className="mt-5 text-sm text-zinc-500">
-              Version 0.13.3 · Windows 10/11 · Self-contained app
+              Version 0.13.4 · Windows 10/11 · Self-contained app
             </p>
           </div>
 
@@ -88,10 +97,38 @@ export default function SvBrowserPage() {
           </div>
         </div>
 
-        <p className="mt-8 text-sm text-zinc-500">
-          Windows may display a security warning until SV Browser is digitally
-          code-signed.
-        </p>
+        <div className="mt-10 rounded-2xl border border-amber-300/20 bg-amber-300/[0.06] p-6">
+          <h2 className="text-xl font-bold text-amber-100">
+            Trouble opening SV Browser on another computer?
+          </h2>
+          <div className="mt-4 space-y-3 text-sm leading-6 text-zinc-300">
+            <p>
+              Most Intel and AMD computers should use the x64 download. Use
+              ARM64 only when Windows Settings → System → About says the
+              computer has an ARM-based processor.
+            </p>
+            <p>
+              Because SV Browser is not yet signed with a public code-signing
+              certificate, Microsoft Defender SmartScreen may show “Windows
+              protected your PC.” Choose <strong>More info</strong>, verify the
+              app name is SV Browser, and then choose <strong>Run anyway</strong>.
+            </p>
+            <p>
+              Version 0.13.4 checks for Microsoft Edge WebView2 Runtime and
+              offers to install it automatically. You can also install it
+              directly from{` `}
+              <a
+                href="https://developer.microsoft.com/microsoft-edge/webview2/consumer/"
+                target="_blank"
+                rel="noreferrer"
+                className="font-semibold text-cyan-300 underline decoration-cyan-300/40 underline-offset-4"
+              >
+                Microsoft’s official WebView2 page
+              </a>
+              .
+            </p>
+          </div>
+        </div>
       </section>
     </main>
   );
