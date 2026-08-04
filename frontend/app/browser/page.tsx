@@ -41,16 +41,16 @@ export default function SvBrowserPage() {
             <div className="mt-8 flex flex-wrap gap-4">
               <VosOnlineLaunchButton label="Try SV Browser Online" app="browser" />
               <a
-                href="/downloads/SV-Browser.exe"
-                download="SV Browser.exe"
+                href="/downloads/SV-Browser-0.13.5-Windows-x64.exe"
+                download="SV-Browser-0.13.5-Windows-x64.exe"
                 className="rounded-2xl bg-gradient-to-r from-purple-600 to-orange-500 px-6 py-4 font-bold text-white transition hover:opacity-90"
               >
                 Download for Windows (x64)
               </a>
 
               <a
-                href="/downloads/SV-Browser-ARM64.exe"
-                download="SV Browser ARM64.exe"
+                href="/downloads/SV-Browser-0.13.5-Windows-ARM64.exe"
+                download="SV-Browser-0.13.5-Windows-ARM64.exe"
                 className="rounded-2xl border border-purple-400/30 px-6 py-4 font-bold text-white transition hover:bg-purple-500/10"
               >
                 Windows ARM64
