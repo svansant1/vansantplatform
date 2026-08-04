@@ -7,6 +7,7 @@ const features = [
   "Private SV Search with no external search provider",
   "Encrypted password saving and autofill controls",
   "Private local history with address-bar suggestions and management",
+  "Persistent downloads history with open-file and show-in-folder controls",
   "DeVry and zyBooks LTI sign-in support across new tabs",
   "Dockable SVANSAI sidebar with a movable, modeless pop-out window",
   "Automatic highlight detection with USE NEW and CHECK controls",
@@ -64,7 +65,7 @@ export default function SvBrowserPage() {
             </div>
 
             <p className="mt-5 text-sm text-zinc-500">
-              Version 0.13.4 · Windows 10/11 · Self-contained app
+              Version 0.13.5 · Windows 10/11 · Self-contained app
             </p>
           </div>
 
@@ -114,7 +115,7 @@ export default function SvBrowserPage() {
               app name is SV Browser, and then choose <strong>Run anyway</strong>.
             </p>
             <p>
-              Version 0.13.4 checks for Microsoft Edge WebView2 Runtime and
+              Version 0.13.5 checks for Microsoft Edge WebView2 Runtime and
               offers to install it automatically. You can also install it
               directly from{` `}
               <a
