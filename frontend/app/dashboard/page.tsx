@@ -388,6 +388,14 @@ export default function DashboardPage() {
           />
 
           <ActionCard
+            title="SVANS-AI Desktop"
+            description="Open the AI command center app for teaching, coding help, workspace permissions, memory, and platform coordination."
+            href="/svans-ai"
+            cta="View App"
+            mascotSrc="/mascots/sv-robot.png"
+          />
+
+          <ActionCard
             title="Create Project"
             description="Start planning a new project idea and generate the system map."
             href="/projects"
@@ -511,6 +519,11 @@ export default function DashboardPage() {
             title="Vansant Operating System"
             description="Download the VOS Founding Beta and use the Vansant ecosystem from one Windows desktop."
             href="/vos"
+          />
+          <ModuleCard
+            title="SVANS-AI Desktop"
+            description="The conversational AI app for learning, coding, files, images, memory, and Vansant Platform coordination."
+            href="/svans-ai"
           />
           <ModuleCard
             title="Projects"

@@ -10,12 +10,14 @@ import {
   Settings,
   TerminalIcon,
   AppWindow,
+  Bot,
   Orbit,
 } from "lucide-react";
 
 const navItems = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "VOS", href: "/vos", icon: Orbit },
+  { name: "SVANS-AI", href: "/svans-ai", icon: Bot },
   { name: "Projects", href: "/projects", icon: FolderKanban },
   { name: "Sandbox", href: "/sandbox", icon: BrainCircuit },
   { name: "Debugger", href: "/debugger", icon: TerminalIcon },
