@@ -41,7 +41,7 @@ export const metadata: Metadata = {
 };
 
 const webAppUrl = "https://svansai-frontend.onrender.com";
-const installerUrl = "";
+const installerUrl = "/downloads/SVANS-AI-Desktop.exe";
 
 const capabilities = [
   {
@@ -121,8 +121,8 @@ export default function SvansAiPage() {
             <p className="mt-6 max-w-2xl text-lg leading-8 text-zinc-300">
               SVANS-AI is now treated like the other Vansant apps instead of a
               loose ZIP download. The web app stays available immediately, and
-              the desktop build is staged here for the Windows installer once
-              the package is small enough to ship safely.
+              the Windows desktop installer is available here alongside the
+              other Vansant Platform apps.
             </p>
 
             <div className="mt-9 flex flex-wrap gap-4">
@@ -159,8 +159,8 @@ export default function SvansAiPage() {
             </div>
 
             <p className="mt-5 text-sm text-zinc-500">
-              Web app available now · Windows desktop build staged · Installer
-              packaging in progress
+              Web app available now · Windows desktop installer · Permissioned
+              local workspace bridge
             </p>
           </div>
 
@@ -266,11 +266,9 @@ export default function SvansAiPage() {
           <div>
             <h2 className="font-bold text-amber-100">Download status</h2>
             <p className="mt-2 max-w-4xl text-sm leading-6 text-amber-50/70">
-              The old ZIP download was removed because the desktop package was
-              too large for GitHub and Render. This page keeps SVANS-AI listed
-              as a real VansantPlatform app while the Windows installer is
-              packaged the same way as Sandbox, Debugger, Shield, Browser, and
-              VOS.
+              The old ZIP download was removed because it was too large for
+              GitHub and Render. SVANS-AI now uses a Windows desktop installer
+              path like Sandbox, Debugger, Shield, Browser, and VOS.
             </p>
           </div>
         </div>
