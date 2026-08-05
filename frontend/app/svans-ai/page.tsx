@@ -41,7 +41,8 @@ export const metadata: Metadata = {
 };
 
 const webAppUrl = "https://svansai-frontend.onrender.com";
-const installerUrl = "/downloads/SVANS-AI-Desktop.exe";
+const installerUrl =
+  "https://github.com/svansant1/vansantplatform/raw/db32dcb8c4bb7e065a99f6f5001f846d510903d3/frontend/public/downloads/SVANS-AI-Desktop.exe";
 
 const capabilities = [
   {

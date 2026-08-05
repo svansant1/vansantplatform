@@ -54,3 +54,5 @@ __pycache__/
 # Local desktop packaging leftovers
 *.blockmap
 *.yml
+frontend/public/downloads/SVANS-AI-Desktop.exe
+frontend/public/downloads/SVANS-AI-Desktop.exe.sha256
