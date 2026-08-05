@@ -1,7 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import path from "node:path";
 import fs from "node:fs/promises";
-import { constants as fsConstants, existsSync, watch, type FSWatcher } from "node:fs";
+import { constants as fsConstants, existsSync, mkdirSync, watch, type FSWatcher } from "node:fs";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { deflateSync } from "node:zlib";
 import * as pty from "node-pty";
@@ -36,6 +36,16 @@ const MAX_IMAGE_PREVIEW_BYTES = 20 * 1024 * 1024;
 const BINARY_SNIFF_BYTES = 4096;
 const SVANSAI_ASSISTANT_TIMEOUT_MS = 25000;
 const PRACTICE_RUN_TIMEOUT_MS = 10000;
+
+function isVosContainedMode(): boolean {
+  return process.env.VOS_MODULE_ID === "sandbox-armor" || Boolean(process.env.VOS_DATA_ROOT);
+}
+
+function getVosSandboxRoot(): string {
+  const localAppData = process.env.LOCALAPPDATA || path.dirname(app.getPath("userData"));
+  const dataRoot = process.env.VOS_DATA_ROOT || path.join(localAppData, "Vansant", "VOS-Data");
+  return path.resolve(dataRoot, "Sandbox");
+}
 
 const IMAGE_MIME_TYPES = new Map([
   [".apng", "image/apng"],
@@ -1579,6 +1589,28 @@ function getWindowsTerminalProfiles(): TerminalProfile[] {
   const gitBash = "C:\\Program Files\\Git\\bin\\bash.exe";
   const wsl = "C:\\Windows\\System32\\wsl.exe";
 
+  if (isVosContainedMode()) {
+    const shell = existsSync(pwsh) ? pwsh : powershell;
+    const startup = [
+      "$ErrorActionPreference='Continue'",
+      "$root=$env:VOS_SANDBOX_ROOT",
+      "if(-not (Test-Path -LiteralPath $root)){New-Item -ItemType Directory -Force -Path $root|Out-Null}",
+      "if(Get-PSDrive -Name VOS -ErrorAction SilentlyContinue){Remove-PSDrive -Name VOS -Force}",
+      "New-PSDrive -Name VOS -PSProvider FileSystem -Root $root -Scope Global|Out-Null",
+      "Set-Location VOS:\\",
+      "Get-PSDrive -PSProvider FileSystem|Where-Object Name -ne 'VOS'|Remove-PSDrive -Force -ErrorAction SilentlyContinue",
+      "function global:prompt{$suffix=(Get-Location).Path -replace '^VOS:\\\\?','';'VOS:\\Sandbox'+$(if($suffix){'\\'+$suffix})+'> '}",
+      "Write-Host 'VOS contained terminal — workspace: VOS:\\Sandbox' -ForegroundColor Cyan",
+    ].join(";");
+
+    return [{
+      id: "vos-terminal",
+      label: "VOS Terminal",
+      shell,
+      args: ["-NoLogo", "-NoProfile", "-NoExit", "-Command", startup],
+    }];
+  }
+
   if (existsSync(pwsh)) {
     profiles.push({
       id: "pwsh",
@@ -1642,6 +1674,13 @@ function createTerminalId(): string {
 }
 
 function getDefaultTerminalCwd(): string {
+  if (isVosContainedMode()) {
+    const sandboxRoot = getVosSandboxRoot();
+    if (!existsSync(sandboxRoot)) {
+      mkdirSync(sandboxRoot, { recursive: true });
+    }
+    return sandboxRoot;
+  }
   return currentWorkspaceRoot ?? app.getPath("home") ?? process.cwd();
 }
 
@@ -1683,6 +1722,7 @@ function createTerminal(
       ...process.env,
       TERM: "xterm-256color",
       POWERSHELL_UPDATECHECK: "OFF",
+      ...(isVosContainedMode() ? { VOS_SANDBOX_ROOT: getVosSandboxRoot() } : {}),
     },
   });
 
@@ -2398,6 +2438,13 @@ app.on("before-quit", () => {
 app.whenReady().then(() => {
   const mainWindow = createMainWindow();
 
+  if (isVosContainedMode()) {
+    const sandboxRoot = getVosSandboxRoot();
+    mkdirSync(sandboxRoot, { recursive: true });
+    currentWorkspaceRoot = sandboxRoot;
+    startWorkspaceWatcher(mainWindow, sandboxRoot);
+  }
+
   ipcMain.handle("shell:open-external-url", async (_event, rawUrl: string) => {
     await shell.openExternal(assertOpenableExternalUrl(rawUrl));
 
@@ -2407,6 +2454,15 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle("workspace:open-folder", async () => {
+    if (isVosContainedMode()) {
+      const folderPath = getVosSandboxRoot();
+      await fs.mkdir(folderPath, { recursive: true });
+      killAllTerminals();
+      currentWorkspaceRoot = folderPath;
+      startWorkspaceWatcher(mainWindow, folderPath);
+      return { folderPath, tree: await buildFileTree(folderPath) };
+    }
+
     const result = await dialog.showOpenDialog({
       title: "Open Folder",
       properties: ["openDirectory"],
