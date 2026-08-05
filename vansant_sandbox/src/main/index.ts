@@ -38,7 +38,7 @@ const SVANSAI_ASSISTANT_TIMEOUT_MS = 25000;
 const PRACTICE_RUN_TIMEOUT_MS = 10000;
 
 function isVosContainedMode(): boolean {
-  return process.env.VOS_MODULE_ID === "sandbox-armor" || Boolean(process.env.VOS_DATA_ROOT);
+  return process.env.VOS_EMBEDDED === "1" || process.env.VOS_MODULE_ID === "sandbox-armor" || Boolean(process.env.VOS_DATA_ROOT);
 }
 
 function getVosSandboxRoot(): string {
@@ -1776,6 +1776,7 @@ function createTerminal(
 
 function createMainWindow(): BrowserWindow {
   const iconPath = getIconPath();
+  const embedded = process.env.VOS_EMBEDDED === "1";
 
   const win = new BrowserWindow({
     width: 1600,
@@ -1784,6 +1785,10 @@ function createMainWindow(): BrowserWindow {
     minHeight: 620,
     backgroundColor: "#0a0b10",
     title: APP_NAME,
+    show: !embedded,
+    skipTaskbar: embedded,
+    frame: !embedded,
+    ...(embedded ? { x: -32000, y: -32000 } : {}),
     autoHideMenuBar: true,
     icon: iconPath,
     webPreferences: {
@@ -1802,7 +1807,7 @@ function createMainWindow(): BrowserWindow {
   }
 
   win.webContents.setWindowOpenHandler(({ url }) => {
-    void shell.openExternal(url);
+    if (!isVosContainedMode()) void shell.openExternal(url);
     return { action: "deny" };
   });
 
@@ -2446,6 +2451,9 @@ app.whenReady().then(() => {
   }
 
   ipcMain.handle("shell:open-external-url", async (_event, rawUrl: string) => {
+    if (isVosContainedMode()) {
+      throw new Error("External windows are disabled inside VOS. Open the link in SV Browser.");
+    }
     await shell.openExternal(assertOpenableExternalUrl(rawUrl));
 
     return {
