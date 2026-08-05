@@ -44,19 +44,19 @@ export const metadata: Metadata = {
   },
 };
 
-const downloadUrl = "/downloads/VOS-Founding-Beta-0.15.0-Windows-Setup-R8.exe";
-const checksumUrl = "/downloads/VOS-Founding-Beta-0.15.0-Windows-Setup-R8.exe.sha256";
+const downloadUrl = "/downloads/VOS-Founding-Beta-0.16.0-Windows-Setup-R8.exe";
+const checksumUrl = "/downloads/VOS-Founding-Beta-0.16.0-Windows-Setup-R8.exe.sha256";
 
 const modules = [
   {
     name: "VOS Desktop",
-    description: "A unified Windows workspace with files, notes, projects, tools, and managed app windows.",
+    description: "A unified Windows workspace with private VOS files, notes, projects, tools, and managed app windows.",
     icon: SquareTerminal,
     accent: "text-violet-300",
   },
   {
     name: "VOS Sandbox",
-    description: "The real desktop-grade coding workspace with file creation, terminals, running, and debugging.",
+    description: "A contained coding workspace with its own VOS Home, terminal paths, file creation, running, and debugging.",
     icon: FolderCode,
     accent: "text-emerald-300",
   },
@@ -104,7 +104,7 @@ export default function VosPage() {
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-violet-300/20 bg-violet-400/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] text-violet-200">
               <Sparkles size={15} aria-hidden="true" />
-              Founding Beta · Version 0.15.0
+              Founding Beta · Version 0.16.0
             </div>
 
             <h1 className="mt-6 max-w-4xl text-5xl font-black tracking-tight sm:text-6xl lg:text-7xl">
@@ -117,7 +117,9 @@ export default function VosPage() {
             <p className="mt-6 max-w-2xl text-lg leading-8 text-zinc-300">
               VOS brings your actual Sandbox, Shield, Debugger, SVANSAI tools,
               SV Browser, and Guardian services together in one Windows-hosted
-              operating environment.
+              operating environment. Version 0.16 keeps the Files app and terminal
+              inside VOS paths, improves responsive layouts, and restores SV Browser
+              and SVANSAI Guide startup handling.
             </p>
 
             <div className="mt-9 flex flex-wrap gap-4">
@@ -140,7 +142,7 @@ export default function VosPage() {
             </div>
 
             <p className="mt-5 text-sm text-zinc-500">
-              Free founding beta · 28.1 MB installer · Windows 10/11 64-bit · Private VOS runtime included
+              Free founding beta · 27.6 MB installer · Windows 10/11 64-bit · Private VOS runtime included
             </p>
             <a
               href={checksumUrl}
@@ -223,7 +225,7 @@ export default function VosPage() {
       </section>
 
       <footer className="flex flex-col gap-4 border-t border-white/10 px-6 py-7 text-sm text-zinc-500 sm:px-10 md:flex-row md:items-center md:justify-between lg:px-14">
-        <span>Vansant Operating Systems · Founding Beta 0.15.0</span>
+        <span>Vansant Operating Systems · Founding Beta 0.16.0</span>
         <div className="flex gap-5">
           <Link className="transition hover:text-white" href="/dashboard">Back to Platform</Link>
           <Link className="transition hover:text-white" href="/browser">SV Browser</Link>

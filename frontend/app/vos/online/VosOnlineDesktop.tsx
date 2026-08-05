@@ -745,7 +745,7 @@ export function VosOnlineDesktop() {
                       <Link href="/vos" className="inline-flex items-center gap-2 rounded-xl bg-violet-500 px-5 py-3 font-bold">
                         Explore VOS <ExternalLink size={16} />
                       </Link>
-                      <a href="/downloads/VOS-Founding-Beta-0.15.0-Windows-Setup-R8.exe" download className="inline-flex items-center gap-2 rounded-xl border border-white/15 px-5 py-3 font-bold hover:bg-white/10">
+                      <a href="/downloads/VOS-Founding-Beta-0.16.0-Windows-Setup-R8.exe" download className="inline-flex items-center gap-2 rounded-xl border border-white/15 px-5 py-3 font-bold hover:bg-white/10">
                         Download VOS <ExternalLink size={16} />
                       </a>
                     </div>
