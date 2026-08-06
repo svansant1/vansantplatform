@@ -5,7 +5,6 @@ import {
   Bot,
   BrainCircuit,
   CheckCircle2,
-  Download,
   Eye,
   FileSearch,
   FolderOpen,
@@ -141,12 +140,26 @@ export default function SvansAiPage() {
                   download
                   className="inline-flex items-center gap-3 rounded-2xl border border-white/15 bg-white/[0.06] px-6 py-4 font-bold transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-violet-300"
                 >
-                  <Download size={21} aria-hidden="true" />
+                  <Image
+                    src="/mascots/sv-robot.png"
+                    alt=""
+                    width={30}
+                    height={30}
+                    aria-hidden="true"
+                    className="h-8 w-8 object-contain drop-shadow-[0_0_12px_rgba(34,211,238,0.35)]"
+                  />
                   Install Desktop App
                 </a>
               ) : (
                 <div className="inline-flex items-center gap-3 rounded-2xl border border-amber-300/20 bg-amber-300/[0.08] px-6 py-4 font-bold text-amber-100">
-                  <Download size={21} aria-hidden="true" />
+                  <Image
+                    src="/mascots/sv-robot.png"
+                    alt=""
+                    width={30}
+                    height={30}
+                    aria-hidden="true"
+                    className="h-8 w-8 object-contain drop-shadow-[0_0_12px_rgba(251,191,36,0.28)]"
+                  />
                   Desktop installer coming next
                 </div>
               )}
