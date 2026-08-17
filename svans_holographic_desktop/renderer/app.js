@@ -141,6 +141,12 @@
     elements.loginStatus.className = `login-status ${mode}`.trim();
   }
 
+  function loginGreeting() {
+    const hour = new Date().getHours();
+    const period = hour < 12 ? "morning" : hour < 18 ? "afternoon" : "evening";
+    return `Good ${period}, Shawn. Welcome back. SVANS is online, the command deck is ready, and I am standing by.`;
+  }
+
   function denyAccess(message) {
     setLoginStatus(message, "error");
     elements.loginTerminal.classList.remove("denied");
@@ -182,6 +188,10 @@
       state.telemetryTimer = window.setInterval(() => void refreshTelemetry(), 2500);
       logActivity("Administrator identity confirmed");
       showToast("WELCOME, ADMIN · SVANS COMMAND DECK ONLINE");
+      const greeting = loginGreeting();
+      state.messages.push({ role: "assistant", content: greeting });
+      appendMessage("assistant", greeting);
+      window.setTimeout(() => void speak(greeting), 250);
     }, 620);
   }
 
