@@ -252,14 +252,14 @@ function registerIpc() {
         voice: "cedar",
         input,
         instructions: "Speak like a real person in a calm, warm, intelligent and confident conversational tone. Use natural pauses, subtle emotional inflection and an American English accent. Sound like a trusted personal assistant speaking directly to Shawn. Never use an announcer voice, exaggerated drama or robotic cadence.",
-        response_format: "mp3",
+        response_format: "wav",
       }),
       signal: AbortSignal.timeout(60_000),
     });
     if (!response.ok) return { available: false };
     const audio = Buffer.from(await response.arrayBuffer());
     if (!audio.length) return { available: false };
-    return { available: true, mimeType: "audio/mpeg", audio: audio.toString("base64"), voice: "cedar" };
+    return { available: true, mimeType: "audio/wav", audio: audio.toString("base64"), voice: "cedar" };
   });
 
   ipcMain.handle("destination:open", async (event, destination) => {

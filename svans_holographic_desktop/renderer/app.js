@@ -306,6 +306,29 @@
       .trim();
   }
 
+  function speechChunks(text, limit = 240) {
+    const sentences = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g)?.map((sentence) => sentence.trim()).filter(Boolean) ?? [text];
+    const chunks = [];
+    for (const sentence of sentences) {
+      if (sentence.length <= limit) {
+        chunks.push(sentence);
+        continue;
+      }
+      const words = sentence.split(/\s+/);
+      let chunk = "";
+      for (const word of words) {
+        if (chunk && `${chunk} ${word}`.length > limit) {
+          chunks.push(chunk);
+          chunk = word;
+        } else {
+          chunk = chunk ? `${chunk} ${word}` : word;
+        }
+      }
+      if (chunk) chunks.push(chunk);
+    }
+    return chunks;
+  }
+
   function finishSpeaking(preview = false) {
     state.audio = null;
     setCoreState("READY");
@@ -329,6 +352,20 @@
     window.speechSynthesis.speak(utterance);
   }
 
+  function playNeuralSegment(generated, requestId) {
+    return new Promise((resolve, reject) => {
+      if (requestId !== state.speechRequestId) {
+        resolve(false);
+        return;
+      }
+      const audio = new Audio(`data:${generated.mimeType ?? "audio/wav"};base64,${generated.audio}`);
+      state.audio = audio;
+      audio.onended = () => resolve(true);
+      audio.onerror = () => reject(new Error("Neural audio playback failed."));
+      audio.play().catch(reject);
+    });
+  }
+
   async function speak(text, { preview = false } = {}) {
     if (!preview && !state.speechOutputEnabled) {
       setCoreState("READY");
@@ -336,28 +373,26 @@
     }
     stopRecognition();
     setCoreState("SPEAKING", "speaking");
-    elements.voiceLink.textContent = "NEURAL VOICE";
+    elements.voiceLink.textContent = "NEURAL VOICE · FORMING";
     const spokenText = conversationalText(text);
+    const chunks = speechChunks(spokenText);
     const requestId = ++state.speechRequestId;
     state.audio?.pause();
     state.audio = null;
     window.speechSynthesis.cancel();
     try {
-      const generated = await desktop.synthesizeSpeech(spokenText);
-      if (requestId !== state.speechRequestId) return;
-      if (!generated?.available || !generated.audio) {
-        elements.voiceLink.textContent = "WINDOWS FALLBACK";
-        speakWithWindowsVoice(spokenText, preview);
-        return;
+      const requestAudio = (chunk) => desktop.synthesizeSpeech(chunk).catch(() => ({ available: false }));
+      let pendingAudio = requestAudio(chunks[0]);
+      for (let index = 0; index < chunks.length; index += 1) {
+        const generated = await pendingAudio;
+        if (requestId !== state.speechRequestId) return;
+        if (!generated?.available || !generated.audio) throw new Error("Neural voice unavailable.");
+        pendingAudio = index + 1 < chunks.length ? requestAudio(chunks[index + 1]) : null;
+        elements.voiceLink.textContent = "NEURAL VOICE";
+        const played = await playNeuralSegment(generated, requestId);
+        if (!played || requestId !== state.speechRequestId) return;
       }
-      const audio = new Audio(`data:${generated.mimeType ?? "audio/mpeg"};base64,${generated.audio}`);
-      state.audio = audio;
-      audio.onended = () => finishSpeaking(preview);
-      audio.onerror = () => {
-        elements.voiceLink.textContent = "WINDOWS FALLBACK";
-        speakWithWindowsVoice(spokenText, preview);
-      };
-      await audio.play();
+      finishSpeaking(preview);
     } catch {
       if (requestId !== state.speechRequestId) return;
       elements.voiceLink.textContent = "WINDOWS FALLBACK";
