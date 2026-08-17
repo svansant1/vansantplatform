@@ -199,11 +199,13 @@
       <div class="permission-list">
         <label><span><strong>System telemetry</strong><small>CPU, memory, uptime and device status</small></span><input type="checkbox" checked disabled /></label>
         <label><span><strong>Microphone</strong><small>Natural voice conversation</small></span><input id="microphone-permission" type="checkbox" /></label>
+        <label class="voice-profile-row"><span><strong>SVANS voice</strong><small>Best available natural Windows voice</small></span><select id="voice-profile" aria-label="SVANS voice profile"><option>Detecting voices…</option></select></label>
         <label><span><strong>Local workspace</strong><small>Approved files and project folders</small></span><input type="checkbox" /></label>
         <label><span><strong>Screen context</strong><small>Current application and walkthrough overlays</small></span><input type="checkbox" /></label>
         <label><span><strong>Camera gestures</strong><small>Optional hand tracking; camera off by default</small></span><input type="checkbox" /></label>
         <label><span><strong>External actions</strong><small>Email, social posts and connected services</small></span><input type="checkbox" disabled /></label>
       </div>
+      <button class="voice-preview-button" id="voice-preview-button">PREVIEW SELECTED VOICE</button>
       <div class="permission-note">Sensitive and external actions remain in ASK mode even when a capability is connected.</div>
     </aside>
 

@@ -52,6 +52,7 @@
     authenticated: false,
     telemetryTimer: null,
     lockoutTimer: null,
+    voice: null,
   };
 
   const elements = {
@@ -78,6 +79,7 @@
     uptime: $("#uptime-value"),
     voiceLink: $("#voice-link-label"),
     voiceSpectrum: $("#voice-spectrum"),
+    voiceProfile: $("#voice-profile"),
     hud: $("#hud-shell"),
     loginGate: $("#login-gate"),
     loginForm: $("#login-form"),
@@ -260,6 +262,46 @@
     elements.voiceSpectrum.classList.toggle("active", mode === "listening" || mode === "speaking");
   }
 
+  function voiceScore(voice, preferredName) {
+    const name = voice.name.toLowerCase();
+    const language = voice.lang.toLowerCase();
+    let score = voice.name === preferredName ? 10000 : 0;
+    if (name.includes("natural")) score += 900;
+    if (name.includes("online")) score += 500;
+    if (name.includes("microsoft")) score += 180;
+    if (/guy|andrew|ryan|brian|christopher|davis|james/.test(name)) score += 140;
+    if (/aria|jenny|ava|sonia|emma/.test(name)) score += 110;
+    if (language.startsWith("en-us")) score += 100;
+    else if (language.startsWith("en")) score += 70;
+    if (voice.localService) score += 15;
+    return score;
+  }
+
+  function loadVoiceProfiles() {
+    if (!("speechSynthesis" in window)) return;
+    const voices = window.speechSynthesis.getVoices().filter((voice) => voice.lang.toLowerCase().startsWith("en"));
+    if (!voices.length) return;
+    const preferredName = localStorage.getItem("svans.voice") ?? "";
+    voices.sort((a, b) => voiceScore(b, preferredName) - voiceScore(a, preferredName));
+    state.voice = voices[0];
+    elements.voiceProfile.innerHTML = "";
+    voices.forEach((voice) => {
+      const option = document.createElement("option");
+      option.value = voice.name;
+      option.textContent = `${voice.name} · ${voice.lang}`;
+      option.selected = voice.name === state.voice.name;
+      elements.voiceProfile.append(option);
+    });
+  }
+
+  function conversationalText(text) {
+    return text
+      .replace(/[*_#`]/g, "")
+      .replace(/\s*[-•]\s+/g, ". ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
   function speak(text) {
     if (!state.voiceEnabled || !("speechSynthesis" in window)) {
       setCoreState("READY");
@@ -268,9 +310,11 @@
     stopRecognition();
     setCoreState("SPEAKING", "speaking");
     elements.voiceLink.textContent = "OUTPUT ACTIVE";
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 1.02;
-    utterance.pitch = 0.92;
+    const utterance = new SpeechSynthesisUtterance(conversationalText(text));
+    utterance.voice = state.voice;
+    utterance.rate = 0.96;
+    utterance.pitch = 0.98;
+    utterance.volume = 1;
     utterance.onend = () => {
       setCoreState("READY");
       startRecognition();
@@ -562,6 +606,17 @@
       if (state.voiceEnabled) startRecognition();
       else stopRecognition();
     });
+    elements.voiceProfile.addEventListener("change", (event) => {
+      state.voice = window.speechSynthesis.getVoices().find((voice) => voice.name === event.target.value) ?? state.voice;
+      if (state.voice) localStorage.setItem("svans.voice", state.voice.name);
+      showToast("SVANS VOICE PROFILE UPDATED");
+    });
+    $("#voice-preview-button").addEventListener("click", () => {
+      const wasEnabled = state.voiceEnabled;
+      state.voiceEnabled = true;
+      speak("Good evening, Shawn. SVANS is online and ready when you are.");
+      state.voiceEnabled = wasEnabled;
+    });
 
     $$('[data-command]').forEach((button) => {
       button.addEventListener("click", () => void runLocalCommand(button.dataset.command));
@@ -663,6 +718,8 @@
     bindEvents();
     bindAuthentication();
     createParticleField();
+    loadVoiceProfiles();
+    if ("speechSynthesis" in window) window.speechSynthesis.addEventListener("voiceschanged", loadVoiceProfiles);
     window.setTimeout(() => elements.loginPassword.focus(), 350);
   }
 
