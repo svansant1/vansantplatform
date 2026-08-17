@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Sidebar from "./components/Sidebar";
+import SVANSCompanion from "./components/SVANSCompanion";
 
 export const metadata: Metadata = {
   title: "VansantPlatform",
@@ -19,6 +20,7 @@ export default function RootLayout({
           <Sidebar />
           <main className="flex-1 p-8">{children}</main>
         </div>
+        <SVANSCompanion />
       </body>
     </html>
   );
