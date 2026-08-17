@@ -31,6 +31,8 @@ let previousCpuSample = null;
 const authorizedContents = new Set();
 const authAttempts = new Map();
 
+app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
+
 function readEnvValue(filePath, key) {
   try {
     const line = fs.readFileSync(filePath, "utf8").split(/\r?\n/).find((entry) => entry.trim().startsWith(`${key}=`));

@@ -44,6 +44,7 @@
     ],
     busy: false,
     voiceEnabled: false,
+    speechOutputEnabled: true,
     listening: false,
     recognition: null,
     pinned: false,
@@ -308,7 +309,7 @@
   function finishSpeaking(preview = false) {
     state.audio = null;
     setCoreState("READY");
-    elements.voiceLink.textContent = state.voiceEnabled ? "CHANNEL READY" : "STANDBY";
+    elements.voiceLink.textContent = state.voiceEnabled ? "CHANNEL READY" : "OUTPUT READY";
     if (!preview) startRecognition();
   }
 
@@ -329,7 +330,7 @@
   }
 
   async function speak(text, { preview = false } = {}) {
-    if (!preview && !state.voiceEnabled) {
+    if (!preview && !state.speechOutputEnabled) {
       setCoreState("READY");
       return;
     }
@@ -653,6 +654,20 @@
       state.voiceEnabled = event.target.checked;
       if (state.voiceEnabled) startRecognition();
       else stopRecognition();
+    });
+    $("#spoken-output-permission").addEventListener("change", (event) => {
+      state.speechOutputEnabled = event.target.checked;
+      if (!state.speechOutputEnabled) {
+        state.speechRequestId += 1;
+        state.audio?.pause();
+        state.audio = null;
+        window.speechSynthesis?.cancel();
+        setCoreState("READY");
+        elements.voiceLink.textContent = state.voiceEnabled ? "LISTENING" : "OUTPUT MUTED";
+      } else {
+        elements.voiceLink.textContent = state.voiceEnabled ? "CHANNEL READY" : "OUTPUT READY";
+        showToast("SVANS SPOKEN RESPONSES ENABLED");
+      }
     });
     elements.voiceProfile.addEventListener("change", (event) => {
       state.voice = window.speechSynthesis.getVoices().find((voice) => voice.name === event.target.value) ?? state.voice;

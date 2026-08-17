@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' https://svansai.com;"
+      content="default-src 'self'; img-src 'self' data:; media-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' https://svansai.com;"
     />
     <title>SVANS Holographic Desktop</title>
     <link rel="stylesheet" href="styles.css" />
@@ -200,6 +200,7 @@
       <div class="permission-list">
         <label><span><strong>System telemetry</strong><small>CPU, memory, uptime and device status</small></span><input type="checkbox" checked disabled /></label>
         <label><span><strong>Microphone</strong><small>Natural voice conversation</small></span><input id="microphone-permission" type="checkbox" /></label>
+        <label><span><strong>Spoken responses</strong><small>SVANS answers aloud with neural speech</small></span><input id="spoken-output-permission" type="checkbox" checked /></label>
         <label class="voice-profile-row"><span><strong>SVANS neural voice</strong><small>Cedar · AI-generated voice · Windows fallback</small></span><select id="voice-profile" aria-label="Fallback voice profile"><option>Detecting fallback voices…</option></select></label>
         <label><span><strong>Local workspace</strong><small>Approved files and project folders</small></span><input type="checkbox" /></label>
         <label><span><strong>Screen context</strong><small>Current application and walkthrough overlays</small></span><input type="checkbox" /></label>
