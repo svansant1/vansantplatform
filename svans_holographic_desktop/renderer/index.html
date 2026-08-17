@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' https://svansai.com;"
+    />
+    <title>SVANS Holographic Desktop</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <canvas id="particle-field" aria-hidden="true"></canvas>
+    <div class="scanlines" aria-hidden="true"></div>
+
+    <main class="hud-shell" id="hud-shell">
+      <header class="topbar drag-region">
+        <div class="brand no-drag">
+          <div class="brand-mark"><span>SV</span></div>
+          <div>
+            <strong>SVANS</strong>
+            <small>HOLOGRAPHIC DESKTOP · PROTOTYPE 0.1</small>
+          </div>
+        </div>
+
+        <div class="top-status">
+          <div><span class="status-dot"></span><strong id="connection-label">SYSTEM LINK ACTIVE</strong></div>
+          <div id="clock">00:00:00</div>
+          <div id="date-label">MON · AUG 17</div>
+        </div>
+
+        <div class="window-controls no-drag">
+          <button id="permission-button" class="icon-button" title="Permissions" aria-label="Open permissions">⌾</button>
+          <button id="pin-button" class="icon-button" title="Always on top" aria-label="Toggle always on top">◇</button>
+          <button id="minimize-button" class="icon-button" title="Minimize" aria-label="Minimize">—</button>
+          <button id="maximize-button" class="icon-button" title="Maximize" aria-label="Maximize">□</button>
+          <button id="close-button" class="icon-button close" title="Hide SVANS" aria-label="Hide SVANS">×</button>
+        </div>
+      </header>
+
+      <section class="command-deck">
+        <aside class="hud-column left-column">
+          <article class="hud-panel telemetry-panel">
+            <header><span>SYSTEM VITALS</span><i>LIVE</i></header>
+            <div class="metric-ring-grid">
+              <div class="metric-ring" style="--value: 0" id="cpu-ring">
+                <div><strong id="cpu-value">0%</strong><small>CPU</small></div>
+              </div>
+              <div class="metric-ring" style="--value: 0" id="memory-ring">
+                <div><strong id="memory-value">0%</strong><small>MEMORY</small></div>
+              </div>
+            </div>
+            <dl class="telemetry-list">
+              <div><dt>HOST</dt><dd id="host-value">CONNECTING</dd></div>
+              <div><dt>PROCESSORS</dt><dd id="processor-value">--</dd></div>
+              <div><dt>NETWORK LINKS</dt><dd id="network-value">--</dd></div>
+              <div><dt>UPTIME</dt><dd id="uptime-value">--</dd></div>
+            </dl>
+          </article>
+
+          <article class="hud-panel project-panel">
+            <header><span>PROJECT CONSTELLATION</span><i>5 NODES</i></header>
+            <div class="constellation" id="constellation" aria-label="SVANS project relationships">
+              <button class="node core-node" data-panel="projects">SVANS</button>
+              <button class="node node-vos" data-panel="projects">VOS</button>
+              <button class="node node-ai" data-panel="conversation">AI</button>
+              <button class="node node-shield" data-panel="shield">SHIELD</button>
+              <button class="node node-debug" data-panel="activity">DEBUG</button>
+              <svg viewBox="0 0 360 200" aria-hidden="true">
+                <path d="M180 100 L62 52 M180 100 L294 48 M180 100 L72 165 M180 100 L294 160" />
+              </svg>
+            </div>
+          </article>
+        </aside>
+
+        <section class="hologram-stage">
+          <div class="stage-label stage-label-left">VOICE LINK <span id="voice-link-label">STANDBY</span></div>
+          <div class="stage-label stage-label-right">CORE LOAD <span id="core-load-label">NOMINAL</span></div>
+
+          <div class="orbital-system" id="orbital-system">
+            <div class="orbit orbit-outer"><b></b><b></b><b></b></div>
+            <div class="orbit orbit-mid"><b></b><b></b></div>
+            <div class="orbit orbit-inner"></div>
+            <div class="target-lines"></div>
+            <button class="svans-core" id="svans-core" aria-label="Start talking with SVANS">
+              <div class="core-light"></div>
+              <div class="core-grid"></div>
+              <strong>SV</strong>
+              <span id="core-state">READY</span>
+            </button>
+            <button class="radial-action radial-top" data-command="system">SYSTEM</button>
+            <button class="radial-action radial-right" data-command="projects">PROJECTS</button>
+            <button class="radial-action radial-bottom" data-command="conversation">TALK</button>
+            <button class="radial-action radial-left" data-command="shield">SHIELD</button>
+          </div>
+
+          <div class="voice-spectrum" id="voice-spectrum" aria-hidden="true">
+            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+          </div>
+
+          <section class="conversation-console" id="conversation-panel">
+            <header>
+              <div><span class="status-dot"></span> CONVERSATION CHANNEL</div>
+              <button id="clear-chat-button" aria-label="Clear conversation">CLEAR</button>
+            </header>
+            <div class="message-stream" id="message-stream" aria-live="polite">
+              <div class="message svans-message"><span>SVANS</span><p>Holographic interface online. What are we building today, Shawn?</p></div>
+            </div>
+            <form class="command-input" id="command-form">
+              <button type="button" id="microphone-button" class="mic-button" aria-label="Start voice conversation">●</button>
+              <input id="command-input" autocomplete="off" placeholder="Speak naturally or enter a command…" />
+              <button type="submit" class="send-button">TRANSMIT</button>
+            </form>
+          </section>
+        </section>
+
+        <aside class="hud-column right-column">
+          <article class="hud-panel priority-panel">
+            <header><span>PRIORITY QUEUE</span><button id="add-task-button">＋</button></header>
+            <ul id="task-list">
+              <li><button aria-label="Complete task"></button><span>Review SVANS desktop prototype</span><time>NOW</time></li>
+              <li><button aria-label="Complete task"></button><span>Connect shared SVANS memory</span><time>NEXT</time></li>
+              <li><button aria-label="Complete task"></button><span>Test VOS permissions bridge</span><time>LAB</time></li>
+            </ul>
+          </article>
+
+          <article class="hud-panel shield-panel" id="shield-panel">
+            <header><span>GUARDIAN STATUS</span><i class="secure">SECURE</i></header>
+            <div class="shield-emblem"><span>⌾</span></div>
+            <div class="shield-readout">
+              <strong>NO ACTIVE THREATS</strong>
+              <span>Shield permission layer is monitoring local capabilities.</span>
+            </div>
+            <button class="panel-action" data-command="permissions">REVIEW PERMISSIONS</button>
+          </article>
+
+          <article class="hud-panel activity-panel" id="activity-panel">
+            <header><span>ACTIVITY STREAM</span><i>AUDITED</i></header>
+            <ol id="activity-list">
+              <li><time>00:00</time><span>SVANS desktop initialized</span></li>
+              <li><time>00:00</time><span>Local telemetry permission active</span></li>
+              <li><time>00:00</time><span>External actions require approval</span></li>
+            </ol>
+          </article>
+        </aside>
+      </section>
+
+      <nav class="module-dock no-drag" aria-label="SVANS modules">
+        <button data-command="conversation" class="active"><span>◉</span><strong>SVANS</strong><small>CONVERSATION</small></button>
+        <button data-command="system"><span>⌁</span><strong>VOS</strong><small>SYSTEM</small></button>
+        <button data-command="projects"><span>◇</span><strong>PROJECTS</strong><small>ARCHITECT</small></button>
+        <button data-command="browser"><span>◎</span><strong>BROWSER</strong><small>RESEARCH</small></button>
+        <button data-command="debugger"><span>⌁</span><strong>DEBUGGER</strong><small>DIAGNOSTICS</small></button>
+        <button data-command="shield"><span>⬡</span><strong>SHIELD</strong><small>GUARDIAN</small></button>
+        <button id="compact-button"><span>⊙</span><strong>AMBIENT</strong><small>COMPACT ORB</small></button>
+      </nav>
+    </main>
+
+    <aside class="permission-drawer" id="permission-drawer" aria-hidden="true">
+      <header><div><small>SVANS SHIELD</small><h2>Capability Permissions</h2></div><button id="permission-close">×</button></header>
+      <p>SVANS can observe or act only through capabilities you explicitly allow. Sensitive actions still require confirmation.</p>
+      <div class="permission-list">
+        <label><span><strong>System telemetry</strong><small>CPU, memory, uptime and device status</small></span><input type="checkbox" checked disabled /></label>
+        <label><span><strong>Microphone</strong><small>Natural voice conversation</small></span><input id="microphone-permission" type="checkbox" /></label>
+        <label><span><strong>Local workspace</strong><small>Approved files and project folders</small></span><input type="checkbox" /></label>
+        <label><span><strong>Screen context</strong><small>Current application and walkthrough overlays</small></span><input type="checkbox" /></label>
+        <label><span><strong>Camera gestures</strong><small>Optional hand tracking; camera off by default</small></span><input type="checkbox" /></label>
+        <label><span><strong>External actions</strong><small>Email, social posts and connected services</small></span><input type="checkbox" disabled /></label>
+      </div>
+      <div class="permission-note">Sensitive and external actions remain in ASK mode even when a capability is connected.</div>
+    </aside>
+
+    <div class="toast" id="toast" role="status"></div>
+    <script src="app.js"></script>
+  </body>
+</html>
