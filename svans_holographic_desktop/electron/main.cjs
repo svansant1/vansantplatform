@@ -281,7 +281,7 @@ function registerIpc() {
         model: "gpt-4o-mini-tts",
         voice: "cedar",
         input,
-        instructions: "Speak like a real person in a calm, warm, intelligent and confident conversational tone. Keep pauses at commas and sentence endings brief and fluid, maintaining the natural momentum of a live conversation. Use subtle emotional inflection and an American English accent. Sound like a trusted personal assistant speaking directly to Shawn. Never use an announcer voice, exaggerated drama, drawn-out punctuation pauses or robotic cadence.",
+        instructions: "Speak like a real person in a calm, warm, intelligent and confident conversational tone. Pronounce the assistant name S-Vans exactly as two connected parts: the letter S, then Vans. Keep pauses at commas and sentence endings brief and fluid, maintaining the natural momentum of a live conversation. Use subtle emotional inflection and an American English accent. Sound like a trusted personal assistant speaking directly to Shawn. Never use an announcer voice, exaggerated drama, drawn-out punctuation pauses or robotic cadence.",
         response_format: "wav",
       }),
       signal: AbortSignal.timeout(60_000),

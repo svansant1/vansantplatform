@@ -359,6 +359,7 @@
     return text
       .replace(/[*_#`]/g, "")
       .replace(/\s*[-•]\s+/g, ". ")
+      .replace(/\bSVANS\b/gi, "S-Vans")
       .replace(/\s+/g, " ")
       .trim();
   }
