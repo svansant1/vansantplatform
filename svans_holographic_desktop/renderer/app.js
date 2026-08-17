@@ -57,6 +57,7 @@
     busy: false,
     voiceEnabled: false,
     speechOutputEnabled: true,
+    speechRate: Math.min(1.3, Math.max(0.7, Number(localStorage.getItem("svans.speechRate")) || 1)),
     listening: false,
     recognition: null,
     pinned: false,
@@ -99,6 +100,8 @@
     voiceLink: $("#voice-link-label"),
     voiceSpectrum: $("#voice-spectrum"),
     voiceProfile: $("#voice-profile"),
+    voiceSpeed: $("#voice-speed"),
+    voiceSpeedValue: $("#voice-speed-value"),
     hud: $("#hud-shell"),
     loginGate: $("#login-gate"),
     loginForm: $("#login-form"),
@@ -396,7 +399,7 @@
     }
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.voice = state.voice;
-    utterance.rate = 0.96;
+    utterance.rate = state.speechRate;
     utterance.pitch = 0.98;
     utterance.volume = 1;
     utterance.onend = () => finishSpeaking(preview);
@@ -412,6 +415,7 @@
         return;
       }
       const audio = new Audio(`data:${generated.mimeType ?? "audio/wav"};base64,${generated.audio}`);
+      audio.playbackRate = state.speechRate;
       state.audio = audio;
       audio.onended = () => resolve(true);
       audio.onerror = () => reject(new Error("Neural audio playback failed."));
@@ -964,6 +968,14 @@
       if (state.voice) localStorage.setItem("svans.voice", state.voice.name);
       showToast("SVANS VOICE PROFILE UPDATED");
     });
+    elements.voiceSpeed.addEventListener("input", (event) => {
+      state.speechRate = Math.min(1.3, Math.max(0.7, Number(event.target.value) || 1));
+      elements.voiceSpeedValue.textContent = `${state.speechRate.toFixed(2)}×`;
+      localStorage.setItem("svans.speechRate", String(state.speechRate));
+    });
+    elements.voiceSpeed.addEventListener("change", () => {
+      showToast(`SVANS SPEAKING SPEED · ${state.speechRate.toFixed(2)}×`);
+    });
     $("#voice-preview-button").addEventListener("click", () => {
       void speak("Good evening, Shawn. SVANS is online and ready when you are.", { preview: true });
     });
@@ -1072,6 +1084,8 @@
   }
 
   function initialize() {
+    elements.voiceSpeed.value = String(state.speechRate);
+    elements.voiceSpeedValue.textContent = `${state.speechRate.toFixed(2)}×`;
     updateClock();
     window.setInterval(updateClock, 1000);
     bindEvents();
