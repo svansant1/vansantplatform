@@ -38,6 +38,7 @@
       return { text: "The live conversational bridge activates inside the Electron desktop app. The holographic interface is running in visual preview mode." };
     },
     async synthesizeSpeech() { return { available: false }; },
+    async generateHologram() { return { available: false, reason: "Image generation is available in the desktop app." }; },
     async openDestination(destination) {
       window.open(destination === "svansai" ? "https://svansai.com" : "https://vansantplatform.com", "_blank", "noopener");
       return true;
@@ -641,7 +642,7 @@
     panel.className = "universal-hologram";
     panel.innerHTML = `
       <header><div><small>SVANS UNIVERSAL HOLOGRAM ENGINE</small><strong></strong></div><button data-hologram="close" aria-label="Close hologram">×</button></header>
-      <div class="universal-viewport"><canvas></canvas><div class="globe-scan"></div><div class="universal-reticle"></div><div class="universal-label"><span>PROCEDURAL CONCEPT MODEL</span><strong></strong><small>VOICE-LINKED · INTERACTIVE · LIVE</small></div></div>
+      <div class="universal-viewport"><canvas></canvas><div class="globe-scan"></div><div class="universal-reticle"></div><div class="universal-loading"><i></i><span>SYNTHESIZING SUBJECT-SPECIFIC MODEL</span></div><div class="universal-label"><span>AI HOLOGRAPHIC MODEL</span><strong></strong><small>VISUAL GENERATION · CONNECTING</small></div></div>
       <footer><span>DRAG TO ROTATE · SCROLL TO ZOOM</span><div><button data-hologram="zoom-out">−</button><button data-hologram="pause">PAUSE</button><button data-hologram="reset">RESET</button><button data-hologram="zoom-in">＋</button></div></footer>`;
     panel.querySelector("header strong").textContent = subject.toUpperCase();
     panel.querySelector(".universal-label strong").textContent = subject;
@@ -656,6 +657,7 @@
     const heartMode = /\b(heart|cardiac)\b/i.test(subject);
     const dnaMode = /\b(dna|helix|genetic|genome)\b/i.test(subject);
     const networkMode = /\b(network|connection|topology|router|internet|lan|wi-?fi)\b/i.test(subject);
+    canvas.style.opacity = networkMode ? "1" : "0";
     if (networkMode) {
       points.push({ x: 0, y: 0, z: 0, role: "core", label: "ROUTER" });
       for (let hub = 0; hub < 6; hub += 1) {
@@ -691,7 +693,7 @@
         }
       }
     }
-    const model = { panel, points, yaw: -0.45, pitch: -0.2, zoom: 1, spinning: true, dragging: false, lastX: 0, lastY: 0, frame: 0, observer: null, close: null };
+    const model = { panel, points, yaw: -0.45, pitch: -0.2, zoom: 1, spinning: true, dragging: false, lastX: 0, lastY: 0, frame: 0, observer: null, close: null, asset: null };
     state.universalHologram = model;
     const resize = () => {
       const bounds = canvas.getBoundingClientRect();
@@ -708,6 +710,10 @@
       const centerY = height / 2 - 5;
       const scale = Math.min(width, height) * 0.28 * model.zoom;
       context.clearRect(0, 0, width, height);
+      if (model.asset) {
+        const turn = Math.sin(model.yaw) * 11;
+        model.asset.style.transform = `translate(-50%, -50%) perspective(900px) rotateX(${model.pitch * 14}deg) rotateY(${turn}deg) scale(${model.zoom})`;
+      }
       const cy = Math.cos(model.yaw); const sy = Math.sin(model.yaw);
       const cx = Math.cos(model.pitch); const sx = Math.sin(model.pitch);
       const projected = points.map((point) => {
@@ -799,6 +805,39 @@
     model.observer = new ResizeObserver(resize);
     model.observer.observe(canvas);
     requestAnimationFrame(() => { panel.classList.add("visible"); resize(); draw(); });
+    if (networkMode) {
+      panel.querySelector(".universal-loading")?.remove();
+      panel.querySelector(".universal-label span").textContent = "LIVE NETWORK TOPOLOGY";
+      panel.querySelector(".universal-label small").textContent = "ROUTER · HUBS · ENDPOINTS · DATA FLOW";
+    } else {
+      void desktop.generateHologram(subject).then((result) => {
+        if (!panel.isConnected) return;
+        const loading = panel.querySelector(".universal-loading");
+        const status = panel.querySelector(".universal-label small");
+        if (!result?.available || !result.image) {
+          loading?.classList.add("failed");
+          if (loading) loading.querySelector("span").textContent = result?.reason || "DETAILED MODEL UNAVAILABLE";
+          status.textContent = "NO SUBSTITUTE SHAPE DISPLAYED";
+          return;
+        }
+        const asset = new Image();
+        asset.className = "generated-hologram-asset";
+        asset.alt = `Generated holographic model of ${subject}`;
+        asset.addEventListener("load", () => {
+          loading?.remove();
+          status.textContent = result.cached ? "CACHED MODEL · INTERACTIVE · LIVE" : "NEW MODEL · INTERACTIVE · LIVE";
+          asset.classList.add("visible");
+        });
+        asset.src = `data:${result.mimeType || "image/png"};base64,${result.image}`;
+        model.asset = asset;
+        panel.querySelector(".universal-viewport").prepend(asset);
+      }).catch(() => {
+        const loading = panel.querySelector(".universal-loading");
+        loading?.classList.add("failed");
+        if (loading) loading.querySelector("span").textContent = "VISUAL GENERATION LINK UNAVAILABLE";
+        panel.querySelector(".universal-label small").textContent = "NO SUBSTITUTE SHAPE DISPLAYED";
+      });
+    }
     logActivity(`${subject} universal hologram generated`);
   }
 

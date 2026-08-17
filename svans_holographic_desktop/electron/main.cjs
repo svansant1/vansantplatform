@@ -25,6 +25,7 @@ const AUTH_DIGEST = "38d25a5cce7a9bb87200a49a32d41f441d938c3a591f61526b2ede25cbd
 const MAX_AUTH_ATTEMPTS = 5;
 const LOCKOUT_MS = 30_000;
 const SPEECH_ENDPOINT = "https://api.openai.com/v1/audio/speech";
+const IMAGE_ENDPOINT = "https://api.openai.com/v1/images/generations";
 
 let mainWindow = null;
 let tray = null;
@@ -290,6 +291,47 @@ function registerIpc() {
     const audio = Buffer.from(await response.arrayBuffer());
     if (!audio.length) return { available: false };
     return { available: true, mimeType: "audio/wav", audio: audio.toString("base64"), voice: "cedar" };
+  });
+
+  ipcMain.handle("hologram:generate", async (event, rawSubject) => {
+    assertAuthorized(event);
+    const subject = String(rawSubject ?? "").trim().replace(/[\r\n]+/g, " ").slice(0, 120);
+    if (!subject) throw new Error("A hologram subject is required.");
+    const apiKey = openAiApiKey();
+    if (!apiKey) return { available: false, reason: "Image generation is not connected." };
+    const cacheDirectory = path.join(app.getPath("userData"), "hologram-cache");
+    const cacheName = crypto.createHash("sha256").update(subject.toLowerCase()).digest("hex");
+    const cachePath = path.join(cacheDirectory, `${cacheName}.png`);
+    try {
+      const cached = fs.readFileSync(cachePath);
+      if (cached.length) return { available: true, mimeType: "image/png", image: cached.toString("base64"), cached: true };
+    } catch {
+      // A cache miss continues to generation.
+    }
+    const prompt = [
+      `Create a highly detailed, immediately recognizable visual model of: ${subject}.`,
+      "Show the real subject, not an abstract orb, generic sphere, icon, symbol, or text label.",
+      "Use an isolated three-quarter technical display composition suitable for a futuristic desktop hologram.",
+      "Preserve accurate anatomy or mechanical structure when applicable, with layered cyan and electric-blue luminous surfaces, fine wireframe edges, internal detail, and subtle volumetric glow.",
+      "Transparent background. No frame, no interface, no writing, no watermark, and no decorative objects.",
+    ].join(" ");
+    try {
+      const response = await fetch(IMAGE_ENDPOINT, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "gpt-image-1", prompt, size: "1024x1024", quality: "medium", background: "transparent", output_format: "png" }),
+        signal: AbortSignal.timeout(120_000),
+      });
+      const payload = await response.json().catch(() => ({}));
+      const image = payload?.data?.[0]?.b64_json;
+      if (!response.ok || typeof image !== "string" || !image) return { available: false, reason: "A detailed model could not be generated for this subject." };
+      const buffer = Buffer.from(image, "base64");
+      fs.mkdirSync(cacheDirectory, { recursive: true });
+      fs.writeFileSync(cachePath, buffer);
+      return { available: true, mimeType: "image/png", image, cached: false };
+    } catch {
+      return { available: false, reason: "The visual generation link is currently unavailable." };
+    }
   });
 
   ipcMain.handle("destination:open", async (event, destination) => {

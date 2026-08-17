@@ -1310,6 +1310,12 @@ input:focus-visible {
 .universal-viewport { position: relative; min-height: 0; overflow: hidden; cursor: grab; }
 .universal-viewport:active { cursor: grabbing; }
 .universal-viewport canvas { width: 100%; height: 100%; touch-action: none; }
+.generated-hologram-asset { position: absolute; z-index: 1; width: min(68%, 520px); height: min(78%, 520px); top: 48%; left: 50%; object-fit: contain; opacity: 0; filter: saturate(.7) hue-rotate(145deg) contrast(1.12) brightness(1.18) drop-shadow(0 0 8px rgba(0, 220, 255, .9)) drop-shadow(0 0 28px rgba(0, 156, 255, .38)); mix-blend-mode: screen; pointer-events: none; transform-origin: center; transition: opacity 600ms ease, filter 250ms ease; }
+.generated-hologram-asset.visible { opacity: .92; }
+.universal-loading { position: absolute; z-index: 3; inset: 50% auto auto 50%; display: grid; justify-items: center; gap: 13px; translate: -50% -50%; color: #6fdff5; font-size: 7px; letter-spacing: .17em; white-space: nowrap; }
+.universal-loading i { width: 58px; height: 58px; border: 1px solid rgba(0, 212, 255, .18); border-top-color: var(--cyan); border-radius: 50%; box-shadow: 0 0 25px rgba(0, 212, 255, .18); animation: universal-loading-spin 900ms linear infinite; }
+.universal-loading.failed { color: #ffb56b; }
+.universal-loading.failed i { border-color: rgba(255, 171, 76, .2); border-top-color: #ffab4c; animation-duration: 2.4s; }
 .universal-reticle { position: absolute; inset: 50% auto auto 50%; width: min(52vh, 64%); aspect-ratio: 1; translate: -50% -50%; border: 1px dashed rgba(0, 212, 255, .18); border-radius: 50%; pointer-events: none; animation: universal-reticle-spin 18s linear infinite; }
 .universal-reticle::before, .universal-reticle::after { content: ""; position: absolute; inset: 8%; border: 1px solid rgba(0, 212, 255, .1); rotate: 45deg; }
 .universal-reticle::after { inset: 19%; rotate: -25deg; border-style: dashed; }
@@ -1320,6 +1326,7 @@ input:focus-visible {
 .universal-hologram > footer div { display: flex; gap: 6px; }
 .universal-hologram > footer button { min-width: 34px; height: 27px; padding: 0 10px; font-size: 7px; font-weight: 800; letter-spacing: .08em; }
 @keyframes universal-reticle-spin { to { rotate: 360deg; } }
+@keyframes universal-loading-spin { to { rotate: 360deg; } }
 
 .admin-permission { border-color: rgba(255, 176, 32, 0.24) !important; }
 .admin-permission strong { color: #ffd18a; }

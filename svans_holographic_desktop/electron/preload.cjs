@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld("svansDesktop", {
   },
   chat: (messages, sessionId) => ipcRenderer.invoke("chat:send", { messages, sessionId }),
   synthesizeSpeech: (text) => ipcRenderer.invoke("speech:synthesize", text),
+  generateHologram: (subject) => ipcRenderer.invoke("hologram:generate", subject),
   openDestination: (destination) => ipcRenderer.invoke("destination:open", destination),
   windowAction: (action) => ipcRenderer.send("window:action", action),
   setAlwaysOnTop: (enabled) => ipcRenderer.invoke("window:always-on-top", enabled),
