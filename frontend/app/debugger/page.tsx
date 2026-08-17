@@ -81,7 +81,7 @@ export default function DebuggerPage() {
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-lg">
+        <div className="rounded-2xl border border-[#17304a] bg-[#07101d] p-6 shadow-lg">
           <h2 className="text-xl font-semibold text-white">
             Download Debugger App
           </h2>
@@ -94,7 +94,7 @@ export default function DebuggerPage() {
             <a
               href="/downloads/SVANSAI-Debugger.exe"
               download
-              className="rounded-xl bg-purple-500 px-5 py-3 text-sm font-medium text-white hover:bg-purple-600"
+              className="rounded-xl bg-amber-500 px-5 py-3 text-sm font-medium text-white hover:bg-amber-600"
             >
               Download Installer
             </a>
@@ -102,7 +102,7 @@ export default function DebuggerPage() {
             <a
               href="/downloads/SVANSAI-Debugger-Agent.exe"
               download
-              className="rounded-xl border border-zinc-700 px-5 py-3 text-sm font-medium text-zinc-300 hover:bg-zinc-900"
+              className="rounded-xl border border-[#244867] px-5 py-3 text-sm font-medium text-zinc-300 hover:bg-[#10243a]"
             >
               Download Portable
             </a>
@@ -110,13 +110,13 @@ export default function DebuggerPage() {
             <button
               onClick={createPairCode}
               disabled={isCreating}
-              className="rounded-xl bg-orange-500 px-5 py-3 text-sm font-medium text-white hover:bg-orange-600 disabled:opacity-50"
+              className="rounded-xl bg-amber-500 px-5 py-3 text-sm font-medium text-white hover:bg-amber-600 disabled:opacity-50"
             >
               {isCreating ? "Generating..." : "Generate Pair Code"}
             </button>
           </div>
 
-          <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+          <div className="mt-6 rounded-2xl border border-[#17304a] bg-[#0b1626] p-5">
             <p className="text-sm text-zinc-400">Pair Code</p>
             <p className="mt-2 text-4xl font-bold tracking-[0.3em] text-white">
               {pairing?.code || "------"}
@@ -149,7 +149,7 @@ export default function DebuggerPage() {
             </div>
           </div>
 
-          <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+          <div className="mt-6 rounded-2xl border border-[#17304a] bg-[#0b1626] p-5">
             <p className="text-sm text-zinc-400">Manual Connect</p>
 
             <div className="mt-3 flex flex-col gap-3">
@@ -158,13 +158,13 @@ export default function DebuggerPage() {
                 value={deviceName}
                 onChange={(e) => setDeviceName(e.target.value)}
                 placeholder="Enter local device name..."
-                className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500"
+                className="w-full rounded-xl border border-[#17304a] bg-[#07101d] px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500"
               />
 
               <button
                 onClick={handleConnectDebugger}
                 disabled={isConnecting || !pairing?.code}
-                className="rounded-xl bg-orange-500 px-5 py-3 text-sm font-medium text-white hover:bg-orange-600 disabled:opacity-50"
+                className="rounded-xl bg-amber-500 px-5 py-3 text-sm font-medium text-white hover:bg-amber-600 disabled:opacity-50"
               >
                 {isConnecting ? "Connecting..." : "Connect Debugger"}
               </button>
@@ -177,25 +177,25 @@ export default function DebuggerPage() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-lg">
+        <div className="rounded-2xl border border-[#17304a] bg-[#07101d] p-6 shadow-lg">
           <h2 className="text-xl font-semibold text-white">How It Works</h2>
 
           <div className="mt-4 space-y-3 text-sm text-zinc-300">
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+            <div className="rounded-xl border border-[#17304a] bg-[#0b1626] p-4">
               1. Download the desktop debugger app
             </div>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+            <div className="rounded-xl border border-[#17304a] bg-[#0b1626] p-4">
               2. Generate a pair code here
             </div>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+            <div className="rounded-xl border border-[#17304a] bg-[#0b1626] p-4">
               3. Enter the code in the desktop app
             </div>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+            <div className="rounded-xl border border-[#17304a] bg-[#0b1626] p-4">
               4. Run all scans, findings, and guided fix workflows in the app
             </div>
           </div>
 
-          <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+          <div className="mt-6 rounded-2xl border border-[#17304a] bg-[#0b1626] p-5">
             <p className="text-sm text-zinc-400">Backend Split</p>
             <div className="mt-3 space-y-2 text-sm text-zinc-300">
               <div>• Platform backend: pair code + connect flow</div>
@@ -204,7 +204,7 @@ export default function DebuggerPage() {
             </div>
           </div>
 
-          <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+          <div className="mt-6 rounded-2xl border border-[#17304a] bg-[#0b1626] p-5">
             <p className="text-sm text-zinc-400">Ready Check</p>
             <div className="mt-3 space-y-2 text-sm text-zinc-300">
               <div>

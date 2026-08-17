@@ -30,11 +30,11 @@ export default function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="min-h-screen w-72 border-r border-zinc-800 bg-zinc-950 text-white">
-      <div className="border-b border-zinc-800 px-6 py-5">
+    <aside className="min-h-screen w-72 border-r border-[#17304a] bg-[#07101d]/95 text-white shadow-[18px_0_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
+      <div className="border-b border-[#17304a] px-6 py-5">
         <h1 className="text-2xl font-bold tracking-wide">
-          <span className="text-purple-400">Vansant</span>
-          <span className="text-orange-400">Platform</span>
+          <span className="text-cyan-300">Vansant</span>
+          <span className="text-blue-400">Platform</span>
         </h1>
         <p className="mt-1 text-sm text-zinc-400">
           AI Development Operating System
@@ -66,8 +66,8 @@ export default function Sidebar() {
                 }}
                 className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm transition ${
                   active
-                    ? "bg-zinc-800 text-white"
-                    : "text-zinc-300 hover:bg-zinc-900 hover:text-white"
+                    ? "border border-cyan-300/20 bg-cyan-400/10 text-cyan-100 shadow-[inset_3px_0_0_#00d4ff]"
+                    : "border border-transparent text-zinc-300 hover:border-[#17304a] hover:bg-[#0b1626] hover:text-white"
                 }`}
               >
                 <Icon size={18} />
@@ -82,8 +82,8 @@ export default function Sidebar() {
               href={item.href}
               className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm transition ${
                 active
-                  ? "bg-zinc-800 text-white"
-                  : "text-zinc-300 hover:bg-zinc-900 hover:text-white"
+                  ? "border border-cyan-300/20 bg-cyan-400/10 text-cyan-100 shadow-[inset_3px_0_0_#00d4ff]"
+                  : "border border-transparent text-zinc-300 hover:border-[#17304a] hover:bg-[#0b1626] hover:text-white"
               }`}
             >
               <Icon size={18} />

@@ -56,7 +56,7 @@ const capabilities = [
     description:
       "Permission-based folder access, file reading, project summaries, search, and safe write previews inside trusted workspaces.",
     icon: FolderOpen,
-    accent: "text-violet-300",
+    accent: "text-blue-300",
   },
   {
     name: "Code and terminal support",
@@ -102,7 +102,7 @@ export default function SvansAiPage() {
     <div className="min-h-full overflow-hidden rounded-[2rem] border border-white/10 bg-[#050711] text-white shadow-2xl">
       <section className="relative isolate overflow-hidden px-6 py-12 sm:px-10 lg:px-14 lg:py-16">
         <div className="pointer-events-none absolute -left-28 top-10 h-96 w-96 rounded-full bg-cyan-500/20 blur-3xl" />
-        <div className="pointer-events-none absolute -right-28 top-0 h-96 w-96 rounded-full bg-violet-600/20 blur-3xl" />
+        <div className="pointer-events-none absolute -right-28 top-0 h-96 w-96 rounded-full bg-blue-600/20 blur-3xl" />
 
         <div className="relative grid items-center gap-12 xl:grid-cols-[1.08fr_0.92fr]">
           <div>
@@ -113,7 +113,7 @@ export default function SvansAiPage() {
 
             <h1 className="mt-6 max-w-4xl text-5xl font-black tracking-tight sm:text-6xl lg:text-7xl">
               The AI command center for
-              <span className="block bg-gradient-to-r from-cyan-300 via-blue-300 to-violet-300 bg-clip-text text-transparent">
+              <span className="block bg-gradient-to-r from-cyan-300 via-blue-300 to-blue-300 bg-clip-text text-transparent">
                 Vansant Platform.
               </span>
             </h1>
@@ -128,7 +128,7 @@ export default function SvansAiPage() {
             <div className="mt-9 flex flex-wrap gap-4">
               <a
                 href={webAppUrl}
-                className="inline-flex items-center gap-3 rounded-2xl bg-gradient-to-r from-cyan-500 to-violet-600 px-6 py-4 font-bold text-white shadow-[0_0_40px_rgba(34,211,238,0.18)] transition hover:-translate-y-0.5 hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-cyan-300"
+                className="inline-flex items-center gap-3 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-6 py-4 font-bold text-white shadow-[0_0_40px_rgba(34,211,238,0.18)] transition hover:-translate-y-0.5 hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-cyan-300"
               >
                 <Bot size={21} aria-hidden="true" />
                 Open SVANS-AI
@@ -138,7 +138,7 @@ export default function SvansAiPage() {
                 <a
                   href={installerUrl}
                   download
-                  className="inline-flex items-center gap-3 rounded-2xl border border-white/15 bg-white/[0.06] px-6 py-4 font-bold transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-violet-300"
+                  className="inline-flex items-center gap-3 rounded-2xl border border-white/15 bg-white/[0.06] px-6 py-4 font-bold transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-blue-300"
                 >
                   <Image
                     src="/mascots/sv-robot.png"
@@ -166,7 +166,7 @@ export default function SvansAiPage() {
 
               <a
                 href="#capabilities"
-                className="rounded-2xl border border-white/15 bg-white/[0.04] px-6 py-4 font-bold transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-violet-300"
+                className="rounded-2xl border border-white/15 bg-white/[0.04] px-6 py-4 font-bold transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-blue-300"
               >
                 See capabilities
               </a>
@@ -179,7 +179,7 @@ export default function SvansAiPage() {
           </div>
 
           <div className="relative mx-auto w-full max-w-[460px]">
-            <div className="absolute inset-8 rounded-full bg-gradient-to-r from-cyan-500/30 to-violet-400/30 blur-3xl" />
+            <div className="absolute inset-8 rounded-full bg-gradient-to-r from-cyan-500/30 to-blue-400/30 blur-3xl" />
             <div className="relative rounded-[2.25rem] border border-white/10 bg-white/[0.035] p-6 shadow-[0_30px_100px_rgba(0,0,0,0.55)] backdrop-blur">
               <Image
                 src="/mascots/sv-robot.png"
@@ -231,7 +231,7 @@ export default function SvansAiPage() {
       </section>
 
       <section className="grid gap-8 px-6 py-12 sm:px-10 lg:grid-cols-[1fr_0.9fr] lg:px-14">
-        <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-cyan-500/10 to-violet-500/5 p-7 sm:p-9">
+        <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-cyan-500/10 to-blue-500/5 p-7 sm:p-9">
           <div className="flex items-center gap-3">
             <FileSearch className="text-cyan-300" aria-hidden="true" />
             <h2 className="text-2xl font-black">How this app should work</h2>
@@ -250,7 +250,7 @@ export default function SvansAiPage() {
 
         <div className="rounded-3xl border border-white/10 bg-black/25 p-7 sm:p-9">
           <div className="flex items-center gap-3">
-            <LockKeyhole className="text-violet-300" aria-hidden="true" />
+            <LockKeyhole className="text-blue-300" aria-hidden="true" />
             <h2 className="text-2xl font-black">Permission model</h2>
           </div>
           <ul className="mt-6 space-y-4">

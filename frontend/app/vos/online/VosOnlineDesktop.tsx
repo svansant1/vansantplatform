@@ -88,10 +88,10 @@ const apps: PreviewApp[] = [
   { id: "files", name: "Files", shortName: "Files", icon: Files, color: "bg-blue-500" },
   { id: "notes", name: "Notes", shortName: "Notes", icon: NotebookPen, color: "bg-amber-500" },
   { id: "calculator", name: "Calculator", shortName: "Calculator", icon: Calculator, color: "bg-emerald-500" },
-  { id: "guide", name: "SVANSAI Guide", shortName: "Guide", icon: Bot, color: "bg-violet-600" },
+  { id: "guide", name: "SVANSAI Guide", shortName: "Guide", icon: Bot, color: "bg-blue-600" },
   { id: "sandbox", name: "VOS Sandbox", shortName: "Sandbox", icon: Code2, color: "bg-green-500", localOnly: true },
   { id: "shield", name: "SVANS Shield", shortName: "Shield", icon: ShieldCheck, color: "bg-rose-500", localOnly: true },
-  { id: "debugger", name: "SVANSAI Debugger", shortName: "Debugger", icon: Bug, color: "bg-purple-500", localOnly: true },
+  { id: "debugger", name: "SVANSAI Debugger", shortName: "Debugger", icon: Bug, color: "bg-amber-500", localOnly: true },
   { id: "guardian", name: "Guardian Core", shortName: "Guardian", icon: ShieldCheck, color: "bg-teal-600" },
   { id: "network", name: "Network Armor", shortName: "Network", icon: Network, color: "bg-sky-600", localOnly: true },
   { id: "projects", name: "Projects", shortName: "Projects", icon: FolderKanban, color: "bg-cyan-500" },
@@ -380,9 +380,9 @@ export function VosOnlineDesktop() {
 
   if (!unlocked) {
     return (
-      <main className="grid min-h-[calc(100vh-4rem)] place-items-center overflow-hidden rounded-[1.75rem] border border-white/10 bg-[radial-gradient(circle_at_80%_20%,rgba(124,58,237,0.35),transparent_35%),radial-gradient(circle_at_20%_90%,rgba(6,182,212,0.22),transparent_38%),#050711] p-6 text-white shadow-2xl">
+      <main className="grid min-h-[calc(100vh-4rem)] place-items-center overflow-hidden rounded-[1.75rem] border border-white/10 bg-[radial-gradient(circle_at_80%_20%,rgba(40,123,255,0.35),transparent_35%),radial-gradient(circle_at_20%_90%,rgba(6,182,212,0.22),transparent_38%),#050711] p-6 text-white shadow-2xl">
         <section className="w-full max-w-xl rounded-[2rem] border border-white/15 bg-[#0a1020]/95 p-7 text-center shadow-[0_30px_100px_rgba(0,0,0,0.6)] backdrop-blur sm:p-10">
-          <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br from-violet-600 to-cyan-500 shadow-[0_0_35px_rgba(34,211,238,0.25)]">
+          <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-500 shadow-[0_0_35px_rgba(34,211,238,0.25)]">
             <ShieldCheck size={32} />
           </div>
           <p className="mt-6 text-xs font-black uppercase tracking-[0.25em] text-cyan-300">
@@ -419,7 +419,7 @@ export function VosOnlineDesktop() {
             type="button"
             onClick={unlockPreview}
             disabled={pairing}
-            className="mt-5 w-64 rounded-2xl bg-gradient-to-r from-violet-600 to-cyan-500 px-5 py-4 font-bold transition hover:brightness-110 disabled:cursor-wait disabled:opacity-60"
+            className="mt-5 w-64 rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-500 px-5 py-4 font-bold transition hover:brightness-110 disabled:cursor-wait disabled:opacity-60"
           >
             {pairing ? "Confirming code…" : "Pair and enter preview"}
           </button>
@@ -502,7 +502,7 @@ export function VosOnlineDesktop() {
       case "debugger":
         return (
           <div className="p-6">
-            <div className="flex flex-wrap items-center justify-between gap-4"><div><h3 className="text-xl font-black">SVANSAI Debugger</h3><p className="text-sm text-slate-400">Sample application diagnostic</p></div><button onClick={runDebugger} className="rounded-xl bg-purple-500 px-5 py-3 font-bold">{debugState === "running" ? "Analyzing…" : "Run diagnosis"}</button></div>
+            <div className="flex flex-wrap items-center justify-between gap-4"><div><h3 className="text-xl font-black">SVANSAI Debugger</h3><p className="text-sm text-slate-400">Sample application diagnostic</p></div><button onClick={runDebugger} className="rounded-xl bg-amber-500 px-5 py-3 font-bold">{debugState === "running" ? "Analyzing…" : "Run diagnosis"}</button></div>
             <div className="mt-6 space-y-3">
               <div className="rounded-xl border border-white/10 bg-black/20 p-4"><span className="text-emerald-300">PASS</span> Web interface loaded successfully</div>
               {debugState !== "idle" && <div className="rounded-xl border border-white/10 bg-black/20 p-4"><span className="text-emerald-300">PASS</span> Vansant API reachable</div>}
@@ -533,8 +533,8 @@ export function VosOnlineDesktop() {
       case "guide":
         return (
           <div className="flex h-full min-h-[400px] flex-col p-6">
-            <div className="flex-1 rounded-2xl border border-violet-400/20 bg-violet-400/5 p-5 leading-7 text-slate-200"><span className="font-bold text-violet-300">SVANSAI Guide</span><p className="mt-3">{guideAnswer}</p></div>
-            <div className="mt-4 flex gap-2"><input value={guideQuestion} onChange={(event) => setGuideQuestion(event.target.value)} onKeyDown={(event) => event.key === "Enter" && askGuide()} placeholder="Ask about VOS…" className="min-w-0 flex-1 rounded-xl border border-white/10 bg-black/30 px-4 py-3 outline-none focus:border-violet-400" /><button onClick={askGuide} className="rounded-xl bg-violet-500 px-5 font-bold">Ask</button></div>
+            <div className="flex-1 rounded-2xl border border-blue-400/20 bg-blue-400/5 p-5 leading-7 text-slate-200"><span className="font-bold text-blue-300">SVANSAI Guide</span><p className="mt-3">{guideAnswer}</p></div>
+            <div className="mt-4 flex gap-2"><input value={guideQuestion} onChange={(event) => setGuideQuestion(event.target.value)} onKeyDown={(event) => event.key === "Enter" && askGuide()} placeholder="Ask about VOS…" className="min-w-0 flex-1 rounded-xl border border-white/10 bg-black/30 px-4 py-3 outline-none focus:border-blue-400" /><button onClick={askGuide} className="rounded-xl bg-blue-500 px-5 font-bold">Ask</button></div>
           </div>
         );
       case "browser": {
@@ -635,13 +635,13 @@ export function VosOnlineDesktop() {
               <button
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={captureBrowserSelection}
-                className="rounded-xl border border-violet-400/30 bg-violet-500/10 px-3 py-2 text-xs font-bold text-violet-200"
+                className="rounded-xl border border-blue-400/30 bg-blue-500/10 px-3 py-2 text-xs font-bold text-blue-200"
               >
                 Check highlight
               </button>
               <button
                 onClick={() => setBrowserSidebarOpen((value) => !value)}
-                className="rounded-xl border border-white/10 p-2 text-violet-200 hover:bg-white/10"
+                className="rounded-xl border border-white/10 p-2 text-blue-200 hover:bg-white/10"
                 aria-label="Toggle SVANSAI panel"
               >
                 {browserSidebarOpen ? <PanelRightClose size={17} /> : <PanelRightOpen size={17} />}
@@ -664,7 +664,7 @@ export function VosOnlineDesktop() {
             </div>
 
             <div className={`grid min-h-0 flex-1 ${browserSidebarOpen ? "lg:grid-cols-[1fr_315px]" : ""}`}>
-              <div className="min-h-0 overflow-auto bg-[radial-gradient(circle_at_85%_15%,rgba(14,165,233,0.12),transparent_30%),#080b12] p-6 selection:bg-violet-500/60">
+              <div className="min-h-0 overflow-auto bg-[radial-gradient(circle_at_85%_15%,rgba(14,165,233,0.12),transparent_30%),#080b12] p-6 selection:bg-blue-500/60">
                 {page === "home" && (
                   <>
                     <p className="text-xs font-black uppercase tracking-[0.25em] text-sky-300">
@@ -710,7 +710,7 @@ export function VosOnlineDesktop() {
 
                 {page === "platform" && (
                   <>
-                    <p className="text-xs font-black uppercase tracking-[0.25em] text-orange-300">
+                    <p className="text-xs font-black uppercase tracking-[0.25em] text-cyan-300">
                       Vansant Platform
                     </p>
                     <h3 className="mt-3 text-3xl font-black">One home for every SV project.</h3>
@@ -721,12 +721,12 @@ export function VosOnlineDesktop() {
                     <div className="mt-6 grid gap-3 sm:grid-cols-3">
                       {["Explore products", "Pair your desktop", "Continue projects"].map((item) => (
                         <div key={item} className="rounded-2xl border border-white/10 bg-white/5 p-5">
-                          <CheckCircle2 className="text-orange-300" size={20} />
+                          <CheckCircle2 className="text-cyan-300" size={20} />
                           <p className="mt-3 font-bold">{item}</p>
                         </div>
                       ))}
                     </div>
-                    <Link href="/" className="mt-6 inline-flex items-center gap-2 rounded-xl bg-orange-500 px-5 py-3 font-bold">
+                    <Link href="/" className="mt-6 inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-5 py-3 font-bold">
                       Open full Platform <ExternalLink size={16} />
                     </Link>
                   </>
@@ -734,7 +734,7 @@ export function VosOnlineDesktop() {
 
                 {page === "vos" && (
                   <>
-                    <p className="text-xs font-black uppercase tracking-[0.25em] text-violet-300">Vansant Operating System</p>
+                    <p className="text-xs font-black uppercase tracking-[0.25em] text-blue-300">Vansant Operating System</p>
                     <h3 className="mt-3 text-3xl font-black">The armor and guide layer for your SV workspace.</h3>
                     <p className="mt-3 max-w-2xl leading-7 text-slate-300">
                       VOS brings Sandbox, Shield, Debugger, SV Browser, SVANSAI, and Guardian
@@ -742,7 +742,7 @@ export function VosOnlineDesktop() {
                       environment.
                     </p>
                     <div className="mt-6 flex flex-wrap gap-3">
-                      <Link href="/vos" className="inline-flex items-center gap-2 rounded-xl bg-violet-500 px-5 py-3 font-bold">
+                      <Link href="/vos" className="inline-flex items-center gap-2 rounded-xl bg-blue-500 px-5 py-3 font-bold">
                         Explore VOS <ExternalLink size={16} />
                       </Link>
                       <a href="/downloads/VOS-Founding-Beta-0.16.2-Windows-Setup-R8.exe" download className="inline-flex items-center gap-2 rounded-xl border border-white/15 px-5 py-3 font-bold hover:bg-white/10">
@@ -776,14 +776,14 @@ export function VosOnlineDesktop() {
 
                 {page === "debugger" && (
                   <>
-                    <p className="text-xs font-black uppercase tracking-[0.25em] text-purple-300">SVANSAI Debugger</p>
+                    <p className="text-xs font-black uppercase tracking-[0.25em] text-amber-300">SVANSAI Debugger</p>
                     <h3 className="mt-3 text-3xl font-black">Turn technical failures into guided fixes.</h3>
                     <p className="mt-3 max-w-2xl leading-7 text-slate-300">
                       The Debugger organizes logs, diagnostics, likely causes, and recovery
                       actions. Pairing connects the website experience to an authorized desktop
                       session without giving the webpage unrestricted device access.
                     </p>
-                    <Link href="/debugger" className="mt-6 inline-flex items-center gap-2 rounded-xl bg-purple-500 px-5 py-3 font-bold">
+                    <Link href="/debugger" className="mt-6 inline-flex items-center gap-2 rounded-xl bg-amber-500 px-5 py-3 font-bold">
                       Try Debugger pairing <ExternalLink size={16} />
                     </Link>
                   </>
@@ -811,10 +811,10 @@ export function VosOnlineDesktop() {
                 <aside className="min-h-0 overflow-auto border-l border-white/10 bg-[#080d18] p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs font-black uppercase tracking-wider text-violet-300">SVANSAI selection</p>
+                      <p className="text-xs font-black uppercase tracking-wider text-blue-300">SVANSAI selection</p>
                       <p className="mt-1 text-[11px] text-slate-500">Online demonstration</p>
                     </div>
-                    <Bot size={20} className="text-violet-300" />
+                    <Bot size={20} className="text-blue-300" />
                   </div>
                   <p className="mt-4 text-xs font-bold text-slate-300">Highlighted text</p>
                   <div className="mt-2 min-h-28 rounded-xl border border-white/10 bg-black/30 p-3 text-xs leading-5 text-slate-300">
@@ -825,7 +825,7 @@ export function VosOnlineDesktop() {
                     onChange={(event) => setBrowserQuestion(event.target.value)}
                     onKeyDown={(event) => event.key === "Enter" && respondToBrowserSelection("ask")}
                     placeholder="Optional question…"
-                    className="mt-3 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs outline-none focus:border-violet-400"
+                    className="mt-3 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs outline-none focus:border-blue-400"
                   />
                   <div className="mt-3 grid grid-cols-3 gap-2">
                     <button onClick={() => respondToBrowserSelection("explain")} className="rounded-lg bg-blue-500 px-2 py-2 text-[11px] font-bold">Explain</button>
@@ -833,10 +833,10 @@ export function VosOnlineDesktop() {
                     <button onClick={() => respondToBrowserSelection("ask")} className="rounded-lg bg-emerald-600 px-2 py-2 text-[11px] font-bold">Ask</button>
                   </div>
                   <p className="mt-4 text-xs font-bold text-slate-300">SVANSAI response</p>
-                  <div className="mt-2 min-h-36 rounded-xl border border-violet-400/20 bg-violet-400/5 p-3 text-xs leading-5 text-slate-200">
+                  <div className="mt-2 min-h-36 rounded-xl border border-blue-400/20 bg-blue-400/5 p-3 text-xs leading-5 text-slate-200">
                     {browserAnswer}
                   </div>
-                  <a href="/downloads/SV-Browser.exe" download className="mt-4 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-sky-500 px-4 py-3 text-xs font-bold">
+                  <a href="/downloads/SV-Browser.exe" download className="mt-4 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-sky-500 px-4 py-3 text-xs font-bold">
                     Continue in SV Browser <ExternalLink size={14} />
                   </a>
                 </aside>
@@ -884,7 +884,7 @@ export function VosOnlineDesktop() {
 
         <div className="relative p-4 pb-24 sm:p-6 sm:pb-24">
           <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-white/10 bg-[#091225]/95 px-4 py-3 shadow-xl">
-            <div className="grid h-11 w-11 place-items-center rounded-full border-2 border-cyan-300 bg-violet-600 font-black">SV</div>
+            <div className="grid h-11 w-11 place-items-center rounded-full border-2 border-cyan-300 bg-blue-600 font-black">SV</div>
             <div>
               <p className="text-sm font-black tracking-wide">VANSANT OS</p>
               <p className="text-[11px] text-slate-400">Personal workspace</p>
@@ -903,7 +903,7 @@ export function VosOnlineDesktop() {
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">Continue a project, ask SVANSAI, or review protection without leaving the desktop.</p>
               <div className="mt-5 grid gap-3 sm:grid-cols-3">
                 <button onClick={() => openApp("projects")} className="rounded-xl bg-cyan-700/80 p-4 text-left transition hover:-translate-y-0.5 hover:bg-cyan-600"><FolderKanban size={20} /><strong className="mt-3 block text-sm">Open Projects</strong><span className="mt-1 block text-[11px] text-cyan-100/80">Continue recent work</span></button>
-                <button onClick={() => openApp("guide")} className="rounded-xl bg-violet-700/80 p-4 text-left transition hover:-translate-y-0.5 hover:bg-violet-600"><Bot size={20} /><strong className="mt-3 block text-sm">Ask SVANSAI</strong><span className="mt-1 block text-[11px] text-violet-100/80">Get guidance in context</span></button>
+                <button onClick={() => openApp("guide")} className="rounded-xl bg-blue-700/80 p-4 text-left transition hover:-translate-y-0.5 hover:bg-blue-600"><Bot size={20} /><strong className="mt-3 block text-sm">Ask SVANSAI</strong><span className="mt-1 block text-[11px] text-blue-100/80">Get guidance in context</span></button>
                 <button onClick={() => openApp("sandbox")} className="rounded-xl bg-emerald-700/80 p-4 text-left transition hover:-translate-y-0.5 hover:bg-emerald-600"><Code2 size={20} /><strong className="mt-3 block text-sm">Launch Sandbox</strong><span className="mt-1 block text-[11px] text-emerald-100/80">Build and test safely</span></button>
               </div>
             </section>
@@ -948,16 +948,16 @@ export function VosOnlineDesktop() {
 
         {startOpen && (
           <div className="absolute bottom-16 left-3 z-30 w-[min(590px,calc(100%-24px))] rounded-2xl border border-white/15 bg-[#091326]/95 p-4 shadow-2xl backdrop-blur-xl">
-            <div className="flex items-center gap-3 border-b border-white/10 pb-4"><div className="grid h-10 w-10 place-items-center rounded-full border border-cyan-300 bg-violet-600 font-black">S</div><div><p className="text-sm font-black">Shawn&apos;s workspace</p><p className="text-[10px] text-slate-500">Vansant OS</p></div><button onClick={() => openApp("settings")} className="ml-auto rounded-xl bg-white/5 px-3 py-2 text-xs font-bold hover:bg-white/10">Settings</button></div>
+            <div className="flex items-center gap-3 border-b border-white/10 pb-4"><div className="grid h-10 w-10 place-items-center rounded-full border border-cyan-300 bg-blue-600 font-black">S</div><div><p className="text-sm font-black">Shawn&apos;s workspace</p><p className="text-[10px] text-slate-500">Vansant OS</p></div><button onClick={() => openApp("settings")} className="ml-auto rounded-xl bg-white/5 px-3 py-2 text-xs font-bold hover:bg-white/10">Settings</button></div>
             <button className="mt-4 flex w-full items-center gap-2 rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-left text-xs text-slate-500"><Search size={14} /> Search apps, settings, and tools</button>
             <p className="px-1 pb-2 pt-4 text-xs font-black">Pinned</p>
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">{apps.map(({ id, shortName, icon: Icon, color }) => <button key={id} onClick={() => openApp(id)} className="flex min-h-16 flex-col items-center justify-center gap-2 rounded-xl bg-white/5 p-2 text-center text-[10px] font-bold hover:bg-white/10"><span className={`grid h-7 w-7 place-items-center rounded-lg ${color}`}><Icon size={14} /></span>{shortName}</button>)}</div>
-            <Link href="/vos" className="mt-3 flex items-center justify-between rounded-xl bg-gradient-to-r from-violet-600 to-cyan-500 px-4 py-3 text-sm font-bold">Install full VOS <ChevronRight size={16} /></Link>
+            <Link href="/vos" className="mt-3 flex items-center justify-between rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-4 py-3 text-sm font-bold">Install full VOS <ChevronRight size={16} /></Link>
           </div>
         )}
 
         <footer className="absolute inset-x-0 bottom-0 z-40 flex h-16 items-center gap-2 border-t border-white/10 bg-[#05070d]/95 px-3 backdrop-blur-xl">
-          <button onClick={() => setStartOpen((value) => !value)} className="grid h-11 w-11 place-items-center rounded-xl bg-violet-600 text-sm font-black">SV</button>
+          <button onClick={() => setStartOpen((value) => !value)} className="grid h-11 w-11 place-items-center rounded-xl bg-blue-600 text-sm font-black">SV</button>
           <span className="hidden text-xs font-black sm:inline">VOS</span>
           <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto">
             {openApps.map((id) => {
@@ -973,7 +973,7 @@ export function VosOnlineDesktop() {
 
       <div className="flex flex-col gap-4 border-t border-white/10 bg-[#080c17] p-5 text-sm sm:flex-row sm:items-center sm:justify-between">
         <div><strong>Like the preview?</strong><p className="mt-1 text-xs text-slate-400">Install VOS for real local files, Git, terminals, scanning, debugging, and Guardian protection.</p></div>
-        <Link href="/vos" className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-cyan-500 px-5 py-3 font-bold">Install and pair VOS <ExternalLink size={16} /></Link>
+        <Link href="/vos" className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-5 py-3 font-bold">Install and pair VOS <ExternalLink size={16} /></Link>
       </div>
     </main>
   );

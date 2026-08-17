@@ -26,7 +26,7 @@ export default function SvBrowserPage() {
       <section className="mx-auto max-w-5xl overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] p-8 shadow-2xl md:p-12">
         <div className="grid items-center gap-10 lg:grid-cols-[1fr_280px]">
           <div>
-            <p className="text-sm font-bold uppercase tracking-[0.3em] text-orange-300">
+            <p className="text-sm font-bold uppercase tracking-[0.3em] text-blue-300">
               Vansant Software
             </p>
 
@@ -43,7 +43,7 @@ export default function SvBrowserPage() {
               <a
                 href="/downloads/SV-Browser-0.13.7-Windows-x64.exe"
                 download="SV-Browser-0.13.7-Windows-x64.exe"
-                className="rounded-2xl bg-gradient-to-r from-purple-600 to-orange-500 px-6 py-4 font-bold text-white transition hover:opacity-90"
+                className="rounded-2xl bg-gradient-to-r from-cyan-600 to-blue-500 px-6 py-4 font-bold text-white transition hover:opacity-90"
               >
                 Download for Windows (x64)
               </a>
@@ -51,7 +51,7 @@ export default function SvBrowserPage() {
               <a
                 href="/downloads/SV-Browser-0.13.7-Windows-ARM64.exe"
                 download="SV-Browser-0.13.7-Windows-ARM64.exe"
-                className="rounded-2xl border border-purple-400/30 px-6 py-4 font-bold text-white transition hover:bg-purple-500/10"
+                className="rounded-2xl border border-cyan-400/30 px-6 py-4 font-bold text-white transition hover:bg-cyan-500/10"
               >
                 Windows ARM64
               </a>
@@ -70,7 +70,7 @@ export default function SvBrowserPage() {
           </div>
 
           <div className="flex justify-center">
-            <div className="rounded-[2rem] border border-purple-400/20 bg-black/30 p-7 shadow-[0_0_60px_rgba(168,85,247,0.25)]">
+            <div className="rounded-[2rem] border border-cyan-400/20 bg-black/30 p-7 shadow-[0_0_60px_rgba(0,212,255,0.25)]">
               <Image
                 src="/sv-browser-logo.png"
                 alt="SV Browser logo"

@@ -590,10 +590,10 @@ export default function DebugConsolePage() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950 p-4 text-white">
+    <div className="min-h-screen bg-[#07101d] p-4 text-white">
       <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
         <div className="space-y-4">
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+          <div className="rounded-2xl border border-[#17304a] bg-[#0b1626] p-4">
             <h1 className="text-xl font-bold text-green-400">
               Vansant Debug Console
             </h1>
@@ -609,7 +609,7 @@ export default function DebugConsolePage() {
                 value={sourcePath}
                 onChange={(e) => setSourcePath(e.target.value)}
                 placeholder="Enter a full file path..."
-                className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white outline-none placeholder:text-zinc-500"
+                className="w-full rounded-xl border border-[#244867] bg-[#07101d] px-3 py-2 text-sm text-white outline-none placeholder:text-zinc-500"
               />
 
               <input
@@ -617,77 +617,77 @@ export default function DebugConsolePage() {
                 value={commandInput}
                 onChange={(e) => setCommandInput(e.target.value)}
                 placeholder="Enter an allowed debug command..."
-                className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white outline-none placeholder:text-zinc-500"
+                className="w-full rounded-xl border border-[#244867] bg-[#07101d] px-3 py-2 text-sm text-white outline-none placeholder:text-zinc-500"
               />
             </div>
 
             <div className="mt-4 flex flex-wrap gap-2">
               <button
                 onClick={pickFile}
-                className="rounded-lg bg-purple-500 px-3 py-2 text-sm text-white hover:bg-purple-600"
+                className="rounded-lg bg-amber-500 px-3 py-2 text-sm text-white hover:bg-amber-600"
               >
                 Open Source File
               </button>
 
               <button
                 onClick={() => inspectPath()}
-                className="rounded-lg bg-purple-500 px-3 py-2 text-sm text-white hover:bg-purple-600"
+                className="rounded-lg bg-amber-500 px-3 py-2 text-sm text-white hover:bg-amber-600"
               >
                 Load Typed File
               </button>
 
               <button
                 onClick={scanProcesses}
-                className="rounded-lg bg-purple-500 px-3 py-2 text-sm text-white hover:bg-purple-600"
+                className="rounded-lg bg-amber-500 px-3 py-2 text-sm text-white hover:bg-amber-600"
               >
                 Scan Running Programs
               </button>
 
               <button
                 onClick={() => handleRunCommand(commandInput)}
-                className="rounded-lg bg-zinc-800 px-3 py-2 text-sm text-white hover:bg-zinc-700"
+                className="rounded-lg bg-[#10243a] px-3 py-2 text-sm text-white hover:bg-zinc-700"
               >
                 Run Command
               </button>
 
               <button
                 onClick={() => handleRunCommand("run_frontend")}
-                className="rounded-lg bg-zinc-800 px-3 py-2 text-sm text-white hover:bg-zinc-700"
+                className="rounded-lg bg-[#10243a] px-3 py-2 text-sm text-white hover:bg-zinc-700"
               >
                 Run Frontend
               </button>
 
               <button
                 onClick={() => handleRunCommand("build_frontend")}
-                className="rounded-lg bg-zinc-800 px-3 py-2 text-sm text-white hover:bg-zinc-700"
+                className="rounded-lg bg-[#10243a] px-3 py-2 text-sm text-white hover:bg-zinc-700"
               >
                 Build Frontend
               </button>
 
               <button
                 onClick={() => handleRunCommand("run_backend")}
-                className="rounded-lg bg-zinc-800 px-3 py-2 text-sm text-white hover:bg-zinc-700"
+                className="rounded-lg bg-[#10243a] px-3 py-2 text-sm text-white hover:bg-zinc-700"
               >
                 Run Backend
               </button>
 
               <button
                 onClick={() => handleRunCommand("lint_frontend")}
-                className="rounded-lg bg-zinc-800 px-3 py-2 text-sm text-white hover:bg-zinc-700"
+                className="rounded-lg bg-[#10243a] px-3 py-2 text-sm text-white hover:bg-zinc-700"
               >
                 Lint Frontend
               </button>
 
               <button
                 onClick={handleAnalyzeError}
-                className="rounded-lg bg-orange-500 px-3 py-2 text-sm text-white hover:bg-orange-600"
+                className="rounded-lg bg-amber-500 px-3 py-2 text-sm text-white hover:bg-amber-600"
               >
                 Analyze Output
               </button>
 
               <button
                 onClick={handleParseIssues}
-                className="rounded-lg bg-zinc-800 px-3 py-2 text-sm text-white hover:bg-zinc-700"
+                className="rounded-lg bg-[#10243a] px-3 py-2 text-sm text-white hover:bg-zinc-700"
               >
                 Parse Issues
               </button>
@@ -695,28 +695,28 @@ export default function DebugConsolePage() {
               <button
                 onClick={handleAnalyzeSelectedIssue}
                 disabled={!selectedIssue}
-                className="rounded-lg bg-purple-600 px-3 py-2 text-sm text-white hover:bg-purple-700 disabled:opacity-50"
+                className="rounded-lg bg-amber-600 px-3 py-2 text-sm text-white hover:bg-amber-700 disabled:opacity-50"
               >
                 Analyze Selected Issue
               </button>
 
               <button
                 onClick={handleDraftFix}
-                className="rounded-lg bg-orange-500 px-3 py-2 text-sm text-white hover:bg-orange-600"
+                className="rounded-lg bg-amber-500 px-3 py-2 text-sm text-white hover:bg-amber-600"
               >
                 Draft Fix
               </button>
 
               <button
                 onClick={copyDraftFix}
-                className="rounded-lg bg-zinc-800 px-3 py-2 text-sm text-white hover:bg-zinc-700"
+                className="rounded-lg bg-[#10243a] px-3 py-2 text-sm text-white hover:bg-zinc-700"
               >
                 Copy Draft Fix
               </button>
 
               <button
                 onClick={loadSelectedIssueFile}
-                className="rounded-lg bg-zinc-800 px-3 py-2 text-sm text-white hover:bg-zinc-700"
+                className="rounded-lg bg-[#10243a] px-3 py-2 text-sm text-white hover:bg-zinc-700"
               >
                 Load Selected Issue File
               </button>
@@ -729,7 +729,7 @@ export default function DebugConsolePage() {
             )}
           </div>
 
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+          <div className="rounded-2xl border border-[#17304a] bg-[#0b1626] p-4">
             <h2 className="mb-2 text-sm font-semibold text-zinc-300">
               Running Programs
             </h2>
@@ -739,10 +739,10 @@ export default function DebugConsolePage() {
               value={processSearch}
               onChange={(e) => setProcessSearch(e.target.value)}
               placeholder="Search by name, PID, or path..."
-              className="mb-3 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white outline-none placeholder:text-zinc-500"
+              className="mb-3 w-full rounded-xl border border-[#244867] bg-[#07101d] px-3 py-2 text-sm text-white outline-none placeholder:text-zinc-500"
             />
 
-            <div className="max-h-[220px] overflow-auto rounded-xl border border-zinc-800 bg-zinc-950 p-2">
+            <div className="max-h-[220px] overflow-auto rounded-xl border border-[#17304a] bg-[#07101d] p-2">
               {filteredProcesses.length === 0 ? (
                 <p className="text-xs text-zinc-500">
                   {processes.length === 0
@@ -757,8 +757,8 @@ export default function DebugConsolePage() {
                     onClick={() => setSelectedProcess(proc)}
                     className={`mb-2 block w-full rounded-lg border px-3 py-2 text-left text-xs transition ${
                       selectedProcess?.pid === proc.pid
-                        ? "border-purple-500 bg-zinc-800 text-white"
-                        : "border-zinc-800 bg-zinc-950 text-zinc-300 hover:bg-zinc-900"
+                        ? "border-amber-500 bg-[#10243a] text-white"
+                        : "border-[#17304a] bg-[#07101d] text-zinc-300 hover:bg-[#10243a]"
                     }`}
                   >
                     <div className="font-medium">{proc.name || "Unknown"}</div>
@@ -772,7 +772,7 @@ export default function DebugConsolePage() {
             </div>
 
             {selectedProcess && (
-              <div className="mt-3 rounded-xl border border-zinc-800 bg-zinc-950 p-3 text-xs text-zinc-400">
+              <div className="mt-3 rounded-xl border border-[#17304a] bg-[#07101d] p-3 text-xs text-zinc-400">
                 <div>
                   <span className="text-zinc-300">Selected:</span>{" "}
                   {selectedProcess.name || "Unknown"}
@@ -789,7 +789,7 @@ export default function DebugConsolePage() {
             )}
           </div>
 
-          <div className="rounded-2xl border border-zinc-800 bg-black p-4">
+          <div className="rounded-2xl border border-[#17304a] bg-black p-4">
             <h2 className="mb-2 text-sm font-semibold text-zinc-300">
               Terminal Output
             </h2>
@@ -800,7 +800,7 @@ export default function DebugConsolePage() {
             </pre>
           </div>
 
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+          <div className="rounded-2xl border border-[#17304a] bg-[#0b1626] p-4">
             <h2 className="mb-2 text-sm font-semibold text-zinc-300">
               Source Code Preview
             </h2>
@@ -818,7 +818,7 @@ export default function DebugConsolePage() {
                         key={index}
                         className={
                           isIssueLine
-                            ? "border-l-2 border-purple-500 bg-purple-900/40 px-2"
+                            ? "border-l-2 border-amber-500 bg-amber-900/40 px-2"
                             : "px-2"
                         }
                       >
@@ -835,12 +835,12 @@ export default function DebugConsolePage() {
         </div>
 
         <div className="space-y-4">
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+          <div className="rounded-2xl border border-[#17304a] bg-[#0b1626] p-4">
             <h2 className="mb-2 text-sm font-semibold text-zinc-300">
               Parsed Issues
             </h2>
 
-            <div className="max-h-[250px] overflow-auto rounded-xl border border-zinc-800 bg-zinc-950 p-2">
+            <div className="max-h-[250px] overflow-auto rounded-xl border border-[#17304a] bg-[#07101d] p-2">
               {issues.length === 0 ? (
                 <p className="text-xs text-zinc-500">
                   No parsed issues yet. Run a command that produces actionable
@@ -857,8 +857,8 @@ export default function DebugConsolePage() {
                     }}
                     className={`mb-2 block w-full rounded-lg border px-3 py-2 text-left text-xs transition ${
                       selectedIssue?.id === issue.id
-                        ? "border-purple-500 bg-zinc-800 text-white"
-                        : "border-zinc-800 bg-zinc-950 text-zinc-300 hover:bg-zinc-900"
+                        ? "border-amber-500 bg-[#10243a] text-white"
+                        : "border-[#17304a] bg-[#07101d] text-zinc-300 hover:bg-[#10243a]"
                     }`}
                   >
                     <div className="font-medium">
@@ -874,7 +874,7 @@ export default function DebugConsolePage() {
             </div>
 
             {selectedIssue && (
-              <div className="mt-3 rounded-xl border border-zinc-800 bg-zinc-950 p-3 text-xs text-zinc-400">
+              <div className="mt-3 rounded-xl border border-[#17304a] bg-[#07101d] p-3 text-xs text-zinc-400">
                 <div>
                   <span className="text-zinc-300">File:</span>{" "}
                   {selectedIssue.file}
@@ -903,11 +903,11 @@ export default function DebugConsolePage() {
             )}
           </div>
 
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+          <div className="rounded-2xl border border-[#17304a] bg-[#0b1626] p-4">
             <h2 className="mb-2 text-sm font-semibold text-zinc-300">
               Directory Listing
             </h2>
-            <div className="max-h-[220px] overflow-auto rounded-xl border border-zinc-800 bg-zinc-950 p-3 text-xs text-zinc-300">
+            <div className="max-h-[220px] overflow-auto rounded-xl border border-[#17304a] bg-[#07101d] p-3 text-xs text-zinc-300">
               {directoryListing.length > 0 ? (
                 <div className="space-y-2">
                   {directoryListing.map((entry, index) => (
@@ -924,7 +924,7 @@ export default function DebugConsolePage() {
                           );
                         }
                       }}
-                      className="block w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-left hover:bg-zinc-800"
+                      className="block w-full rounded-lg border border-[#17304a] bg-[#0b1626] px-3 py-2 text-left hover:bg-[#17304a]"
                     >
                       <div className="font-medium text-zinc-200">
                         {entry.name || "Unknown"}
@@ -947,7 +947,7 @@ export default function DebugConsolePage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+          <div className="rounded-2xl border border-[#17304a] bg-[#0b1626] p-4">
             <h2 className="mb-2 text-sm font-semibold text-zinc-300">
               Fix Review
             </h2>
@@ -957,13 +957,13 @@ export default function DebugConsolePage() {
 
             <button
               onClick={copyDraftFix}
-              className="mt-3 rounded-lg bg-zinc-800 px-3 py-2 text-sm text-white hover:bg-zinc-700"
+              className="mt-3 rounded-lg bg-[#10243a] px-3 py-2 text-sm text-white hover:bg-zinc-700"
             >
               Copy Draft Fix
             </button>
           </div>
 
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+          <div className="rounded-2xl border border-[#17304a] bg-[#0b1626] p-4">
             <h2 className="mb-2 text-sm font-semibold text-zinc-300">
               SVANSAI Analysis
             </h2>

@@ -152,7 +152,7 @@ function StatCard({
   subtitle: string;
 }) {
   return (
-    <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-lg">
+    <div className="rounded-2xl border border-[#17304a] bg-[#0b1626] p-6 shadow-lg">
       <p className="text-sm text-zinc-400">{title}</p>
       <h3 className="mt-2 text-2xl font-bold text-white">{value}</h3>
       <p className="mt-2 text-sm text-zinc-300">{subtitle}</p>
@@ -164,7 +164,7 @@ function BrandWordmark({ name }: { name: string }) {
   const platformIndex = name.toLowerCase().indexOf("platform");
 
   if (platformIndex === -1) {
-    return <span className="text-purple-400">{name}</span>;
+    return <span className="text-cyan-400">{name}</span>;
   }
 
   const prefix = name.slice(0, platformIndex) || "Vansant";
@@ -172,8 +172,8 @@ function BrandWordmark({ name }: { name: string }) {
 
   return (
     <>
-      <span className="text-purple-400">{prefix}</span>
-      <span className="text-orange-400">{suffix}</span>
+      <span className="text-cyan-400">{prefix}</span>
+      <span className="text-blue-400">{suffix}</span>
     </>
   );
 }
@@ -208,7 +208,7 @@ function MascotRoster() {
   ];
 
   return (
-    <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6">
+    <div className="rounded-2xl border border-[#17304a] bg-[#07101d] p-6">
       <h2 className="text-xl font-semibold text-white">Platform Mascots</h2>
 
       <div className="mt-6 grid grid-cols-[repeat(auto-fit,minmax(112px,1fr))] items-end justify-items-center gap-x-6 gap-y-6">
@@ -222,7 +222,7 @@ function MascotRoster() {
               alt={m.name}
               width={96}
               height={96}
-              className="h-20 w-20 object-contain drop-shadow-[0_0_14px_rgba(168,85,247,0.45)] sm:h-24 sm:w-24"
+              className="h-20 w-20 object-contain drop-shadow-[0_0_14px_rgba(0,212,255,0.45)] sm:h-24 sm:w-24"
             />
             <span className="mt-3 max-w-full text-sm font-medium text-zinc-100">
               {m.name}
@@ -248,7 +248,7 @@ function ActionCard({
   mascotSrc: string;
 }) {
   return (
-    <div className="relative flex min-h-[200px] overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-lg transition hover:bg-zinc-900">
+    <div className="relative flex min-h-[200px] overflow-hidden rounded-2xl border border-[#17304a] bg-[#07101d] p-6 shadow-lg transition hover:bg-[#10243a]">
       {/* TEXT */}
       <div className="z-10 flex max-w-[70%] flex-col">
         <h3 className="text-xl font-semibold text-white">{title}</h3>
@@ -259,7 +259,7 @@ function ActionCard({
 
         <Link
           href={href}
-          className="mt-5 w-fit rounded-xl bg-gradient-to-r from-purple-500 to-orange-400 px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+          className="mt-5 w-fit rounded-xl bg-gradient-to-r from-cyan-500 to-blue-400 px-4 py-2 text-sm font-medium text-white hover:opacity-90"
         >
           {cta}
         </Link>
@@ -272,7 +272,7 @@ function ActionCard({
           alt={`${title} mascot`}
           width={112}
           height={112}
-          className="max-h-full max-w-full object-contain opacity-90 mix-blend-screen drop-shadow-[0_0_18px_rgba(168,85,247,0.45)]"
+          className="max-h-full max-w-full object-contain opacity-90 mix-blend-screen drop-shadow-[0_0_18px_rgba(0,212,255,0.45)]"
         />
       </div>
     </div>
@@ -289,12 +289,12 @@ function ModuleCard({
   href: string;
 }) {
   return (
-    <div className="rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-lg transition hover:bg-zinc-800">
+    <div className="rounded-2xl border border-[#244867] bg-[#0b1626] p-6 shadow-lg transition hover:bg-[#17304a]">
       <h3 className="text-xl font-semibold text-white">{title}</h3>
       <p className="mt-2 text-sm text-zinc-300">{description}</p>
       <Link
         href={href}
-        className="mt-5 inline-block rounded-xl border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-200 hover:bg-zinc-950"
+        className="mt-5 inline-block rounded-xl border border-[#244867] px-4 py-2 text-sm font-medium text-zinc-200 hover:bg-[#07101d]"
       >
         Open
       </Link>
@@ -346,7 +346,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-8 text-center shadow-lg">
+      <div className="rounded-3xl border border-[#17304a] bg-[#07101d] p-8 text-center shadow-lg">
         <h1 className="text-4xl font-bold text-white">
           Welcome to{" "}
           <BrandWordmark name={settings.platformName} />
@@ -438,32 +438,32 @@ export default function DashboardPage() {
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-lg">
+        <div className="rounded-2xl border border-[#17304a] bg-[#07101d] p-6 shadow-lg">
           <h2 className="text-2xl font-semibold text-white">System Status</h2>
           <p className="mt-2 text-sm text-zinc-400">
             Quick visibility into Shield health before deeper work begins.
           </p>
 
           <div className="mt-5 grid gap-4 md:grid-cols-2">
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+            <div className="rounded-xl border border-[#17304a] bg-[#0b1626] p-4">
               <p className="text-sm text-zinc-400">Threats Found</p>
               <p className="mt-2 text-2xl font-bold text-white">
                 {shieldThreatCount}
               </p>
             </div>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+            <div className="rounded-xl border border-[#17304a] bg-[#0b1626] p-4">
               <p className="text-sm text-zinc-400">CPU Load</p>
               <p className="mt-2 text-2xl font-bold text-white">
                 {shieldCpuUsage}%
               </p>
             </div>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+            <div className="rounded-xl border border-[#17304a] bg-[#0b1626] p-4">
               <p className="text-sm text-zinc-400">Memory Usage</p>
               <p className="mt-2 text-2xl font-bold text-white">
                 {shieldMemoryUsage}%
               </p>
             </div>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+            <div className="rounded-xl border border-[#17304a] bg-[#0b1626] p-4">
               <p className="text-sm text-zinc-400">Last Scan</p>
               <p className="mt-2 text-2xl font-bold text-white">
                 {shieldLastScan}
@@ -474,37 +474,37 @@ export default function DashboardPage() {
           <div className="mt-5 flex gap-3">
             <button
               onClick={runShieldQuickScan}
-              className="rounded-xl bg-purple-500 px-4 py-2 text-sm text-white hover:bg-purple-600"
+              className="rounded-xl bg-rose-600 px-4 py-2 text-sm text-white hover:bg-rose-500"
             >
               Quick Scan
             </button>
             <Link
               href="/shield"
-              className="rounded-xl border border-zinc-700 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-900"
+              className="rounded-xl border border-[#244867] px-4 py-2 text-sm text-zinc-300 hover:bg-[#10243a]"
             >
               Open Shield
             </Link>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-lg">
+        <div className="rounded-2xl border border-[#17304a] bg-[#07101d] p-6 shadow-lg">
           <h2 className="text-2xl font-semibold text-white">Workflow</h2>
           <div className="mt-4 space-y-3 text-sm text-zinc-300">
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+            <div className="rounded-xl border border-[#17304a] bg-[#0b1626] p-4">
               1. Start in{" "}
               <span className="font-semibold text-white">Projects</span> to map
               the idea
             </div>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+            <div className="rounded-xl border border-[#17304a] bg-[#0b1626] p-4">
               2. Move into{" "}
               <span className="font-semibold text-white">Sandbox</span> to build
               it
             </div>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+            <div className="rounded-xl border border-[#17304a] bg-[#0b1626] p-4">
               3. Use <span className="font-semibold text-white">Debugger</span>{" "}
               to inspect issues
             </div>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+            <div className="rounded-xl border border-[#17304a] bg-[#0b1626] p-4">
               4. Run <span className="font-semibold text-white">Shield</span> to
               secure the system
             </div>

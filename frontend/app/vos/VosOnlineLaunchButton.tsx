@@ -64,7 +64,7 @@ export function VosOnlineLaunchButton({
                 href={previewUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="rounded-xl bg-gradient-to-r from-violet-600 to-cyan-500 px-4 py-3 text-xs font-bold text-white transition hover:brightness-110"
+                className="rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-4 py-3 text-xs font-bold text-white transition hover:brightness-110"
               >
                 Open preview in a new tab
               </a>

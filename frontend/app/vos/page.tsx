@@ -52,7 +52,7 @@ const modules = [
     name: "VOS Desktop",
     description: "A unified Windows workspace with private VOS files, notes, projects, tools, and managed app windows.",
     icon: SquareTerminal,
-    accent: "text-violet-300",
+    accent: "text-blue-300",
   },
   {
     name: "VOS Sandbox",
@@ -70,7 +70,7 @@ const modules = [
     name: "SVANSAI Debugger",
     description: "Application and system diagnostics connected to the VOS incident workflow.",
     icon: Bug,
-    accent: "text-purple-300",
+    accent: "text-blue-300",
   },
   {
     name: "SV Browser",
@@ -97,19 +97,19 @@ export default function VosPage() {
   return (
     <div className="min-h-full overflow-hidden rounded-[2rem] border border-white/10 bg-[#050711] text-white shadow-2xl">
       <section className="relative isolate overflow-hidden px-6 py-12 sm:px-10 lg:px-14 lg:py-16">
-        <div className="pointer-events-none absolute -left-32 top-0 h-96 w-96 rounded-full bg-violet-600/20 blur-3xl" />
+        <div className="pointer-events-none absolute -left-32 top-0 h-96 w-96 rounded-full bg-blue-600/20 blur-3xl" />
         <div className="pointer-events-none absolute -right-24 top-20 h-96 w-96 rounded-full bg-cyan-500/15 blur-3xl" />
 
         <div className="relative grid items-center gap-12 xl:grid-cols-[1.15fr_0.85fr]">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-violet-300/20 bg-violet-400/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] text-violet-200">
+            <div className="inline-flex items-center gap-2 rounded-full border border-blue-300/20 bg-blue-400/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] text-blue-200">
               <Sparkles size={15} aria-hidden="true" />
               Founding Beta · Version 0.16.2
             </div>
 
             <h1 className="mt-6 max-w-4xl text-5xl font-black tracking-tight sm:text-6xl lg:text-7xl">
               One desktop for the
-              <span className="block bg-gradient-to-r from-violet-300 via-blue-300 to-cyan-300 bg-clip-text text-transparent">
+              <span className="block bg-gradient-to-r from-blue-300 via-blue-300 to-cyan-300 bg-clip-text text-transparent">
                 Vansant ecosystem.
               </span>
             </h1>
@@ -129,14 +129,14 @@ export default function VosPage() {
               <a
                 href={downloadUrl}
                 download
-                className="inline-flex items-center gap-3 rounded-2xl bg-gradient-to-r from-violet-600 to-cyan-500 px-6 py-4 font-bold text-white shadow-[0_0_40px_rgba(34,211,238,0.18)] transition hover:-translate-y-0.5 hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-cyan-300"
+                className="inline-flex items-center gap-3 rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-500 px-6 py-4 font-bold text-white shadow-[0_0_40px_rgba(34,211,238,0.18)] transition hover:-translate-y-0.5 hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-cyan-300"
               >
                 <Download size={21} aria-hidden="true" />
                 Install VOS
               </a>
               <a
                 href="#inside-vos"
-                className="rounded-2xl border border-white/15 bg-white/[0.04] px-6 py-4 font-bold transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-violet-300"
+                className="rounded-2xl border border-white/15 bg-white/[0.04] px-6 py-4 font-bold transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-blue-300"
               >
                 See what is included
               </a>
@@ -155,7 +155,7 @@ export default function VosPage() {
           </div>
 
           <div className="relative mx-auto w-full max-w-[480px]">
-            <div className="absolute inset-8 rounded-full bg-gradient-to-r from-violet-500/30 to-cyan-400/30 blur-3xl" />
+            <div className="absolute inset-8 rounded-full bg-gradient-to-r from-blue-500/30 to-cyan-400/30 blur-3xl" />
             <div className="relative rounded-[2.25rem] border border-white/10 bg-white/[0.035] p-5 shadow-[0_30px_100px_rgba(0,0,0,0.55)] backdrop-blur">
               <Image
                 src="/branding/vos-sv-logo.png"
@@ -193,9 +193,9 @@ export default function VosPage() {
       </section>
 
       <section className="grid gap-8 px-6 py-12 sm:px-10 lg:grid-cols-[1fr_0.9fr] lg:px-14">
-        <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-violet-500/10 to-cyan-500/5 p-7 sm:p-9">
+        <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-blue-500/10 to-cyan-500/5 p-7 sm:p-9">
           <div className="flex items-center gap-3">
-            <Bot className="text-violet-300" aria-hidden="true" />
+            <Bot className="text-blue-300" aria-hidden="true" />
             <h2 className="text-2xl font-black">Start using VOS</h2>
           </div>
           <ol className="mt-6 space-y-5 text-sm leading-6 text-zinc-300">

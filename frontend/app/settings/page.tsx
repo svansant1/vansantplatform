@@ -69,7 +69,7 @@ export default function SettingsPage() {
         </p>
       </div>
 
-      <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-lg">
+      <div className="rounded-2xl border border-[#17304a] bg-[#07101d] p-6 shadow-lg">
         <div className="grid gap-6 md:grid-cols-2">
           <div>
             <label className="mb-2 block text-sm font-medium text-zinc-300">
@@ -79,7 +79,7 @@ export default function SettingsPage() {
               type="text"
               value={settings.platformName}
               onChange={(e) => handleChange("platformName", e.target.value)}
-              className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-white outline-none"
+              className="w-full rounded-xl border border-[#244867] bg-[#0b1626] px-4 py-3 text-white outline-none"
             />
           </div>
 
@@ -91,7 +91,7 @@ export default function SettingsPage() {
               type="text"
               value={settings.ownerName}
               onChange={(e) => handleChange("ownerName", e.target.value)}
-              className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-white outline-none"
+              className="w-full rounded-xl border border-[#244867] bg-[#0b1626] px-4 py-3 text-white outline-none"
             />
           </div>
         </div>
@@ -105,7 +105,7 @@ export default function SettingsPage() {
               type="text"
               value={settings.themeMode}
               onChange={(e) => handleChange("themeMode", e.target.value)}
-              className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-white outline-none"
+              className="w-full rounded-xl border border-[#244867] bg-[#0b1626] px-4 py-3 text-white outline-none"
             />
           </div>
 
@@ -119,7 +119,7 @@ export default function SettingsPage() {
               onChange={(e) =>
                 handleChange("defaultProjectName", e.target.value)
               }
-              className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-white outline-none"
+              className="w-full rounded-xl border border-[#244867] bg-[#0b1626] px-4 py-3 text-white outline-none"
             />
           </div>
         </div>
@@ -127,14 +127,14 @@ export default function SettingsPage() {
         <div className="mt-6 flex gap-3">
           <button
             onClick={handleSave}
-            className="rounded-xl bg-purple-500 px-5 py-3 text-sm font-medium text-white hover:bg-purple-600"
+            className="rounded-xl bg-cyan-500 px-5 py-3 text-sm font-medium text-white hover:bg-cyan-600"
           >
             Save Settings
           </button>
 
           <button
             onClick={handleReset}
-            className="rounded-xl border border-zinc-700 px-5 py-3 text-sm font-medium text-zinc-300 hover:bg-zinc-900"
+            className="rounded-xl border border-[#244867] px-5 py-3 text-sm font-medium text-zinc-300 hover:bg-[#10243a]"
           >
             Reset
           </button>

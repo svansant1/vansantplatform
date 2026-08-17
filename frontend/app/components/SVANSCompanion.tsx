@@ -266,10 +266,10 @@ export default function SVANSCompanion() {
   return (
     <div className="fixed bottom-5 right-5 z-[100] flex max-w-[calc(100vw-2.5rem)] flex-col items-end gap-3">
       {open && (
-        <section className="flex h-[min(610px,calc(100vh-8rem))] w-[380px] max-w-full flex-col overflow-hidden rounded-3xl border border-white/10 bg-zinc-950/95 text-white shadow-2xl backdrop-blur-xl">
+        <section className="flex h-[min(610px,calc(100vh-8rem))] w-[380px] max-w-full flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#07101d]/95 text-white shadow-2xl backdrop-blur-xl">
           <header className="flex items-center justify-between border-b border-white/10 px-5 py-4">
             <div className="flex items-center gap-3">
-              <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-purple-500 to-orange-400 shadow-lg">
+              <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-400 shadow-lg">
                 <Sparkles size={18} />
               </span>
               <div>
@@ -288,7 +288,7 @@ export default function SVANSCompanion() {
                 <p className="text-sm leading-6 text-zinc-200">Talk naturally or type anything. SVANS uses the same conversational intelligence as SVANSAI.</p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {starters.map((starter) => (
-                    <button key={starter} onClick={() => void sendMessage(starter)} className="rounded-full border border-zinc-700 px-3 py-2 text-left text-[11px] text-zinc-300 hover:border-purple-400/60 hover:bg-purple-500/10">
+                    <button key={starter} onClick={() => void sendMessage(starter)} className="rounded-full border border-[#244867] px-3 py-2 text-left text-[11px] text-zinc-300 hover:border-cyan-400/60 hover:bg-cyan-500/10">
                       {starter}
                     </button>
                   ))}
@@ -297,28 +297,28 @@ export default function SVANSCompanion() {
             ) : (
               messages.map((message, index) => (
                 <div key={`${message.role}-${index}`} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[88%] whitespace-pre-wrap rounded-2xl px-4 py-3 text-sm leading-6 ${message.role === "user" ? "bg-gradient-to-r from-purple-500 to-orange-400 text-white" : "border border-white/10 bg-white/[0.05] text-zinc-200"}`}>
+                  <div className={`max-w-[88%] whitespace-pre-wrap rounded-2xl px-4 py-3 text-sm leading-6 ${message.role === "user" ? "bg-gradient-to-r from-cyan-500 to-blue-400 text-white" : "border border-white/10 bg-white/[0.05] text-zinc-200"}`}>
                     {message.content}
                   </div>
                 </div>
               ))
             )}
-            {loading && <div className="text-xs font-semibold text-purple-300">SVANS is thinking…</div>}
+            {loading && <div className="text-xs font-semibold text-cyan-300">SVANS is thinking…</div>}
           </div>
 
           <div className="border-t border-white/10 p-4">
             <div className="mb-3 flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2">
               <div>
-                <p className={`text-xs font-bold ${listening ? "text-purple-300" : "text-zinc-300"}`}>{voiceStatus}</p>
+                <p className={`text-xs font-bold ${listening ? "text-cyan-300" : "text-zinc-300"}`}>{voiceStatus}</p>
                 <p className="text-[10px] text-zinc-500">Hands-free replies continue until you end voice mode.</p>
               </div>
-              <button onClick={toggleVoice} className={`rounded-full p-2.5 ${voiceOn ? "bg-purple-500 text-white" : "bg-zinc-800 text-zinc-300"}`} aria-pressed={voiceOn} aria-label={voiceOn ? "End voice conversation" : "Start voice conversation"}>
+              <button onClick={toggleVoice} className={`rounded-full p-2.5 ${voiceOn ? "bg-cyan-500 text-white" : "bg-[#10243a] text-zinc-300"}`} aria-pressed={voiceOn} aria-label={voiceOn ? "End voice conversation" : "Start voice conversation"}>
                 {voiceOn ? <MicOff size={17} /> : <Mic size={17} />}
               </button>
             </div>
             <div className="flex gap-2">
-              <textarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void sendMessage(); } }} rows={2} placeholder="Talk to SVANS…" className="min-w-0 flex-1 resize-none rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white outline-none focus:border-purple-400" />
-              <button onClick={() => void sendMessage()} disabled={loading || !input.trim()} aria-label="Send message" className="self-stretch rounded-xl bg-gradient-to-b from-purple-500 to-orange-400 px-3 text-white disabled:opacity-40">
+              <textarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void sendMessage(); } }} rows={2} placeholder="Talk to SVANS…" className="min-w-0 flex-1 resize-none rounded-xl border border-[#244867] bg-[#0b1626] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400" />
+              <button onClick={() => void sendMessage()} disabled={loading || !input.trim()} aria-label="Send message" className="self-stretch rounded-xl bg-gradient-to-b from-cyan-500 to-blue-400 px-3 text-white disabled:opacity-40">
                 <Send size={18} />
               </button>
             </div>
@@ -326,8 +326,8 @@ export default function SVANSCompanion() {
         </section>
       )}
 
-      <button onClick={() => setOpen((value) => !value)} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-zinc-950 px-4 py-3 text-white shadow-2xl transition hover:-translate-y-0.5 hover:border-purple-400/40" aria-label="Open SVANS companion">
-        <span className="relative grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-purple-500 to-orange-400">
+      <button onClick={() => setOpen((value) => !value)} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#07101d] px-4 py-3 text-white shadow-2xl transition hover:-translate-y-0.5 hover:border-cyan-400/40" aria-label="Open SVANS companion">
+        <span className="relative grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-400">
           <Sparkles size={17} />
           <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border-2 border-zinc-950 bg-emerald-400" />
         </span>

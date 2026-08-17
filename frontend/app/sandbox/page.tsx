@@ -127,7 +127,7 @@ export default function SandboxPage() {
             setTerminal("Terminal cleared.\n");
             setCommand("");
           }}
-          className="rounded-xl border border-zinc-700 px-5 py-3 text-sm font-semibold text-zinc-300 hover:bg-zinc-900"
+          className="rounded-xl border border-[#244867] px-5 py-3 text-sm font-semibold text-zinc-300 hover:bg-[#10243a]"
         >
           Reset
         </button>
@@ -135,22 +135,22 @@ export default function SandboxPage() {
         <a
           href="/downloads/Vansant-Sandbox.exe"
           download
-          className="rounded-xl bg-purple-500 px-5 py-3 text-sm font-semibold text-white hover:bg-purple-600"
+          className="rounded-xl bg-emerald-500 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-600"
         >
           Download Desktop Sandbox
         </a>
 
         <Link
           href="/dashboard"
-          className="rounded-xl border border-zinc-700 px-5 py-3 text-sm font-semibold text-zinc-300 hover:bg-zinc-900"
+          className="rounded-xl border border-[#244867] px-5 py-3 text-sm font-semibold text-zinc-300 hover:bg-[#10243a]"
         >
           Back to Dashboard
         </Link>
       </div>
 
       <section className="space-y-4">
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
-          <div className="mb-2 text-sm font-semibold uppercase tracking-widest text-purple-400">
+        <div className="rounded-2xl border border-[#17304a] bg-[#07101d] p-4">
+          <div className="mb-2 text-sm font-semibold uppercase tracking-widest text-emerald-400">
             Python Editor
           </div>
 
@@ -158,11 +158,11 @@ export default function SandboxPage() {
             value={code}
             onChange={(event) => setCode(event.target.value)}
             spellCheck={false}
-            className="h-80 w-full resize-y rounded-xl border border-zinc-800 bg-black p-4 font-mono text-sm text-green-300 outline-none focus:border-purple-500"
+            className="h-80 w-full resize-y rounded-xl border border-[#17304a] bg-black p-4 font-mono text-sm text-green-300 outline-none focus:border-emerald-500"
           />
         </div>
 
-        <div className="rounded-2xl border border-zinc-800 bg-black p-4">
+        <div className="rounded-2xl border border-[#17304a] bg-black p-4">
           <div className="mb-2 text-sm font-semibold uppercase tracking-widest text-green-400">
             Interactive Terminal
           </div>
@@ -187,7 +187,7 @@ export default function SandboxPage() {
                   : "Run code first, then type input here."
               }
               disabled={!running}
-              className="w-full rounded-xl border border-zinc-800 bg-black px-4 py-3 font-mono text-sm text-green-300 outline-none focus:border-green-500 disabled:opacity-50"
+              className="w-full rounded-xl border border-[#17304a] bg-black px-4 py-3 font-mono text-sm text-green-300 outline-none focus:border-green-500 disabled:opacity-50"
             />
             <button
               onClick={sendInput}

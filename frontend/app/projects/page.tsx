@@ -2166,7 +2166,7 @@ function SectionTitle({
 }) {
   return (
     <div className="flex items-start gap-3">
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-2 text-purple-300">
+      <div className="rounded-xl border border-[#17304a] bg-[#0b1626] p-2 text-cyan-300">
         <Icon size={18} />
       </div>
       <div>
@@ -2185,9 +2185,9 @@ function BlueprintCard({
   icon: typeof FolderTree;
 }) {
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+    <div className="rounded-xl border border-[#17304a] bg-[#0b1626] p-4">
       <div className="flex items-center gap-2 text-sm font-semibold text-white">
-        <Icon size={16} className="text-orange-300" />
+        <Icon size={16} className="text-blue-300" />
         <span className="break-all">{entry.path}</span>
       </div>
       <p className="mt-2 text-sm leading-6 text-zinc-400">{entry.purpose}</p>
@@ -2201,7 +2201,7 @@ function FolderOutlineBreakdown({
   blueprint: ProjectBlueprint;
 }) {
   return (
-    <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-lg">
+    <div className="rounded-2xl border border-[#17304a] bg-[#07101d] p-6 shadow-lg">
       <SectionTitle
         icon={FolderTree}
         title="Outline Breakdown"
@@ -2209,7 +2209,7 @@ function FolderOutlineBreakdown({
       />
 
       <div className="mt-5 space-y-4">
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+        <div className="rounded-xl border border-[#17304a] bg-[#0b1626] p-4">
           <h3 className="text-sm font-semibold text-white">
             How to start this project
           </h3>
@@ -2219,7 +2219,7 @@ function FolderOutlineBreakdown({
                 1. Make one main folder:
               </span>{" "}
               use{" "}
-              <span className="font-mono text-orange-200">
+              <span className="font-mono text-blue-200">
                 {blueprint.projectName}/
               </span>{" "}
               as the home base so every note, asset, file, and decision stays
@@ -2246,7 +2246,7 @@ function FolderOutlineBreakdown({
           </ol>
         </div>
 
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+        <div className="rounded-xl border border-[#17304a] bg-[#0b1626] p-4">
           <h3 className="text-sm font-semibold text-white">
             Deep outline by section
           </h3>
@@ -2254,16 +2254,16 @@ function FolderOutlineBreakdown({
             {blueprint.deepOutline.map((section) => (
               <div
                 key={section.path}
-                className="rounded-lg border border-zinc-800 bg-zinc-950 p-4"
+                className="rounded-lg border border-[#17304a] bg-[#07101d] p-4"
               >
-                <p className="font-mono text-sm font-semibold text-orange-200">
+                <p className="font-mono text-sm font-semibold text-blue-200">
                   {section.path}
                 </p>
                 <p className="mt-2 text-sm leading-6 text-zinc-300">
                   {section.purpose}
                 </p>
 
-                <div className="mt-4 rounded-lg bg-zinc-900 p-3">
+                <div className="mt-4 rounded-lg bg-[#0b1626] p-3">
                   <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">
                     Folder breakdown
                   </p>
@@ -2281,7 +2281,7 @@ function FolderOutlineBreakdown({
                   </div>
                 </div>
 
-                <div className="mt-3 rounded-lg bg-zinc-900 p-3">
+                <div className="mt-3 rounded-lg bg-[#0b1626] p-3">
                   <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">
                     First steps
                   </p>
@@ -2297,7 +2297,7 @@ function FolderOutlineBreakdown({
                   </ol>
                 </div>
 
-                <div className="mt-3 rounded-lg bg-zinc-900 p-3">
+                <div className="mt-3 rounded-lg bg-[#0b1626] p-3">
                   <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">
                     Starter material prompts
                   </p>
@@ -2311,7 +2311,7 @@ function FolderOutlineBreakdown({
                       {section.starterMaterials.map((material) => (
                         <div
                           key={material.path}
-                          className="rounded-lg border border-zinc-800 bg-zinc-950 p-3"
+                          className="rounded-lg border border-[#17304a] bg-[#07101d] p-3"
                         >
                           <p className="font-mono text-sm text-zinc-100">
                             {makeDisplayName(material.path)}
@@ -2322,7 +2322,7 @@ function FolderOutlineBreakdown({
                           <ul className="mt-3 space-y-2 text-sm leading-6 text-zinc-300">
                             {material.prompts.map((prompt) => (
                               <li key={prompt} className="flex gap-2">
-                                <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-orange-300" />
+                                <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-300" />
                                 {prompt}
                               </li>
                             ))}
@@ -2343,13 +2343,13 @@ function FolderOutlineBreakdown({
 
 function FolderTreePanel({ blueprint }: { blueprint: ProjectBlueprint }) {
   return (
-    <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-lg">
+    <div className="rounded-2xl border border-[#17304a] bg-[#07101d] p-6 shadow-lg">
       <SectionTitle
         icon={FolderTree}
         title="Deep Folder Tree"
         subtitle="The actual folder and material layout to create."
       />
-      <pre className="mt-5 overflow-auto whitespace-pre-wrap rounded-xl border border-zinc-800 bg-black p-5 font-mono text-sm leading-7 text-zinc-200">
+      <pre className="mt-5 overflow-auto whitespace-pre-wrap rounded-xl border border-[#17304a] bg-black p-5 font-mono text-sm leading-7 text-zinc-200">
         {blueprint.outlineTree.join("\n")}
       </pre>
     </div>
@@ -2405,10 +2405,10 @@ export default function ProjectsPage() {
 
   return (
     <div className="space-y-8">
-      <section className="rounded-3xl border border-zinc-800 bg-zinc-950 p-8 shadow-lg">
+      <section className="rounded-3xl border border-[#17304a] bg-[#07101d] p-8 shadow-lg">
         <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
           <div>
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-purple-500/30 bg-purple-500/10 px-3 py-1 text-sm text-purple-200">
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-sm text-cyan-200">
               <Sparkles size={16} />
               Project Architect
             </div>
@@ -2420,7 +2420,7 @@ export default function ProjectsPage() {
           </div>
 
           <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+            <div className="rounded-2xl border border-[#17304a] bg-[#0b1626] p-4">
               <p className="text-xs uppercase tracking-widest text-zinc-500">
                 Architect
               </p>
@@ -2428,7 +2428,7 @@ export default function ProjectsPage() {
                 {project.aiName}
               </p>
             </div>
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+            <div className="rounded-2xl border border-[#17304a] bg-[#0b1626] p-4">
               <p className="text-xs uppercase tracking-widest text-zinc-500">
                 Blueprint
               </p>
@@ -2436,7 +2436,7 @@ export default function ProjectsPage() {
                 {generatedPlan ? generatedPlan.label : "Waiting"}
               </p>
             </div>
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+            <div className="rounded-2xl border border-[#17304a] bg-[#0b1626] p-4">
               <p className="text-xs uppercase tracking-widest text-zinc-500">
                 Output
               </p>
@@ -2450,14 +2450,14 @@ export default function ProjectsPage() {
 
       <div className="grid gap-6 xl:grid-cols-[0.85fr_1.15fr]">
         <section className="space-y-6">
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-lg">
+          <div className="rounded-2xl border border-[#17304a] bg-[#07101d] p-6 shadow-lg">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-xl font-semibold">{project.aiName}</h2>
                 <p className="mt-1 text-sm text-zinc-400">{project.role}</p>
               </div>
 
-              <span className="rounded-full bg-purple-500/20 px-3 py-1 text-xs font-medium text-purple-300">
+              <span className="rounded-full bg-cyan-500/20 px-3 py-1 text-xs font-medium text-cyan-300">
                 Active
               </span>
             </div>
@@ -2476,7 +2476,7 @@ export default function ProjectsPage() {
                       aiName: event.target.value,
                     }))
                   }
-                  className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-white outline-none focus:border-purple-500"
+                  className="w-full rounded-xl border border-[#244867] bg-[#0b1626] px-4 py-3 text-white outline-none focus:border-cyan-500"
                 />
               </div>
 
@@ -2493,7 +2493,7 @@ export default function ProjectsPage() {
                       role: event.target.value,
                     }))
                   }
-                  className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-white outline-none focus:border-purple-500"
+                  className="w-full rounded-xl border border-[#244867] bg-[#0b1626] px-4 py-3 text-white outline-none focus:border-cyan-500"
                 />
               </div>
 
@@ -2509,7 +2509,7 @@ export default function ProjectsPage() {
                       purpose: event.target.value,
                     }))
                   }
-                  className="min-h-[110px] w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-white outline-none focus:border-purple-500"
+                  className="min-h-[110px] w-full rounded-xl border border-[#244867] bg-[#0b1626] px-4 py-3 text-white outline-none focus:border-cyan-500"
                 />
               </div>
 
@@ -2525,7 +2525,7 @@ export default function ProjectsPage() {
                       systemPrompt: event.target.value,
                     }))
                   }
-                  className="min-h-[130px] w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-white outline-none focus:border-purple-500"
+                  className="min-h-[130px] w-full rounded-xl border border-[#244867] bg-[#0b1626] px-4 py-3 text-white outline-none focus:border-cyan-500"
                 />
               </div>
             </div>
@@ -2533,21 +2533,21 @@ export default function ProjectsPage() {
             <div className="mt-5 flex flex-wrap gap-3">
               <button
                 onClick={handleSave}
-                className="rounded-xl bg-purple-500 px-4 py-2 text-sm font-medium text-white hover:bg-purple-600"
+                className="rounded-xl bg-cyan-500 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-600"
               >
                 Save Architect
               </button>
 
               <Link
                 href="/sandbox"
-                className="rounded-xl border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 hover:bg-zinc-900"
+                className="rounded-xl border border-[#244867] px-4 py-2 text-sm font-medium text-zinc-300 hover:bg-[#10243a]"
               >
                 Open Sandbox
               </Link>
             </div>
           </div>
 
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-lg">
+          <div className="rounded-2xl border border-[#17304a] bg-[#07101d] p-6 shadow-lg">
             <SectionTitle
               icon={ClipboardList}
               title="Project Request"
@@ -2562,7 +2562,7 @@ export default function ProjectsPage() {
                 value={idea}
                 onChange={(event) => setIdea(event.target.value)}
                 placeholder="Example: Plan a community workshop, launch a business, organize research, build an app, design a product, create a media project, or improve a team process."
-                className="min-h-[180px] w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-white outline-none focus:border-purple-500"
+                className="min-h-[180px] w-full rounded-xl border border-[#244867] bg-[#0b1626] px-4 py-3 text-white outline-none focus:border-cyan-500"
               />
             </div>
 
@@ -2575,7 +2575,7 @@ export default function ProjectsPage() {
                 onChange={(event) =>
                   setSelectedType(event.target.value as ProjectType | "auto")
                 }
-                className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-white outline-none focus:border-purple-500"
+                className="w-full rounded-xl border border-[#244867] bg-[#0b1626] px-4 py-3 text-white outline-none focus:border-cyan-500"
               >
                 <option value="auto">Auto-detect best fit</option>
                 {typeOptions.map((option) => (
@@ -2590,7 +2590,7 @@ export default function ProjectsPage() {
               <button
                 type="button"
                 onClick={() => setIdea(exampleIdea)}
-                className="rounded-xl border border-zinc-700 px-4 py-3 text-sm font-medium text-zinc-300 hover:bg-zinc-900"
+                className="rounded-xl border border-[#244867] px-4 py-3 text-sm font-medium text-zinc-300 hover:bg-[#10243a]"
               >
                 Load Example
               </button>
@@ -2598,7 +2598,7 @@ export default function ProjectsPage() {
                 type="button"
                 onClick={handleSaveBlueprint}
                 disabled={!generatedPlan}
-                className="rounded-xl bg-gradient-to-r from-purple-500 to-orange-400 px-4 py-3 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-xl bg-gradient-to-r from-cyan-500 to-blue-400 px-4 py-3 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Save Blueprint
               </button>
@@ -2614,8 +2614,8 @@ export default function ProjectsPage() {
 
         <section className="space-y-6">
           {!generatedPlan ? (
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-8 text-center shadow-lg">
-              <Sparkles className="mx-auto text-purple-300" size={34} />
+            <div className="rounded-2xl border border-[#17304a] bg-[#07101d] p-8 text-center shadow-lg">
+              <Sparkles className="mx-auto text-cyan-300" size={34} />
               <h2 className="mt-4 text-2xl font-semibold text-white">
                 Describe a project to generate a blueprint
               </h2>
@@ -2626,10 +2626,10 @@ export default function ProjectsPage() {
             </div>
           ) : (
             <>
-              <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-lg">
+              <div className="rounded-2xl border border-[#17304a] bg-[#07101d] p-6 shadow-lg">
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                   <div>
-                    <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-orange-400/30 bg-orange-400/10 px-3 py-1 text-sm text-orange-200">
+                    <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-blue-400/30 bg-blue-400/10 px-3 py-1 text-sm text-blue-200">
                       {React.createElement(activeTypeIcon, { size: 16 })}
                       {generatedPlan.confidence}
                     </div>
@@ -2645,7 +2645,7 @@ export default function ProjectsPage() {
                     <Link
                       href="/sandbox"
                       onClick={handleSaveBlueprint}
-                      className="inline-flex items-center gap-2 rounded-xl bg-purple-500 px-4 py-2 text-sm font-medium text-white hover:bg-purple-600"
+                      className="inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-600"
                     >
                       <Rocket size={16} />
                       Send To Sandbox
@@ -2655,7 +2655,7 @@ export default function ProjectsPage() {
               </div>
 
               <div className="grid gap-6 lg:grid-cols-2">
-                <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-lg">
+                <div className="rounded-2xl border border-[#17304a] bg-[#07101d] p-6 shadow-lg">
                   <SectionTitle
                     icon={Layers3}
                     title="Recommended Toolkit"
@@ -2665,7 +2665,7 @@ export default function ProjectsPage() {
                     {generatedPlan.stack.map((item) => (
                       <span
                         key={item}
-                        className="rounded-full border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-200"
+                        className="rounded-full border border-[#244867] bg-[#0b1626] px-3 py-2 text-sm text-zinc-200"
                       >
                         {item}
                       </span>
@@ -2673,7 +2673,7 @@ export default function ProjectsPage() {
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-lg">
+                <div className="rounded-2xl border border-[#17304a] bg-[#07101d] p-6 shadow-lg">
                   <SectionTitle
                     icon={ListChecks}
                     title="Success Checklist"
@@ -2683,7 +2683,7 @@ export default function ProjectsPage() {
                     {generatedPlan.features.map((feature) => (
                       <div
                         key={feature}
-                        className="flex items-start gap-3 rounded-xl border border-zinc-800 bg-zinc-900 p-3 text-sm text-zinc-300"
+                        className="flex items-start gap-3 rounded-xl border border-[#17304a] bg-[#0b1626] p-3 text-sm text-zinc-300"
                       >
                         <CheckCircle2
                           size={17}
@@ -2696,7 +2696,7 @@ export default function ProjectsPage() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-lg">
+              <div className="rounded-2xl border border-[#17304a] bg-[#07101d] p-6 shadow-lg">
                 <SectionTitle
                   icon={FolderTree}
                   title="Suggested Project Structure"
@@ -2715,7 +2715,7 @@ export default function ProjectsPage() {
 
               <FolderTreePanel blueprint={generatedPlan} />
 
-              <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-lg">
+              <div className="rounded-2xl border border-[#17304a] bg-[#07101d] p-6 shadow-lg">
                 <SectionTitle
                   icon={FileCode2}
                   title="Starter Materials"
@@ -2728,7 +2728,7 @@ export default function ProjectsPage() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-lg">
+              <div className="rounded-2xl border border-[#17304a] bg-[#07101d] p-6 shadow-lg">
                 <SectionTitle
                   icon={Boxes}
                   title="Project Phases"
@@ -2738,10 +2738,10 @@ export default function ProjectsPage() {
                   {generatedPlan.phases.map((phase, index) => (
                     <div
                       key={phase.title}
-                      className="rounded-xl border border-zinc-800 bg-zinc-900 p-4"
+                      className="rounded-xl border border-[#17304a] bg-[#0b1626] p-4"
                     >
                       <div className="flex items-center gap-3">
-                        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-500 text-sm font-bold text-white">
+                        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-500 text-sm font-bold text-white">
                           {index + 1}
                         </span>
                         <h3 className="font-semibold text-white">
@@ -2751,7 +2751,7 @@ export default function ProjectsPage() {
                       <ul className="mt-4 space-y-2 text-sm leading-6 text-zinc-300">
                         {phase.steps.map((step) => (
                           <li key={step} className="flex gap-2">
-                            <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-orange-300" />
+                            <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-300" />
                             {step}
                           </li>
                         ))}
@@ -2761,7 +2761,7 @@ export default function ProjectsPage() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-lg">
+              <div className="rounded-2xl border border-[#17304a] bg-[#07101d] p-6 shadow-lg">
                 <SectionTitle
                   icon={Rocket}
                   title="Next Actions"
@@ -2771,7 +2771,7 @@ export default function ProjectsPage() {
                   {generatedPlan.nextActions.map((action) => (
                     <div
                       key={action}
-                      className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 text-sm leading-6 text-zinc-300"
+                      className="rounded-xl border border-[#17304a] bg-[#0b1626] p-4 text-sm leading-6 text-zinc-300"
                     >
                       {action}
                     </div>

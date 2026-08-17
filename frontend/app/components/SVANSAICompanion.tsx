@@ -37,7 +37,7 @@ export default function SVANSAICompanion({
   return (
     <div className="fixed bottom-6 right-6 z-50 flex items-end gap-3">
       {open && (
-        <div className="w-[320px] rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl">
+        <div className="w-[320px] rounded-2xl border border-[#17304a] bg-[#07101d] p-4 shadow-2xl">
           <div className="mb-3 flex items-start justify-between gap-3">
             <div>
               <h3 className="text-sm font-semibold text-white">
@@ -50,13 +50,13 @@ export default function SVANSAICompanion({
 
             <button
               onClick={() => setOpen(false)}
-              className="rounded-lg px-2 py-1 text-xs text-zinc-400 hover:bg-zinc-900 hover:text-white"
+              className="rounded-lg px-2 py-1 text-xs text-zinc-400 hover:bg-[#10243a] hover:text-white"
             >
               Close
             </button>
           </div>
 
-          <div className="mb-3 rounded-2xl border border-zinc-800 bg-zinc-900 p-3">
+          <div className="mb-3 rounded-2xl border border-[#17304a] bg-[#0b1626] p-3">
             <p className="text-sm text-zinc-200">
               Hey — how can I help you today?
             </p>
@@ -66,7 +66,7 @@ export default function SVANSAICompanion({
             </p>
           </div>
 
-          <div className="mb-3 flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2">
+          <div className="mb-3 flex items-center justify-between rounded-xl border border-[#17304a] bg-[#0b1626] px-3 py-2">
             <div>
               <p className="text-xs font-medium text-white">Tutor Mode</p>
               <p className="text-[11px] text-zinc-400">
@@ -78,8 +78,8 @@ export default function SVANSAICompanion({
               onClick={() => setTutorMode((prev) => !prev)}
               className={`rounded-full px-3 py-1 text-xs font-medium ${
                 tutorMode
-                  ? "bg-purple-500 text-white"
-                  : "bg-zinc-800 text-zinc-300"
+                  ? "bg-cyan-500 text-white"
+                  : "bg-[#10243a] text-zinc-300"
               }`}
             >
               {tutorMode ? "On" : "Off"}
@@ -97,7 +97,7 @@ export default function SVANSAICompanion({
                       : prompt,
                   )
                 }
-                className="rounded-full border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs text-zinc-200 hover:bg-zinc-800"
+                className="rounded-full border border-[#244867] bg-[#0b1626] px-3 py-2 text-xs text-zinc-200 hover:bg-[#17304a]"
               >
                 {prompt}
               </button>
@@ -110,13 +110,13 @@ export default function SVANSAICompanion({
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSend()}
               placeholder="Ask your tutor..."
-              className="flex-1 rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white outline-none focus:border-purple-500"
+              className="flex-1 rounded-xl border border-[#244867] bg-[#0b1626] px-3 py-2 text-sm text-white outline-none focus:border-cyan-500"
             />
 
             <button
               onClick={handleSend}
               disabled={loading}
-              className="rounded-xl bg-gradient-to-r from-purple-500 to-orange-400 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+              className="rounded-xl bg-gradient-to-r from-cyan-500 to-blue-400 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
             >
               Send
             </button>
@@ -126,19 +126,19 @@ export default function SVANSAICompanion({
 
       <button
         onClick={() => setOpen((prev) => !prev)}
-        className="group relative flex h-28 w-24 flex-col items-center justify-end rounded-2xl border border-zinc-800 bg-zinc-950 p-2 shadow-2xl"
+        className="group relative flex h-28 w-24 flex-col items-center justify-end rounded-2xl border border-[#17304a] bg-[#07101d] p-2 shadow-2xl"
       >
         <div className="absolute -top-1 left-1/2 h-16 w-16 -translate-x-1/2 rounded-full border-4 border-zinc-950 bg-gradient-to-b from-zinc-100 to-zinc-300 shadow-lg" />
 
-        <div className="absolute top-3 left-1/2 h-3 w-3 -translate-x-5 rounded-full bg-zinc-900" />
-        <div className="absolute top-3 left-1/2 h-3 w-3 translate-x-2 rounded-full bg-zinc-900" />
+        <div className="absolute top-3 left-1/2 h-3 w-3 -translate-x-5 rounded-full bg-[#0b1626]" />
+        <div className="absolute top-3 left-1/2 h-3 w-3 translate-x-2 rounded-full bg-[#0b1626]" />
 
-        <div className="absolute top-7 left-1/2 h-1 w-6 -translate-x-1/2 rounded-full bg-zinc-800" />
+        <div className="absolute top-7 left-1/2 h-1 w-6 -translate-x-1/2 rounded-full bg-[#10243a]" />
 
-        <div className="absolute -top-4 left-1/2 h-7 w-10 -translate-x-1/2 rounded-t-xl border-4 border-zinc-950 bg-gradient-to-r from-purple-500 to-orange-400" />
-        <div className="absolute top-0 left-1/2 h-1 w-16 -translate-x-1/2 rounded-full bg-zinc-950" />
+        <div className="absolute -top-4 left-1/2 h-7 w-10 -translate-x-1/2 rounded-t-xl border-4 border-zinc-950 bg-gradient-to-r from-cyan-500 to-blue-400" />
+        <div className="absolute top-0 left-1/2 h-1 w-16 -translate-x-1/2 rounded-full bg-[#07101d]" />
 
-        <div className="mt-8 h-10 w-10 rounded-full bg-gradient-to-r from-purple-500 to-orange-400 opacity-20 blur-md transition-opacity group-hover:opacity-40" />
+        <div className="mt-8 h-10 w-10 rounded-full bg-gradient-to-r from-cyan-500 to-blue-400 opacity-20 blur-md transition-opacity group-hover:opacity-40" />
 
         <div className="mb-1 text-center">
           <p className="text-[11px] font-semibold text-white">SVANSAI</p>
