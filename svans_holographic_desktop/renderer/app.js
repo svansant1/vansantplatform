@@ -73,6 +73,7 @@
     computerPermissions: { files: true, apps: true, browser: true, processes: true, admin: false },
     lastFileResults: [],
     confirmationResolver: null,
+    globe: null,
   };
 
   const elements = {
@@ -481,6 +482,169 @@
     logActivity(`${title} hologram generated`);
   }
 
+  const globeContinents = [
+    [[-168, 66], [-145, 70], [-125, 55], [-123, 40], [-106, 24], [-96, 18], [-84, 22], [-81, 30], [-66, 44], [-55, 52], [-74, 60], [-100, 72], [-140, 72], [-168, 66]],
+    [[-81, 12], [-70, 8], [-61, -5], [-52, -20], [-58, -35], [-69, -55], [-76, -35], [-81, -5], [-81, 12]],
+    [[-18, 36], [2, 44], [25, 39], [36, 31], [51, 12], [43, -12], [31, -34], [18, -35], [5, -18], [-10, 5], [-18, 36]],
+    [[-10, 36], [5, 58], [28, 71], [60, 72], [90, 65], [126, 50], [145, 48], [155, 28], [121, 20], [104, 8], [78, 7], [57, 24], [38, 35], [20, 42], [-10, 36]],
+    [[112, -11], [145, -12], [154, -28], [137, -43], [116, -35], [112, -11]],
+    [[-52, 60], [-30, 72], [-20, 82], [-48, 84], [-62, 74], [-52, 60]],
+  ];
+
+  function createHolographicGlobe() {
+    if (state.globe?.panel?.isConnected) {
+      state.globe.panel.classList.remove("globe-pulse");
+      requestAnimationFrame(() => state.globe.panel.classList.add("globe-pulse"));
+      return;
+    }
+    const panel = document.createElement("section");
+    panel.className = "globe-hologram";
+    panel.innerHTML = `
+      <header><div><small>SVANS GEOSPATIAL MODULE</small><strong>HOLOGRAPHIC EARTH</strong></div><button data-globe="close" aria-label="Close holographic globe">×</button></header>
+      <div class="globe-viewport"><canvas aria-label="Interactive rotating holographic globe"></canvas><div class="globe-scan"></div><div class="globe-reticle"></div><span class="globe-readout">PLANETARY LINK · LIVE</span></div>
+      <footer><span>DRAG TO ROTATE · SCROLL TO ZOOM</span><div><button data-globe="zoom-out">−</button><button data-globe="pause">PAUSE</button><button data-globe="reset">RESET</button><button data-globe="zoom-in">＋</button></div></footer>`;
+    $(".hologram-stage").append(panel);
+    const canvas = panel.querySelector("canvas");
+    const context = canvas.getContext("2d");
+    const globe = { panel, canvas, context, yaw: -0.55, pitch: -0.16, zoom: 1, spinning: true, dragging: false, lastX: 0, lastY: 0, frame: 0 };
+    state.globe = globe;
+
+    const resize = () => {
+      const bounds = canvas.getBoundingClientRect();
+      const ratio = Math.min(devicePixelRatio || 1, 2);
+      canvas.width = Math.max(1, Math.round(bounds.width * ratio));
+      canvas.height = Math.max(1, Math.round(bounds.height * ratio));
+      context.setTransform(ratio, 0, 0, ratio, 0, 0);
+    };
+    const project = (longitude, latitude, radius, centerX, centerY) => {
+      const lon = longitude * Math.PI / 180 + globe.yaw;
+      const lat = latitude * Math.PI / 180;
+      const x = Math.cos(lat) * Math.sin(lon);
+      const baseY = -Math.sin(lat);
+      const baseZ = Math.cos(lat) * Math.cos(lon);
+      const y = baseY * Math.cos(globe.pitch) - baseZ * Math.sin(globe.pitch);
+      const z = baseY * Math.sin(globe.pitch) + baseZ * Math.cos(globe.pitch);
+      return { x: centerX + x * radius, y: centerY + y * radius, visible: z >= -0.015, depth: z };
+    };
+    const drawLine = (points, radius, centerX, centerY, color, width = 1) => {
+      let drawing = false;
+      context.beginPath();
+      for (const [lon, lat] of points) {
+        const point = project(lon, lat, radius, centerX, centerY);
+        if (!point.visible) { drawing = false; continue; }
+        if (!drawing) context.moveTo(point.x, point.y);
+        else context.lineTo(point.x, point.y);
+        drawing = true;
+      }
+      context.strokeStyle = color;
+      context.lineWidth = width;
+      context.stroke();
+    };
+    const draw = () => {
+      if (!panel.isConnected) return;
+      const width = canvas.clientWidth;
+      const height = canvas.clientHeight;
+      context.clearRect(0, 0, width, height);
+      const centerX = width / 2;
+      const centerY = height / 2;
+      const radius = Math.min(width, height) * 0.34 * globe.zoom;
+      const glow = context.createRadialGradient(centerX - radius * 0.22, centerY - radius * 0.25, radius * 0.05, centerX, centerY, radius * 1.12);
+      glow.addColorStop(0, "rgba(65, 235, 255, .2)");
+      glow.addColorStop(.72, "rgba(0, 112, 170, .08)");
+      glow.addColorStop(1, "rgba(0, 212, 255, 0)");
+      context.fillStyle = glow;
+      context.beginPath();
+      context.arc(centerX, centerY, radius * 1.14, 0, Math.PI * 2);
+      context.fill();
+      context.strokeStyle = "rgba(80, 232, 255, .86)";
+      context.lineWidth = 1.5;
+      context.shadowColor = "#00d4ff";
+      context.shadowBlur = 12;
+      context.beginPath();
+      context.arc(centerX, centerY, radius, 0, Math.PI * 2);
+      context.stroke();
+      context.shadowBlur = 0;
+      for (let latitude = -75; latitude <= 75; latitude += 15) {
+        const points = [];
+        for (let longitude = -180; longitude <= 180; longitude += 4) points.push([longitude, latitude]);
+        drawLine(points, radius, centerX, centerY, "rgba(57, 197, 230, .27)");
+      }
+      for (let longitude = -180; longitude < 180; longitude += 15) {
+        const points = [];
+        for (let latitude = -90; latitude <= 90; latitude += 3) points.push([longitude, latitude]);
+        drawLine(points, radius, centerX, centerY, "rgba(57, 197, 230, .22)");
+      }
+      for (const continent of globeContinents) drawLine(continent, radius, centerX, centerY, "rgba(132, 246, 255, .95)", 1.8);
+      context.strokeStyle = "rgba(0, 212, 255, .2)";
+      context.beginPath();
+      context.ellipse(centerX, centerY + radius * 1.1, radius * 1.25, radius * .16, 0, 0, Math.PI * 2);
+      context.stroke();
+      if (globe.spinning && !globe.dragging) globe.yaw += 0.0022;
+      globe.frame = requestAnimationFrame(draw);
+    };
+    let observer;
+    const close = () => {
+      cancelAnimationFrame(globe.frame);
+      observer?.disconnect();
+      panel.remove();
+      if (state.globe === globe) state.globe = null;
+      logActivity("Holographic Earth closed");
+    };
+    panel.addEventListener("click", (event) => {
+      const action = event.target.closest("[data-globe]")?.dataset.globe;
+      if (!action) return;
+      if (action === "close") close();
+      if (action === "pause") {
+        globe.spinning = !globe.spinning;
+        event.target.textContent = globe.spinning ? "PAUSE" : "RESUME";
+      }
+      if (action === "reset") Object.assign(globe, { yaw: -0.55, pitch: -0.16, zoom: 1, spinning: true });
+      if (action === "zoom-in") globe.zoom = Math.min(1.35, globe.zoom + 0.1);
+      if (action === "zoom-out") globe.zoom = Math.max(0.7, globe.zoom - 0.1);
+    });
+    canvas.addEventListener("pointerdown", (event) => {
+      globe.dragging = true; globe.lastX = event.clientX; globe.lastY = event.clientY; canvas.setPointerCapture(event.pointerId);
+    });
+    canvas.addEventListener("pointermove", (event) => {
+      if (!globe.dragging) return;
+      globe.yaw += (event.clientX - globe.lastX) * 0.008;
+      globe.pitch = Math.max(-1.1, Math.min(1.1, globe.pitch + (event.clientY - globe.lastY) * 0.006));
+      globe.lastX = event.clientX; globe.lastY = event.clientY;
+    });
+    canvas.addEventListener("pointerup", () => { globe.dragging = false; });
+    canvas.addEventListener("wheel", (event) => {
+      event.preventDefault();
+      globe.zoom = Math.max(0.7, Math.min(1.35, globe.zoom - Math.sign(event.deltaY) * 0.08));
+    }, { passive: false });
+    observer = new ResizeObserver(resize);
+    observer.observe(canvas);
+    panel.addEventListener("transitionend", resize, { once: true });
+    requestAnimationFrame(() => { panel.classList.add("visible"); resize(); draw(); });
+    logActivity("Holographic Earth generated");
+  }
+
+  function parseHologramCommand(rawText) {
+    const text = rawText.trim()
+      .replace(/^svans[,.]?\s*/i, "")
+      .replace(/^please\s+/i, "")
+      .replace(/^(?:(?:can|could|would) you|i want you to)\s+/i, "");
+    if (/^(?:open|show|display|launch|start|create|generate|bring up)(?: me)? (?:a |the )?(?:holographic |3d |interactive )?(?:globe|earth)(?: hologram)?[.!?]*$/i.test(text)) return "open_globe";
+    if (/^(?:close|hide|dismiss|remove)(?: the)? (?:holographic |3d )?(?:globe|earth)(?: hologram)?[.!?]*$/i.test(text)) return "close_globe";
+    return null;
+  }
+
+  function executeHologramCommand(command) {
+    if (command === "open_globe") {
+      createHolographicGlobe();
+      return "Holographic Earth is online. You can drag it to rotate, use the mouse wheel to zoom, or use the controls beneath it.";
+    }
+    if (command === "close_globe") {
+      state.globe?.panel?.querySelector('[data-globe="close"]')?.click();
+      return state.globe ? "I could not close the globe." : "Holographic Earth closed.";
+    }
+    return "That holographic module is not available yet.";
+  }
+
   function markActiveModule(command) {
     $$(".module-dock [data-command]").forEach((button) => {
       button.classList.toggle("active", button.dataset.command === command);
@@ -701,6 +865,17 @@
     setCoreState("THINKING", "thinking");
     elements.voiceLink.textContent = "PROCESSING";
     logActivity(`Conversation request: ${text.slice(0, 48)}`);
+
+    const hologramCommand = parseHologramCommand(text);
+    if (hologramCommand) {
+      const reply = executeHologramCommand(hologramCommand);
+      state.messages.push({ role: "assistant", content: reply });
+      appendMessage("assistant", reply);
+      elements.voiceLink.textContent = "HOLOGRAM ONLINE";
+      state.busy = false;
+      void speak(reply);
+      return;
+    }
 
     const computerAction = parseComputerCommand(text);
     if (computerAction) {
