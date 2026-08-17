@@ -10,16 +10,38 @@ const {
 } = require("electron");
 const os = require("node:os");
 const path = require("node:path");
+const crypto = require("node:crypto");
 
 const CHAT_ENDPOINT = process.env.SVANSAI_CHAT_ENDPOINT || "https://svansai.com/api/chat";
 const SAFE_DESTINATIONS = Object.freeze({
   platform: "https://vansantplatform.com",
   svansai: "https://svansai.com",
 });
+const AUTH_USERNAME = "admin";
+const AUTH_SALT = "svans-desktop-admin-v1";
+const AUTH_DIGEST = "38d25a5cce7a9bb87200a49a32d41f441d938c3a591f61526b2ede25cbdf6332";
+const MAX_AUTH_ATTEMPTS = 5;
+const LOCKOUT_MS = 30_000;
 
 let mainWindow = null;
 let tray = null;
 let previousCpuSample = null;
+const authorizedContents = new Set();
+const authAttempts = new Map();
+
+function authorizationState(senderId) {
+  return authAttempts.get(senderId) ?? { failures: 0, lockedUntil: 0 };
+}
+
+function assertAuthorized(event) {
+  if (!authorizedContents.has(event.sender.id)) throw new Error("AUTH_REQUIRED");
+}
+
+function verifyPassword(password) {
+  const supplied = crypto.scryptSync(String(password ?? ""), AUTH_SALT, 32);
+  const expected = Buffer.from(AUTH_DIGEST, "hex");
+  return supplied.length === expected.length && crypto.timingSafeEqual(supplied, expected);
+}
 
 function createTrayIcon() {
   const svg = `
@@ -55,6 +77,11 @@ function createWindow() {
   });
 
   mainWindow.loadFile(path.join(__dirname, "..", "renderer", "index.html"));
+  const contentsId = mainWindow.webContents.id;
+  mainWindow.webContents.once("destroyed", () => {
+    authorizedContents.delete(contentsId);
+    authAttempts.delete(contentsId);
+  });
   mainWindow.once("ready-to-show", () => mainWindow?.show());
   mainWindow.on("closed", () => {
     mainWindow = null;
@@ -115,9 +142,43 @@ function systemSnapshot() {
 }
 
 function registerIpc() {
-  ipcMain.handle("system:snapshot", () => systemSnapshot());
+  ipcMain.handle("auth:login", (event, credentials) => {
+    const senderId = event.sender.id;
+    const now = Date.now();
+    const state = authorizationState(senderId);
+    if (state.lockedUntil > now) {
+      return { ok: false, lockedUntil: state.lockedUntil, attemptsRemaining: 0 };
+    }
 
-  ipcMain.handle("chat:send", async (_event, payload) => {
+    const username = String(credentials?.username ?? "").trim().toLowerCase();
+    if (username === AUTH_USERNAME && verifyPassword(credentials?.password)) {
+      authorizedContents.add(senderId);
+      authAttempts.delete(senderId);
+      return { ok: true, username: AUTH_USERNAME, role: "Administrator" };
+    }
+
+    const failures = state.failures + 1;
+    if (failures >= MAX_AUTH_ATTEMPTS) {
+      const lockedUntil = now + LOCKOUT_MS;
+      authAttempts.set(senderId, { failures: 0, lockedUntil });
+      return { ok: false, lockedUntil, attemptsRemaining: 0 };
+    }
+    authAttempts.set(senderId, { failures, lockedUntil: 0 });
+    return { ok: false, attemptsRemaining: MAX_AUTH_ATTEMPTS - failures };
+  });
+
+  ipcMain.handle("auth:logout", (event) => {
+    authorizedContents.delete(event.sender.id);
+    return true;
+  });
+
+  ipcMain.handle("system:snapshot", (event) => {
+    assertAuthorized(event);
+    return systemSnapshot();
+  });
+
+  ipcMain.handle("chat:send", async (event, payload) => {
+    assertAuthorized(event);
     const messages = (Array.isArray(payload?.messages) ? payload.messages : [])
       .filter(
         (message) =>
@@ -152,7 +213,8 @@ function registerIpc() {
     return { text: text.trim(), orchestration: data?.orchestration ?? null };
   });
 
-  ipcMain.handle("destination:open", async (_event, destination) => {
+  ipcMain.handle("destination:open", async (event, destination) => {
+    assertAuthorized(event);
     const url = SAFE_DESTINATIONS[destination];
     if (!url) return false;
     await shell.openExternal(url);
@@ -169,13 +231,15 @@ function registerIpc() {
     }
   });
 
-  ipcMain.handle("window:always-on-top", (_event, enabled) => {
+  ipcMain.handle("window:always-on-top", (event, enabled) => {
+    assertAuthorized(event);
     if (!mainWindow) return false;
     mainWindow.setAlwaysOnTop(Boolean(enabled), "floating");
     return mainWindow.isAlwaysOnTop();
   });
 
-  ipcMain.handle("window:compact", (_event, enabled) => {
+  ipcMain.handle("window:compact", (event, enabled) => {
+    assertAuthorized(event);
     if (!mainWindow) return false;
     if (enabled) {
       mainWindow.setResizable(false);

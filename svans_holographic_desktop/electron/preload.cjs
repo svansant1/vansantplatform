@@ -1,6 +1,8 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("svansDesktop", {
+  login: (username, password) => ipcRenderer.invoke("auth:login", { username, password }),
+  logout: () => ipcRenderer.invoke("auth:logout"),
   systemSnapshot: () => ipcRenderer.invoke("system:snapshot"),
   chat: (messages, sessionId) => ipcRenderer.invoke("chat:send", { messages, sessionId }),
   openDestination: (destination) => ipcRenderer.invoke("destination:open", destination),

@@ -10,11 +10,52 @@
     <title>SVANS Holographic Desktop</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
-  <body>
+  <body class="auth-locked">
     <canvas id="particle-field" aria-hidden="true"></canvas>
     <div class="scanlines" aria-hidden="true"></div>
 
-    <main class="hud-shell" id="hud-shell">
+    <section class="login-gate" id="login-gate" aria-label="SVANS secure login">
+      <div class="login-window-controls no-drag">
+        <button id="login-minimize-button" class="icon-button" title="Minimize" aria-label="Minimize">—</button>
+        <button id="login-close-button" class="icon-button close" title="Hide SVANS" aria-label="Hide SVANS">×</button>
+      </div>
+      <div class="login-scan-beam" aria-hidden="true"></div>
+      <div class="login-orbit orbit-one" aria-hidden="true"></div>
+      <div class="login-orbit orbit-two" aria-hidden="true"></div>
+      <div class="login-orbit orbit-three" aria-hidden="true"></div>
+      <div class="login-terminal">
+        <header class="login-header">
+          <div><span class="status-dot"></span> SVANS SECURE OWNER GATE</div>
+          <small>LOCAL ACCESS PROTOCOL · 01</small>
+        </header>
+        <div class="identity-scanner" aria-hidden="true">
+          <div class="scanner-ring scanner-ring-outer"></div>
+          <div class="scanner-ring scanner-ring-inner"></div>
+          <div class="identity-core"><strong>SV</strong><span>OWNER ID</span></div>
+          <i class="scanner-line"></i>
+        </div>
+        <div class="login-copy">
+          <span>IDENTITY LINK REQUIRED</span>
+          <h1>Welcome back, Shawn.</h1>
+          <p>Authorize the administrator channel to awaken the SVANS command deck.</p>
+        </div>
+        <form class="login-form" id="login-form">
+          <label><span>OPERATOR</span><input id="login-username" name="username" value="admin" autocomplete="username" spellcheck="false" /></label>
+          <label><span>ACCESS CODE</span><input id="login-password" name="password" type="password" inputmode="numeric" autocomplete="current-password" maxlength="32" placeholder="•••••" /></label>
+          <div class="access-keypad" aria-label="Access code keypad">
+            <button type="button" data-key="1">1</button><button type="button" data-key="2">2</button><button type="button" data-key="3">3</button>
+            <button type="button" data-key="4">4</button><button type="button" data-key="5">5</button><button type="button" data-key="6">6</button>
+            <button type="button" data-key="7">7</button><button type="button" data-key="8">8</button><button type="button" data-key="9">9</button>
+            <button type="button" data-key="clear" class="key-function">CLR</button><button type="button" data-key="0">0</button><button type="button" data-key="back" class="key-function">⌫</button>
+          </div>
+          <button class="authorize-button" id="authorize-button" type="submit"><span>AUTHORIZE ADMINISTRATOR</span><i>→</i></button>
+          <div class="login-status" id="login-status" aria-live="polite">ENCRYPTED LOCAL CHANNEL READY</div>
+        </form>
+        <footer><span>SHIELD AUTHENTICATION ACTIVE</span><span>ATTEMPTS ARE RATE LIMITED</span></footer>
+      </div>
+    </section>
+
+    <main class="hud-shell" id="hud-shell" aria-hidden="true">
       <header class="topbar drag-region">
         <div class="brand no-drag">
           <div class="brand-mark"><span>SV</span></div>
@@ -31,6 +72,7 @@
         </div>
 
         <div class="window-controls no-drag">
+          <button id="logout-button" class="icon-button" title="Lock SVANS" aria-label="Lock SVANS">⏻</button>
           <button id="permission-button" class="icon-button" title="Permissions" aria-label="Open permissions">⌾</button>
           <button id="pin-button" class="icon-button" title="Always on top" aria-label="Toggle always on top">◇</button>
           <button id="minimize-button" class="icon-button" title="Minimize" aria-label="Minimize">—</button>

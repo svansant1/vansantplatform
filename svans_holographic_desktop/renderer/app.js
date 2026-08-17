@@ -2,6 +2,12 @@
   "use strict";
 
   const desktop = window.svansDesktop ?? {
+    async login(username, password) {
+      return username.trim().toLowerCase() === "admin" && /^\d{5}$/.test(password)
+        ? { ok: true, username: "admin", role: "Administrator" }
+        : { ok: false, attemptsRemaining: 4 };
+    },
+    async logout() { return true; },
     async systemSnapshot() {
       return {
         cpu: 27,
@@ -43,6 +49,9 @@
     compact: false,
     snapshot: null,
     toastTimer: null,
+    authenticated: false,
+    telemetryTimer: null,
+    lockoutTimer: null,
   };
 
   const elements = {
@@ -69,7 +78,117 @@
     uptime: $("#uptime-value"),
     voiceLink: $("#voice-link-label"),
     voiceSpectrum: $("#voice-spectrum"),
+    hud: $("#hud-shell"),
+    loginGate: $("#login-gate"),
+    loginForm: $("#login-form"),
+    loginUsername: $("#login-username"),
+    loginPassword: $("#login-password"),
+    loginStatus: $("#login-status"),
+    loginTerminal: $(".login-terminal"),
+    authorizeButton: $("#authorize-button"),
   };
+
+  function setLoginStatus(message, mode = "") {
+    elements.loginStatus.textContent = message;
+    elements.loginStatus.className = `login-status ${mode}`.trim();
+  }
+
+  function denyAccess(message) {
+    setLoginStatus(message, "error");
+    elements.loginTerminal.classList.remove("denied");
+    void elements.loginTerminal.offsetWidth;
+    elements.loginTerminal.classList.add("denied");
+    elements.loginPassword.select();
+  }
+
+  function beginLockout(lockedUntil) {
+    window.clearInterval(state.lockoutTimer);
+    elements.authorizeButton.disabled = true;
+    const update = () => {
+      const seconds = Math.max(0, Math.ceil((lockedUntil - Date.now()) / 1000));
+      if (seconds > 0) {
+        setLoginStatus(`ACCESS LOCKED · RETRY IN ${seconds} SECONDS`, "error");
+        return;
+      }
+      window.clearInterval(state.lockoutTimer);
+      state.lockoutTimer = null;
+      elements.authorizeButton.disabled = false;
+      setLoginStatus("LOCKOUT CLEARED · ENCRYPTED CHANNEL READY");
+    };
+    update();
+    state.lockoutTimer = window.setInterval(update, 250);
+  }
+
+  function startAuthenticatedHud() {
+    if (state.authenticated) return;
+    state.authenticated = true;
+    elements.loginTerminal.classList.add("authorized");
+    setLoginStatus("IDENTITY CONFIRMED · WELCOME, ADMIN", "success");
+    window.setTimeout(() => {
+      document.body.classList.remove("auth-locked");
+      elements.loginGate.classList.add("unlocked");
+      elements.loginGate.setAttribute("aria-hidden", "true");
+      elements.hud.setAttribute("aria-hidden", "false");
+      void refreshTelemetry();
+      state.telemetryTimer = window.setInterval(() => void refreshTelemetry(), 2500);
+      logActivity("Administrator identity confirmed");
+      showToast("WELCOME, ADMIN · SVANS COMMAND DECK ONLINE");
+    }, 620);
+  }
+
+  async function submitLogin() {
+    if (elements.authorizeButton.disabled) return;
+    const username = elements.loginUsername.value;
+    const password = elements.loginPassword.value;
+    if (!username.trim() || !password) {
+      denyAccess("OPERATOR AND ACCESS CODE REQUIRED");
+      return;
+    }
+    elements.authorizeButton.disabled = true;
+    setLoginStatus("ANALYZING IDENTITY SIGNATURE…");
+    try {
+      const result = await desktop.login(username, password);
+      elements.loginPassword.value = "";
+      if (result.ok) {
+        startAuthenticatedHud();
+        return;
+      }
+      elements.authorizeButton.disabled = false;
+      if (result.lockedUntil) {
+        beginLockout(result.lockedUntil);
+        return;
+      }
+      denyAccess(`ACCESS DENIED · ${result.attemptsRemaining ?? 0} ATTEMPTS REMAINING`);
+    } catch {
+      elements.authorizeButton.disabled = false;
+      denyAccess("AUTHENTICATION CHANNEL UNAVAILABLE");
+    }
+  }
+
+  function bindAuthentication() {
+    elements.loginForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      void submitLogin();
+    });
+    $$(".access-keypad [data-key]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const key = button.dataset.key;
+        if (key === "clear") elements.loginPassword.value = "";
+        else if (key === "back") elements.loginPassword.value = elements.loginPassword.value.slice(0, -1);
+        else if (elements.loginPassword.value.length < elements.loginPassword.maxLength) elements.loginPassword.value += key;
+        elements.loginPassword.focus();
+      });
+    });
+    $("#login-minimize-button").addEventListener("click", () => desktop.windowAction("minimize"));
+    $("#login-close-button").addEventListener("click", () => desktop.windowAction("close"));
+    $("#logout-button").addEventListener("click", async () => {
+      stopRecognition();
+      window.speechSynthesis?.cancel();
+      window.clearInterval(state.telemetryTimer);
+      await desktop.logout();
+      window.location.reload();
+    });
+  }
 
   function timeLabel(date = new Date()) {
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
@@ -550,12 +669,10 @@
   function initialize() {
     updateClock();
     window.setInterval(updateClock, 1000);
-    void refreshTelemetry();
-    window.setInterval(() => void refreshTelemetry(), 2500);
     bindEvents();
+    bindAuthentication();
     createParticleField();
-    logActivity("Holographic renderer online");
-    showToast("SVANS HOLOGRAPHIC DESKTOP ONLINE");
+    window.setTimeout(() => elements.loginPassword.focus(), 350);
   }
 
   initialize();
