@@ -629,6 +629,7 @@
     $("#permission-close").addEventListener("click", closePermissions);
     $("#add-task-button").addEventListener("click", addTask);
     $("#compact-button").addEventListener("click", () => void toggleCompact());
+    $("#ambient-restore-button").addEventListener("click", () => void toggleCompact());
     $("#clear-chat-button").addEventListener("click", () => {
       state.messages = [];
       elements.messageStream.innerHTML = "";
@@ -650,6 +651,10 @@
     });
     window.addEventListener("keydown", (event) => {
       if (event.key === "Escape") {
+        if (state.compact) {
+          void toggleCompact();
+          return;
+        }
         closePermissions();
         document.querySelector(".floating-intel")?.remove();
       }

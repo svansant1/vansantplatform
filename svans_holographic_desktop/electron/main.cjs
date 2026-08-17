@@ -67,6 +67,7 @@ function createWindow() {
     backgroundColor: "#050a12",
     backgroundMaterial: process.platform === "win32" ? "mica" : undefined,
     title: "SVANS Holographic Desktop",
+    icon: createTrayIcon(),
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
@@ -257,6 +258,7 @@ function registerIpc() {
 }
 
 app.whenReady().then(() => {
+  if (process.platform === "win32") app.setAppUserModelId("com.vansantplatform.svans.holographic");
   registerIpc();
   createWindow();
   globalShortcut.register("CommandOrControl+Space", toggleWindow);

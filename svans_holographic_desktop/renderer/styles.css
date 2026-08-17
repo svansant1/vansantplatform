@@ -830,6 +830,8 @@ input:focus-visible {
 .voice-spectrum i:nth-child(2n) { animation-delay: -180ms; }
 .voice-spectrum i:nth-child(3n) { animation-delay: -330ms; }
 
+.ambient-restore-button { display: none; }
+
 .conversation-console {
   position: absolute;
   z-index: 10;
@@ -1351,6 +1353,31 @@ body.compact .orbital-system {
 }
 
 body.compact .voice-spectrum { top: 78%; }
+
+body.compact .ambient-restore-button {
+  position: fixed;
+  z-index: 80;
+  display: grid;
+  grid-template-columns: 24px 1fr auto;
+  width: 230px;
+  height: 38px;
+  left: 50%;
+  bottom: 20px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  translate: -50% 0;
+  border: 1px solid rgba(0, 212, 255, 0.52);
+  color: #c9f7ff;
+  background: rgba(3, 18, 31, 0.94);
+  box-shadow: 0 0 26px rgba(0, 212, 255, 0.2), inset 3px 0 0 var(--cyan);
+  cursor: pointer;
+}
+
+body.compact .ambient-restore-button:hover { border-color: var(--cyan); background: rgba(0, 212, 255, 0.16); }
+body.compact .ambient-restore-button span { color: var(--cyan); font-size: 18px; }
+body.compact .ambient-restore-button strong { font-size: 7px; letter-spacing: 0.13em; }
+body.compact .ambient-restore-button small { color: #5d8195; font: 7px Consolas, monospace; }
 
 @keyframes spin { to { rotate: 360deg; } }
 @keyframes spin-reverse { to { rotate: -360deg; } }
