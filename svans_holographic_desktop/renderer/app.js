@@ -74,6 +74,7 @@
     lastFileResults: [],
     confirmationResolver: null,
     globe: null,
+    universalHologram: null,
   };
 
   const elements = {
@@ -500,6 +501,7 @@
   ];
 
   function createHolographicGlobe() {
+    state.universalHologram?.close?.();
     if (state.globe?.panel?.isConnected) {
       state.globe.panel.classList.remove("globe-pulse");
       requestAnimationFrame(() => state.globe.panel.classList.add("globe-pulse"));
@@ -631,24 +633,153 @@
     logActivity("Holographic Earth generated");
   }
 
+  function createUniversalHologram(rawSubject) {
+    state.globe?.panel?.querySelector('[data-globe="close"]')?.click();
+    state.universalHologram?.close?.();
+    const subject = rawSubject.trim().replace(/[.!?]+$/, "").slice(0, 90) || "unknown object";
+    const panel = document.createElement("section");
+    panel.className = "universal-hologram";
+    panel.innerHTML = `
+      <header><div><small>SVANS UNIVERSAL HOLOGRAM ENGINE</small><strong></strong></div><button data-hologram="close" aria-label="Close hologram">×</button></header>
+      <div class="universal-viewport"><canvas></canvas><div class="globe-scan"></div><div class="universal-reticle"></div><div class="universal-label"><span>PROCEDURAL CONCEPT MODEL</span><strong></strong><small>VOICE-LINKED · INTERACTIVE · LIVE</small></div></div>
+      <footer><span>DRAG TO ROTATE · SCROLL TO ZOOM</span><div><button data-hologram="zoom-out">−</button><button data-hologram="pause">PAUSE</button><button data-hologram="reset">RESET</button><button data-hologram="zoom-in">＋</button></div></footer>`;
+    panel.querySelector("header strong").textContent = subject.toUpperCase();
+    panel.querySelector(".universal-label strong").textContent = subject;
+    $(".hologram-stage").append(panel);
+    const canvas = panel.querySelector("canvas");
+    const context = canvas.getContext("2d");
+    const points = [];
+    const pointCount = 560;
+    let seed = 0;
+    for (const character of subject) seed = (Math.imul(seed, 31) + character.charCodeAt(0)) >>> 0;
+    const heartMode = /\b(heart|cardiac)\b/i.test(subject);
+    const dnaMode = /\b(dna|helix|genetic|genome)\b/i.test(subject);
+    for (let index = 0; index < pointCount; index += 1) {
+      const progress = index / pointCount;
+      if (heartMode) {
+        const angle = progress * Math.PI * 2;
+        const depth = ((index * 37) % 29) / 28 - 0.5;
+        points.push({ x: Math.sin(angle) ** 3 * 0.85, y: -(0.68 * Math.cos(angle) - 0.28 * Math.cos(2 * angle) - 0.14 * Math.cos(3 * angle) - 0.07 * Math.cos(4 * angle)), z: depth * 0.5 * Math.sin(angle) });
+      } else if (dnaMode) {
+        const strand = index % 2 ? 1 : -1;
+        const y = progress * 2 - 1;
+        const angle = y * Math.PI * 4 + (strand > 0 ? 0 : Math.PI);
+        points.push({ x: Math.cos(angle) * 0.48, y, z: Math.sin(angle) * 0.48 });
+      } else {
+        const y = 1 - (index / (pointCount - 1)) * 2;
+        const radius = Math.sqrt(1 - y * y);
+        const angle = Math.PI * (3 - Math.sqrt(5)) * index;
+        const distortion = 1 + 0.14 * Math.sin(angle * (2 + seed % 5)) * Math.cos(y * Math.PI * (2 + seed % 4));
+        points.push({ x: Math.cos(angle) * radius * distortion, y: y * (0.78 + seed % 17 / 100), z: Math.sin(angle) * radius * distortion });
+      }
+    }
+    const model = { panel, points, yaw: -0.45, pitch: -0.2, zoom: 1, spinning: true, dragging: false, lastX: 0, lastY: 0, frame: 0, observer: null, close: null };
+    state.universalHologram = model;
+    const resize = () => {
+      const bounds = canvas.getBoundingClientRect();
+      const ratio = Math.min(devicePixelRatio || 1, 2);
+      canvas.width = Math.max(1, Math.round(bounds.width * ratio));
+      canvas.height = Math.max(1, Math.round(bounds.height * ratio));
+      context.setTransform(ratio, 0, 0, ratio, 0, 0);
+    };
+    const draw = () => {
+      if (!panel.isConnected) return;
+      const width = canvas.clientWidth;
+      const height = canvas.clientHeight;
+      const centerX = width / 2;
+      const centerY = height / 2 - 5;
+      const scale = Math.min(width, height) * 0.28 * model.zoom;
+      context.clearRect(0, 0, width, height);
+      const cy = Math.cos(model.yaw); const sy = Math.sin(model.yaw);
+      const cx = Math.cos(model.pitch); const sx = Math.sin(model.pitch);
+      const projected = points.map((point) => {
+        const x1 = point.x * cy - point.z * sy;
+        const z1 = point.x * sy + point.z * cy;
+        const y2 = point.y * cx - z1 * sx;
+        const z2 = point.y * sx + z1 * cx;
+        const perspective = 1 / (2.8 - z2 * 0.42);
+        return { x: centerX + x1 * scale * perspective * 2.45, y: centerY + y2 * scale * perspective * 2.45, z: z2, perspective };
+      }).sort((a, b) => a.z - b.z);
+      context.globalCompositeOperation = "lighter";
+      for (let index = 1; index < projected.length; index += 1) {
+        const point = projected[index];
+        const prior = projected[index - 1];
+        if (Math.hypot(point.x - prior.x, point.y - prior.y) < scale * 0.18) {
+          context.strokeStyle = `rgba(30, 190, 235, ${0.025 + point.perspective * 0.08})`;
+          context.beginPath(); context.moveTo(prior.x, prior.y); context.lineTo(point.x, point.y); context.stroke();
+        }
+      }
+      for (const point of projected) {
+        const light = Math.max(0.2, Math.min(1, (point.z + 1.2) / 2.1));
+        context.fillStyle = `rgba(${Math.round(70 + light * 90)}, ${Math.round(190 + light * 60)}, 255, ${0.3 + light * 0.65})`;
+        context.shadowColor = "#00d4ff"; context.shadowBlur = light * 7;
+        context.beginPath(); context.arc(point.x, point.y, 0.7 + light * 1.4, 0, Math.PI * 2); context.fill();
+      }
+      context.shadowBlur = 0; context.globalCompositeOperation = "source-over";
+      context.strokeStyle = "rgba(0, 212, 255, .2)";
+      context.beginPath(); context.ellipse(centerX, centerY + scale * 1.12, scale * 1.35, scale * .16, 0, 0, Math.PI * 2); context.stroke();
+      if (model.spinning && !model.dragging) model.yaw += 0.003;
+      model.frame = requestAnimationFrame(draw);
+    };
+    model.close = () => {
+      cancelAnimationFrame(model.frame);
+      model.observer?.disconnect();
+      panel.remove();
+      if (state.universalHologram === model) state.universalHologram = null;
+      logActivity(`${subject} hologram closed`);
+    };
+    panel.addEventListener("click", (event) => {
+      const action = event.target.closest("[data-hologram]")?.dataset.hologram;
+      if (action === "close") model.close();
+      if (action === "pause") { model.spinning = !model.spinning; event.target.textContent = model.spinning ? "PAUSE" : "RESUME"; }
+      if (action === "reset") { Object.assign(model, { yaw: -0.45, pitch: -0.2, zoom: 1, spinning: true }); panel.querySelector('[data-hologram="pause"]').textContent = "PAUSE"; }
+      if (action === "zoom-in") model.zoom = Math.min(1.45, model.zoom + 0.1);
+      if (action === "zoom-out") model.zoom = Math.max(0.65, model.zoom - 0.1);
+    });
+    canvas.addEventListener("pointerdown", (event) => { model.dragging = true; model.lastX = event.clientX; model.lastY = event.clientY; canvas.setPointerCapture(event.pointerId); });
+    canvas.addEventListener("pointermove", (event) => {
+      if (!model.dragging) return;
+      model.yaw += (event.clientX - model.lastX) * 0.008;
+      model.pitch = Math.max(-1.1, Math.min(1.1, model.pitch + (event.clientY - model.lastY) * 0.006));
+      model.lastX = event.clientX; model.lastY = event.clientY;
+    });
+    canvas.addEventListener("pointerup", () => { model.dragging = false; });
+    canvas.addEventListener("wheel", (event) => { event.preventDefault(); model.zoom = Math.max(0.65, Math.min(1.45, model.zoom - Math.sign(event.deltaY) * 0.08)); }, { passive: false });
+    model.observer = new ResizeObserver(resize);
+    model.observer.observe(canvas);
+    requestAnimationFrame(() => { panel.classList.add("visible"); resize(); draw(); });
+    logActivity(`${subject} universal hologram generated`);
+  }
+
   function parseHologramCommand(rawText) {
     const text = rawText.trim()
       .replace(/^svans[,.]?\s*/i, "")
       .replace(/^please\s+/i, "")
       .replace(/^(?:(?:can|could|would) you|i want you to)\s+/i, "");
-    if (/^(?:open|show|display|launch|start|create|generate|bring up)(?: me)? (?:a |the )?(?:holographic |3d |interactive )?(?:globe|earth)(?: hologram)?[.!?]*$/i.test(text)) return "open_globe";
-    if (/^(?:close|hide|dismiss|remove)(?: the)? (?:holographic |3d )?(?:globe|earth)(?: hologram)?[.!?]*$/i.test(text)) return "close_globe";
+    if (/^(?:close|hide|dismiss|remove)(?: the)? (?:current |active )?(?:hologram|holographic display)(?: of .+)?[.!?]*$/i.test(text)) return { type: "close_hologram" };
+    const match = text.match(/^(?:(?:open|show|display|launch|start|create|generate|bring up)(?: me)?\s+)?(?:a |an |the )?(?:3d |interactive )?(?:hologram(?: of)?|holographic(?: model|display|image|view)?(?: of)?)\s+(.+?)[.!?]*$/i);
+    if (match) {
+      const subject = match[1].trim().replace(/^(?:a|an|the)\s+/i, "");
+      return { type: /^(?:globe|earth)$/i.test(subject) ? "open_globe" : "open_universal", subject };
+    }
+    if (/^(?:open|show|display|launch|start|create|generate|bring up)(?: me)? (?:a |the )?(?:holographic |3d |interactive )?(?:globe|earth)(?: hologram)?[.!?]*$/i.test(text)) return { type: "open_globe", subject: "Earth" };
+    if (/^(?:close|hide|dismiss|remove)(?: the)? (?:holographic |3d )?(?:globe|earth)(?: hologram)?[.!?]*$/i.test(text)) return { type: "close_hologram" };
     return null;
   }
 
   function executeHologramCommand(command) {
-    if (command === "open_globe") {
+    if (command.type === "open_globe") {
       createHolographicGlobe();
       return "Holographic Earth is online. You can drag it to rotate, use the mouse wheel to zoom, or use the controls beneath it.";
     }
-    if (command === "close_globe") {
+    if (command.type === "open_universal") {
+      createUniversalHologram(command.subject);
+      return `Creating a holographic model of ${command.subject}. You can rotate, zoom, pause, or reset it.`;
+    }
+    if (command.type === "close_hologram") {
       state.globe?.panel?.querySelector('[data-globe="close"]')?.click();
-      return state.globe ? "I could not close the globe." : "Holographic Earth closed.";
+      state.universalHologram?.close?.();
+      return "The active hologram is closed.";
     }
     return "That holographic module is not available yet.";
   }
