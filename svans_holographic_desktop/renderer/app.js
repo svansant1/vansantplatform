@@ -25,6 +25,7 @@
     async chat() {
       return { text: "The live conversational bridge activates inside the Electron desktop app. The holographic interface is running in visual preview mode." };
     },
+    async synthesizeSpeech() { return { available: false }; },
     async openDestination(destination) {
       window.open(destination === "svansai" ? "https://svansai.com" : "https://vansantplatform.com", "_blank", "noopener");
       return true;
@@ -53,6 +54,8 @@
     telemetryTimer: null,
     lockoutTimer: null,
     voice: null,
+    audio: null,
+    speechRequestId: 0,
   };
 
   const elements = {
@@ -302,26 +305,63 @@
       .trim();
   }
 
-  function speak(text) {
-    if (!state.voiceEnabled || !("speechSynthesis" in window)) {
+  function finishSpeaking(preview = false) {
+    state.audio = null;
+    setCoreState("READY");
+    elements.voiceLink.textContent = state.voiceEnabled ? "CHANNEL READY" : "STANDBY";
+    if (!preview) startRecognition();
+  }
+
+  function speakWithWindowsVoice(text, preview = false) {
+    if (!("speechSynthesis" in window)) {
+      finishSpeaking(preview);
+      return;
+    }
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.voice = state.voice;
+    utterance.rate = 0.96;
+    utterance.pitch = 0.98;
+    utterance.volume = 1;
+    utterance.onend = () => finishSpeaking(preview);
+    utterance.onerror = utterance.onend;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
+  }
+
+  async function speak(text, { preview = false } = {}) {
+    if (!preview && !state.voiceEnabled) {
       setCoreState("READY");
       return;
     }
     stopRecognition();
     setCoreState("SPEAKING", "speaking");
-    elements.voiceLink.textContent = "OUTPUT ACTIVE";
-    const utterance = new SpeechSynthesisUtterance(conversationalText(text));
-    utterance.voice = state.voice;
-    utterance.rate = 0.96;
-    utterance.pitch = 0.98;
-    utterance.volume = 1;
-    utterance.onend = () => {
-      setCoreState("READY");
-      startRecognition();
-    };
-    utterance.onerror = utterance.onend;
+    elements.voiceLink.textContent = "NEURAL VOICE";
+    const spokenText = conversationalText(text);
+    const requestId = ++state.speechRequestId;
+    state.audio?.pause();
+    state.audio = null;
     window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(utterance);
+    try {
+      const generated = await desktop.synthesizeSpeech(spokenText);
+      if (requestId !== state.speechRequestId) return;
+      if (!generated?.available || !generated.audio) {
+        elements.voiceLink.textContent = "WINDOWS FALLBACK";
+        speakWithWindowsVoice(spokenText, preview);
+        return;
+      }
+      const audio = new Audio(`data:${generated.mimeType ?? "audio/mpeg"};base64,${generated.audio}`);
+      state.audio = audio;
+      audio.onended = () => finishSpeaking(preview);
+      audio.onerror = () => {
+        elements.voiceLink.textContent = "WINDOWS FALLBACK";
+        speakWithWindowsVoice(spokenText, preview);
+      };
+      await audio.play();
+    } catch {
+      if (requestId !== state.speechRequestId) return;
+      elements.voiceLink.textContent = "WINDOWS FALLBACK";
+      speakWithWindowsVoice(spokenText, preview);
+    }
   }
 
   function createIntelPanel(title, lines, accent = "cyan") {
@@ -475,7 +515,7 @@
       appendMessage("assistant", response.text);
       logActivity(`SVANS responded${response.orchestration?.route ? ` · route ${response.orchestration.route}` : ""}`);
       elements.voiceLink.textContent = "CHANNEL READY";
-      speak(response.text);
+      void speak(response.text);
     } catch (error) {
       const message = error instanceof Error ? error.message : "The intelligence link was interrupted.";
       appendMessage("assistant", message);
@@ -539,6 +579,11 @@
         state.voiceEnabled = false;
         $("#microphone-permission").checked = false;
         showToast("MICROPHONE PERMISSION IS REQUIRED");
+      } else if (event.error === "network" || event.error === "audio-capture") {
+        state.voiceEnabled = false;
+        $("#microphone-permission").checked = false;
+        elements.voiceLink.textContent = "VOICE INPUT OFFLINE";
+        showToast("VOICE INPUT CONNECTION INTERRUPTED · TAP THE CORE TO RETRY");
       }
     };
     recognition.onend = () => {
@@ -564,6 +609,9 @@
       startRecognition();
     } else {
       stopRecognition();
+      state.speechRequestId += 1;
+      state.audio?.pause();
+      state.audio = null;
       speechSynthesis?.cancel();
       setCoreState("READY");
       elements.voiceLink.textContent = "STANDBY";
@@ -612,10 +660,7 @@
       showToast("SVANS VOICE PROFILE UPDATED");
     });
     $("#voice-preview-button").addEventListener("click", () => {
-      const wasEnabled = state.voiceEnabled;
-      state.voiceEnabled = true;
-      speak("Good evening, Shawn. SVANS is online and ready when you are.");
-      state.voiceEnabled = wasEnabled;
+      void speak("Good evening, Shawn. SVANS is online and ready when you are.", { preview: true });
     });
 
     $$('[data-command]').forEach((button) => {

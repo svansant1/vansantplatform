@@ -11,6 +11,7 @@ const {
 const os = require("node:os");
 const path = require("node:path");
 const crypto = require("node:crypto");
+const fs = require("node:fs");
 
 const CHAT_ENDPOINT = process.env.SVANSAI_CHAT_ENDPOINT || "https://svansai.com/api/chat";
 const SAFE_DESTINATIONS = Object.freeze({
@@ -22,12 +23,37 @@ const AUTH_SALT = "svans-desktop-admin-v1";
 const AUTH_DIGEST = "38d25a5cce7a9bb87200a49a32d41f441d938c3a591f61526b2ede25cbdf6332";
 const MAX_AUTH_ATTEMPTS = 5;
 const LOCKOUT_MS = 30_000;
+const SPEECH_ENDPOINT = "https://api.openai.com/v1/audio/speech";
 
 let mainWindow = null;
 let tray = null;
 let previousCpuSample = null;
 const authorizedContents = new Set();
 const authAttempts = new Map();
+
+function readEnvValue(filePath, key) {
+  try {
+    const line = fs.readFileSync(filePath, "utf8").split(/\r?\n/).find((entry) => entry.trim().startsWith(`${key}=`));
+    if (!line) return "";
+    return line.slice(line.indexOf("=") + 1).trim().replace(/^(['"])(.*)\1$/, "$2");
+  } catch {
+    return "";
+  }
+}
+
+function openAiApiKey() {
+  if (process.env.OPENAI_API_KEY) return process.env.OPENAI_API_KEY;
+  const repositoryRoot = path.resolve(__dirname, "..", "..");
+  const developmentFiles = [
+    path.join(repositoryRoot, "svansai_parent", "backend", "app", "node-api", ".env"),
+    path.join(repositoryRoot, "svansai_parent", "frontend", ".env.local"),
+  ];
+  for (const filePath of developmentFiles) {
+    const key = readEnvValue(filePath, "OPENAI_API_KEY");
+    if (key) return key;
+  }
+  return "";
+}
 
 function authorizationState(senderId) {
   return authAttempts.get(senderId) ?? { failures: 0, lockedUntil: 0 };
@@ -204,6 +230,34 @@ function registerIpc() {
     const text = data?.text ?? data?.response ?? data?.answer ?? data?.message;
     if (typeof text !== "string" || !text.trim()) throw new Error("SVANS returned an empty response.");
     return { text: text.trim(), orchestration: data?.orchestration ?? null };
+  });
+
+  ipcMain.handle("speech:synthesize", async (event, rawText) => {
+    assertAuthorized(event);
+    const input = String(rawText ?? "").trim().slice(0, 6000);
+    if (!input) throw new Error("Speech text is required.");
+    const apiKey = openAiApiKey();
+    if (!apiKey) return { available: false };
+
+    const response = await fetch(SPEECH_ENDPOINT, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini-tts",
+        voice: "cedar",
+        input,
+        instructions: "Speak like a real person in a calm, warm, intelligent and confident conversational tone. Use natural pauses, subtle emotional inflection and an American English accent. Sound like a trusted personal assistant speaking directly to Shawn. Never use an announcer voice, exaggerated drama or robotic cadence.",
+        response_format: "mp3",
+      }),
+      signal: AbortSignal.timeout(60_000),
+    });
+    if (!response.ok) return { available: false };
+    const audio = Buffer.from(await response.arrayBuffer());
+    if (!audio.length) return { available: false };
+    return { available: true, mimeType: "audio/mpeg", audio: audio.toString("base64"), voice: "cedar" };
   });
 
   ipcMain.handle("destination:open", async (event, destination) => {

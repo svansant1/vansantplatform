@@ -16,7 +16,8 @@ An isolated Windows desktop prototype for the SVANS conversational and holograph
 - Animated holographic core, orbital controls, particle field, and voice spectrum
 - Real SVANSAI conversation bridge through `https://svansai.com/api/chat`
 - Browser speech recognition when supported by the installed Electron/Chromium build
-- Spoken responses through Windows/Chromium speech synthesis
+- Human-like neural spoken responses using the OpenAI Speech API and the `cedar` voice
+- Automatic Windows/Chromium speech fallback when neural speech is unavailable
 - Generated system, project, diagnostic, and Guardian hologram panels
 - Priority queue, activity audit stream, and permission center
 - Walkthrough demonstration: say or type `walk me through the interface`
@@ -52,7 +53,7 @@ Packaged output will be written to `svans_holographic_desktop/dist/`, which is i
 
 ## Security boundary
 
-The renderer does not have Node.js access. It communicates through a narrow preload bridge. The owner access code is stored only as a derived digest, not readable text. External navigation is restricted to an allowlist, and the interface models local capabilities as permissioned actions. File access, email, social posting, camera gestures, and screen context are intentionally not enabled in this prototype.
+The renderer does not have Node.js access. It communicates through a narrow preload bridge. The owner access code is stored only as a derived digest, not readable text. The OpenAI API key remains in the Electron main process and is never exposed to renderer JavaScript. Neural speech is AI-generated and is identified that way in the interface. External navigation is restricted to an allowlist, and the interface models local capabilities as permissioned actions. File access, email, social posting, camera gestures, and screen context are intentionally not enabled in this prototype.
 
 ## Hologram note
 
