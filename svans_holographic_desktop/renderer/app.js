@@ -363,27 +363,34 @@
       .trim();
   }
 
-  function speechChunks(text, limit = 240) {
+  function speechChunks(text, limit = 900) {
     const sentences = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g)?.map((sentence) => sentence.trim()).filter(Boolean) ?? [text];
     const chunks = [];
+    let current = "";
     for (const sentence of sentences) {
+      const combined = current ? `${current} ${sentence}` : sentence;
+      if (combined.length <= limit) {
+        current = combined;
+        continue;
+      }
+      if (current) chunks.push(current);
+      current = "";
       if (sentence.length <= limit) {
-        chunks.push(sentence);
+        current = sentence;
         continue;
       }
       const words = sentence.split(/\s+/);
-      let chunk = "";
       for (const word of words) {
-        if (chunk && `${chunk} ${word}`.length > limit) {
-          chunks.push(chunk);
-          chunk = word;
+        if (current && `${current} ${word}`.length > limit) {
+          chunks.push(current);
+          current = word;
         } else {
-          chunk = chunk ? `${chunk} ${word}` : word;
+          current = current ? `${current} ${word}` : word;
         }
       }
-      if (chunk) chunks.push(chunk);
     }
-    return chunks;
+    if (current) chunks.push(current);
+    return chunks.length ? chunks : [text];
   }
 
   function finishSpeaking(preview = false) {
