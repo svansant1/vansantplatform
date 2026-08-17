@@ -170,15 +170,6 @@
       event.preventDefault();
       void submitLogin();
     });
-    $$(".access-keypad [data-key]").forEach((button) => {
-      button.addEventListener("click", () => {
-        const key = button.dataset.key;
-        if (key === "clear") elements.loginPassword.value = "";
-        else if (key === "back") elements.loginPassword.value = elements.loginPassword.value.slice(0, -1);
-        else if (elements.loginPassword.value.length < elements.loginPassword.maxLength) elements.loginPassword.value += key;
-        elements.loginPassword.focus();
-      });
-    });
     $("#login-minimize-button").addEventListener("click", () => desktop.windowAction("minimize"));
     $("#login-close-button").addEventListener("click", () => desktop.windowAction("close"));
     $("#logout-button").addEventListener("click", async () => {

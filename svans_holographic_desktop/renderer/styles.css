@@ -123,7 +123,7 @@ input:focus-visible {
   grid-template-columns: 300px minmax(330px, 420px);
   grid-template-rows: 50px auto auto 38px;
   width: min(810px, calc(100vw - 44px));
-  min-height: 610px;
+  min-height: 520px;
   border: 1px solid rgba(77, 223, 255, 0.48);
   clip-path: polygon(0 28px, 28px 0, calc(100% - 58px) 0, 100% 58px, 100% calc(100% - 22px), calc(100% - 22px) 100%, 50px 100%, 0 calc(100% - 50px));
   background: linear-gradient(rgba(0, 212, 255, 0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 212, 255, 0.025) 1px, transparent 1px), radial-gradient(circle at 18% 42%, rgba(0, 212, 255, 0.12), transparent 33%), rgba(2, 12, 21, 0.96);
@@ -189,11 +189,6 @@ input:focus-visible {
 .login-form label span { color: #7296a9; font: 700 7px Consolas, monospace; letter-spacing: 0.19em; }
 .login-form input { height: 39px; border: 1px solid rgba(0, 212, 255, 0.2); border-radius: 2px; padding: 0 12px; color: #e9faff; background: rgba(0, 212, 255, 0.045); font: 12px Consolas, monospace; letter-spacing: 0.12em; }
 .login-form input:focus { border-color: rgba(0, 212, 255, 0.65); box-shadow: 0 0 18px rgba(0, 212, 255, 0.1); }
-.access-keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-.access-keypad button { height: 33px; border: 1px solid rgba(0, 212, 255, 0.15); color: #a8d9e8; background: rgba(6, 29, 44, 0.68); cursor: pointer; font: 700 10px Consolas, monospace; transition: 130ms ease; }
-.access-keypad button:hover { border-color: var(--cyan); color: white; background: rgba(0, 212, 255, 0.14); box-shadow: 0 0 16px rgba(0, 212, 255, 0.12); }
-.access-keypad .key-function { color: #62879b; font-size: 7px; }
-
 .authorize-button { display: flex; height: 43px; align-items: center; justify-content: space-between; padding: 0 16px; border: 1px solid rgba(0, 212, 255, 0.62); color: #d8faff; background: linear-gradient(90deg, rgba(0, 212, 255, 0.2), rgba(40, 123, 255, 0.16)); cursor: pointer; font-size: 8px; font-weight: 900; letter-spacing: 0.18em; box-shadow: inset 3px 0 0 var(--cyan), 0 0 24px rgba(0, 212, 255, 0.12); }
 .authorize-button:hover { background: linear-gradient(90deg, rgba(0, 212, 255, 0.3), rgba(40, 123, 255, 0.24)); box-shadow: inset 3px 0 0 var(--cyan), 0 0 34px rgba(0, 212, 255, 0.22); }
 .authorize-button:disabled { opacity: 0.52; cursor: wait; }
