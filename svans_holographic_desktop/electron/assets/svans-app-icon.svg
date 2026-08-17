@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="edge" x1="24" y1="20" x2="230" y2="238" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#baf7ff"/>
+      <stop offset="0.38" stop-color="#00d4ff"/>
+      <stop offset="1" stop-color="#287bff"/>
+    </linearGradient>
+    <radialGradient id="core" cx="50%" cy="42%" r="62%">
+      <stop stop-color="#0d344e"/>
+      <stop offset="0.55" stop-color="#061522"/>
+      <stop offset="1" stop-color="#02070c"/>
+    </radialGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <circle cx="128" cy="128" r="116" fill="#02070c" stroke="#122a3d" stroke-width="9"/>
+  <circle cx="128" cy="128" r="105" fill="url(#core)" stroke="url(#edge)" stroke-width="7" filter="url(#glow)"/>
+  <circle cx="128" cy="128" r="88" fill="none" stroke="#00d4ff" stroke-opacity="0.22" stroke-width="2"/>
+  <path d="M45 128h30m106 0h30M128 45v22m0 122v22" stroke="#7eeeff" stroke-opacity="0.5" stroke-width="3"/>
+  <text x="128" y="151" fill="url(#edge)" font-family="Arial, sans-serif" font-size="76" font-weight="900" letter-spacing="-8" text-anchor="middle">SV</text>
+  <path d="M91 174h74" stroke="#00d4ff" stroke-width="3" stroke-linecap="round" filter="url(#glow)"/>
+</svg>

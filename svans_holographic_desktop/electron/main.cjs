@@ -44,16 +44,8 @@ function verifyPassword(password) {
 }
 
 function createTrayIcon() {
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-      <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#00d4ff"/><stop offset="1" stop-color="#287bff"/></linearGradient></defs>
-      <rect x="3" y="3" width="58" height="58" rx="18" fill="#050a12" stroke="url(#g)" stroke-width="4"/>
-      <circle cx="32" cy="32" r="20" fill="none" stroke="#00d4ff" stroke-opacity=".35"/>
-      <text x="32" y="39" fill="url(#g)" font-family="Arial" font-size="20" font-weight="900" text-anchor="middle">SV</text>
-    </svg>`;
-  return nativeImage.createFromDataURL(
-    `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`,
-  );
+  const iconPath = path.join(__dirname, "assets", "svans-app-icon.png");
+  return nativeImage.createFromPath(iconPath);
 }
 
 function createWindow() {
