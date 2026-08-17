@@ -649,28 +649,46 @@
     const canvas = panel.querySelector("canvas");
     const context = canvas.getContext("2d");
     const points = [];
+    const networkEdges = [];
     const pointCount = 560;
     let seed = 0;
     for (const character of subject) seed = (Math.imul(seed, 31) + character.charCodeAt(0)) >>> 0;
     const heartMode = /\b(heart|cardiac)\b/i.test(subject);
     const dnaMode = /\b(dna|helix|genetic|genome)\b/i.test(subject);
-    for (let index = 0; index < pointCount; index += 1) {
-      const progress = index / pointCount;
-      if (heartMode) {
-        const angle = progress * Math.PI * 2;
-        const depth = ((index * 37) % 29) / 28 - 0.5;
-        points.push({ x: Math.sin(angle) ** 3 * 0.85, y: -(0.68 * Math.cos(angle) - 0.28 * Math.cos(2 * angle) - 0.14 * Math.cos(3 * angle) - 0.07 * Math.cos(4 * angle)), z: depth * 0.5 * Math.sin(angle) });
-      } else if (dnaMode) {
-        const strand = index % 2 ? 1 : -1;
-        const y = progress * 2 - 1;
-        const angle = y * Math.PI * 4 + (strand > 0 ? 0 : Math.PI);
-        points.push({ x: Math.cos(angle) * 0.48, y, z: Math.sin(angle) * 0.48 });
-      } else {
-        const y = 1 - (index / (pointCount - 1)) * 2;
-        const radius = Math.sqrt(1 - y * y);
-        const angle = Math.PI * (3 - Math.sqrt(5)) * index;
-        const distortion = 1 + 0.14 * Math.sin(angle * (2 + seed % 5)) * Math.cos(y * Math.PI * (2 + seed % 4));
-        points.push({ x: Math.cos(angle) * radius * distortion, y: y * (0.78 + seed % 17 / 100), z: Math.sin(angle) * radius * distortion });
+    const networkMode = /\b(network|connection|topology|router|internet|lan|wi-?fi)\b/i.test(subject);
+    if (networkMode) {
+      points.push({ x: 0, y: 0, z: 0, role: "core", label: "ROUTER" });
+      for (let hub = 0; hub < 6; hub += 1) {
+        const angle = hub / 6 * Math.PI * 2;
+        const hubIndex = points.length;
+        points.push({ x: Math.cos(angle) * 0.62, y: Math.sin(angle) * 0.5, z: Math.sin(angle * 2) * 0.25, role: "hub", label: `NODE ${String(hub + 1).padStart(2, "0")}` });
+        networkEdges.push([0, hubIndex]);
+        for (let device = 0; device < 4; device += 1) {
+          const spread = angle + (device - 1.5) * 0.22;
+          const deviceIndex = points.length;
+          points.push({ x: Math.cos(spread) * (0.92 + device % 2 * 0.12), y: Math.sin(spread) * (0.72 + (device + hub) % 2 * 0.1), z: Math.cos(angle + device * 1.7) * 0.38, role: "device" });
+          networkEdges.push([hubIndex, deviceIndex]);
+        }
+      }
+    } else {
+      for (let index = 0; index < pointCount; index += 1) {
+        const progress = index / pointCount;
+        if (heartMode) {
+          const angle = progress * Math.PI * 2;
+          const depth = ((index * 37) % 29) / 28 - 0.5;
+          points.push({ x: Math.sin(angle) ** 3 * 0.85, y: -(0.68 * Math.cos(angle) - 0.28 * Math.cos(2 * angle) - 0.14 * Math.cos(3 * angle) - 0.07 * Math.cos(4 * angle)), z: depth * 0.5 * Math.sin(angle) });
+        } else if (dnaMode) {
+          const strand = index % 2 ? 1 : -1;
+          const y = progress * 2 - 1;
+          const angle = y * Math.PI * 4 + (strand > 0 ? 0 : Math.PI);
+          points.push({ x: Math.cos(angle) * 0.48, y, z: Math.sin(angle) * 0.48 });
+        } else {
+          const y = 1 - (index / (pointCount - 1)) * 2;
+          const radius = Math.sqrt(1 - y * y);
+          const angle = Math.PI * (3 - Math.sqrt(5)) * index;
+          const distortion = 1 + 0.14 * Math.sin(angle * (2 + seed % 5)) * Math.cos(y * Math.PI * (2 + seed % 4));
+          points.push({ x: Math.cos(angle) * radius * distortion, y: y * (0.78 + seed % 17 / 100), z: Math.sin(angle) * radius * distortion });
+        }
       }
     }
     const model = { panel, points, yaw: -0.45, pitch: -0.2, zoom: 1, spinning: true, dragging: false, lastX: 0, lastY: 0, frame: 0, observer: null, close: null };
@@ -698,22 +716,55 @@
         const y2 = point.y * cx - z1 * sx;
         const z2 = point.y * sx + z1 * cx;
         const perspective = 1 / (2.8 - z2 * 0.42);
-        return { x: centerX + x1 * scale * perspective * 2.45, y: centerY + y2 * scale * perspective * 2.45, z: z2, perspective };
-      }).sort((a, b) => a.z - b.z);
+        return { x: centerX + x1 * scale * perspective * 2.45, y: centerY + y2 * scale * perspective * 2.45, z: z2, perspective, role: point.role, label: point.label };
+      });
+      const depthSorted = [...projected].sort((a, b) => a.z - b.z);
       context.globalCompositeOperation = "lighter";
-      for (let index = 1; index < projected.length; index += 1) {
-        const point = projected[index];
-        const prior = projected[index - 1];
-        if (Math.hypot(point.x - prior.x, point.y - prior.y) < scale * 0.18) {
-          context.strokeStyle = `rgba(30, 190, 235, ${0.025 + point.perspective * 0.08})`;
-          context.beginPath(); context.moveTo(prior.x, prior.y); context.lineTo(point.x, point.y); context.stroke();
+      if (networkMode) {
+        const packetTime = performance.now() / 1400;
+        networkEdges.forEach(([fromIndex, toIndex], edgeIndex) => {
+          const from = projected[fromIndex];
+          const to = projected[toIndex];
+          const gradient = context.createLinearGradient(from.x, from.y, to.x, to.y);
+          gradient.addColorStop(0, "rgba(0, 212, 255, .28)");
+          gradient.addColorStop(0.5, "rgba(103, 241, 255, .9)");
+          gradient.addColorStop(1, "rgba(0, 139, 190, .24)");
+          context.strokeStyle = gradient;
+          context.lineWidth = from.role === "core" ? 1.6 : 0.9;
+          context.beginPath(); context.moveTo(from.x, from.y); context.lineTo(to.x, to.y); context.stroke();
+          const progress = (packetTime + edgeIndex * 0.137) % 1;
+          const packetX = from.x + (to.x - from.x) * progress;
+          const packetY = from.y + (to.y - from.y) * progress;
+          context.fillStyle = "rgba(186, 251, 255, .95)";
+          context.shadowColor = "#52eaff"; context.shadowBlur = 9;
+          context.beginPath(); context.arc(packetX, packetY, 2.1, 0, Math.PI * 2); context.fill();
+        });
+      } else {
+        for (let index = 1; index < depthSorted.length; index += 1) {
+          const point = depthSorted[index];
+          const prior = depthSorted[index - 1];
+          if (Math.hypot(point.x - prior.x, point.y - prior.y) < scale * 0.18) {
+            context.strokeStyle = `rgba(30, 190, 235, ${0.025 + point.perspective * 0.08})`;
+            context.beginPath(); context.moveTo(prior.x, prior.y); context.lineTo(point.x, point.y); context.stroke();
+          }
         }
       }
-      for (const point of projected) {
+      for (const point of depthSorted) {
         const light = Math.max(0.2, Math.min(1, (point.z + 1.2) / 2.1));
         context.fillStyle = `rgba(${Math.round(70 + light * 90)}, ${Math.round(190 + light * 60)}, 255, ${0.3 + light * 0.65})`;
         context.shadowColor = "#00d4ff"; context.shadowBlur = light * 7;
-        context.beginPath(); context.arc(point.x, point.y, 0.7 + light * 1.4, 0, Math.PI * 2); context.fill();
+        const size = point.role === "core" ? 12 : point.role === "hub" ? 7 : point.role === "device" ? 4 : 0.7 + light * 1.4;
+        context.beginPath(); context.arc(point.x, point.y, size, 0, Math.PI * 2); context.fill();
+        if (point.role === "core" || point.role === "hub") {
+          context.strokeStyle = point.role === "core" ? "rgba(168, 250, 255, .95)" : "rgba(74, 218, 255, .72)";
+          context.lineWidth = 1;
+          context.beginPath(); context.arc(point.x, point.y, size + 5, 0, Math.PI * 2); context.stroke();
+          context.shadowBlur = 0;
+          context.fillStyle = "rgba(157, 239, 255, .86)";
+          context.font = `${point.role === "core" ? 8 : 6}px Consolas, monospace`;
+          context.textAlign = "center";
+          context.fillText(point.label, point.x, point.y - size - 9);
+        }
       }
       context.shadowBlur = 0; context.globalCompositeOperation = "source-over";
       context.strokeStyle = "rgba(0, 212, 255, .2)";
