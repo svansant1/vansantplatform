@@ -22,6 +22,18 @@
         timestamp: new Date().toISOString(),
       };
     },
+    async computerStatus() {
+      return { permissions: { files: true, apps: true, browser: true, processes: true, admin: false }, roots: [] };
+    },
+    async setComputerPermission(capability, enabled) {
+      return { files: true, apps: true, browser: true, processes: true, admin: capability === "admin" ? enabled : false };
+    },
+    async executeComputerAction(action) {
+      return { message: `Desktop preview accepted ${action.type}.`, title: "COMPUTER ACTION PREVIEW", lines: [JSON.stringify(action.payload ?? {})] };
+    },
+    async emergencyStop() { return { message: "Emergency stop activated.", title: "EMERGENCY STOP", lines: ["Preview helper queue cleared"] }; },
+    onComputerAudit() { return () => {}; },
+    onEmergencyStop() { return () => {}; },
     async chat() {
       return { text: "The live conversational bridge activates inside the Electron desktop app. The holographic interface is running in visual preview mode." };
     },
@@ -57,6 +69,9 @@
     voice: null,
     audio: null,
     speechRequestId: 0,
+    computerPermissions: { files: true, apps: true, browser: true, processes: true, admin: false },
+    lastFileResults: [],
+    confirmationResolver: null,
   };
 
   const elements = {
@@ -92,7 +107,34 @@
     loginStatus: $("#login-status"),
     loginTerminal: $(".login-terminal"),
     authorizeButton: $("#authorize-button"),
+    actionConfirmation: $("#action-confirmation"),
+    actionConfirmTitle: $("#action-confirm-title"),
+    actionConfirmDescription: $("#action-confirm-description"),
+    actionConfirmTarget: $("#action-confirm-target"),
+    actionConfirmLevel: $("#action-confirm-level"),
   };
+
+  function closeActionConfirmation(approved = false) {
+    elements.actionConfirmation.classList.remove("open");
+    elements.actionConfirmation.setAttribute("aria-hidden", "true");
+    const resolve = state.confirmationResolver;
+    state.confirmationResolver = null;
+    resolve?.(approved);
+  }
+
+  function confirmComputerAction({ title, description, target, level = "OWNER CONFIRMATION" }) {
+    if (state.confirmationResolver) closeActionConfirmation(false);
+    elements.actionConfirmTitle.textContent = title;
+    elements.actionConfirmDescription.textContent = description;
+    elements.actionConfirmTarget.textContent = target;
+    elements.actionConfirmLevel.textContent = level;
+    elements.actionConfirmation.classList.add("open");
+    elements.actionConfirmation.setAttribute("aria-hidden", "false");
+    return new Promise((resolve) => {
+      state.confirmationResolver = resolve;
+      $("#action-confirm-cancel").focus();
+    });
+  }
 
   function setLoginStatus(message, mode = "") {
     elements.loginStatus.textContent = message;
@@ -136,6 +178,7 @@
       elements.loginGate.setAttribute("aria-hidden", "true");
       elements.hud.setAttribute("aria-hidden", "false");
       void refreshTelemetry();
+      void refreshComputerStatus();
       state.telemetryTimer = window.setInterval(() => void refreshTelemetry(), 2500);
       logActivity("Administrator identity confirmed");
       showToast("WELCOME, ADMIN · SVANS COMMAND DECK ONLINE");
@@ -522,6 +565,109 @@
     return false;
   }
 
+  function parseComputerCommand(rawText) {
+    const text = rawText.trim().replace(/^svans[,.]?\s*/i, "").replace(/^please\s+/i, "");
+    const folderPattern = "desktop|documents|downloads|pictures|music|videos|onedrive|workspace";
+    const siteAliases = {
+      youtube: "https://youtube.com",
+      gmail: "https://mail.google.com",
+      email: "https://mail.google.com",
+      facebook: "https://facebook.com",
+      instagram: "https://instagram.com",
+      linkedin: "https://linkedin.com",
+      github: "https://github.com",
+      google: "https://google.com",
+    };
+    let match;
+
+    if (/^(?:emergency stop|stop all actions|cancel all actions)$/i.test(text)) {
+      return { type: "emergency_stop", payload: {} };
+    }
+    if (/^(?:show|list)(?: me)? (?:the )?(?:running apps|running applications|processes)$/i.test(text)) {
+      return { type: "list_processes", payload: {} };
+    }
+    if (/^(?:show|list)(?: me)? (?:the )?(?:installed apps|installed applications|games)$/i.test(text)) {
+      return { type: "list_apps", payload: {} };
+    }
+    match = text.match(new RegExp(`^(?:show|list)(?: me)? (?:what(?:'s| is) in )?(?:my )?(${folderPattern})(?: folder)?$`, "i"));
+    if (match) return { type: "list_directory", payload: { folder: match[1].toLowerCase() } };
+    match = text.match(new RegExp(`^(?:open|show)(?: me)? (?:my )?(${folderPattern})(?: folder)?$`, "i"));
+    if (match) return { type: "open_folder", payload: { folder: match[1].toLowerCase() } };
+    match = text.match(/^(?:find|search for|look for)(?: a)? (?:file|folder)(?: named| called)?\s+(.+)$/i);
+    if (match) return { type: "search_files", payload: { query: match[1].trim() } };
+    match = text.match(/^open (?:the )?(\d+)(?:st|nd|rd|th)? (?:file|result)$/i);
+    if (match) {
+      const result = state.lastFileResults[Number(match[1]) - 1];
+      return result ? { type: "open_path", payload: { path: result.path } } : null;
+    }
+    if (/^open (?:the )?first (?:file|result)$/i.test(text) && state.lastFileResults[0]) {
+      return { type: "open_path", payload: { path: state.lastFileResults[0].path } };
+    }
+    match = text.match(/^(?:close|quit|stop) (?:the )?(.+)$/i);
+    if (match && !/all actions/i.test(match[1])) {
+      return {
+        type: "close_app",
+        payload: { name: match[1].trim() },
+        confirmation: {
+          title: "Close this application?",
+          description: "Unsaved work in this application could be lost.",
+          target: match[1].trim(),
+          level: "PROCESS CONTROL · CONFIRM",
+        },
+      };
+    }
+    if (/^lock (?:my |the )?(?:computer|pc|workstation)$/i.test(text)) {
+      return {
+        type: "lock_computer",
+        payload: {},
+        confirmation: {
+          title: "Lock the owner session?",
+          description: "The Windows sign-in screen will appear immediately.",
+          target: "Current Windows session",
+          level: "SESSION CONTROL · CONFIRM",
+        },
+      };
+    }
+    if (/^(?:flush|clear) (?:the )?dns(?: cache)?$/i.test(text)) {
+      return {
+        type: "flush_dns",
+        payload: {},
+        confirmation: {
+          title: "Run an administrator action?",
+          description: "Windows will request UAC approval before clearing the DNS resolver cache.",
+          target: "Allowlisted operation · ipconfig /flushdns",
+          level: "ADMINISTRATOR GUARDIAN · UAC",
+        },
+      };
+    }
+    match = text.match(/^(?:open|go to|browse to)\s+(.+)$/i);
+    if (match) {
+      const target = match[1].trim().replace(/[.?!]+$/, "");
+      const alias = siteAliases[target.toLowerCase()];
+      if (alias) return { type: "open_url", payload: { url: alias } };
+      if (/^https?:\/\//i.test(target) || /^[a-z0-9.-]+\.[a-z]{2,}(?:\/\S*)?$/i.test(target)) {
+        return { type: "open_url", payload: { url: target } };
+      }
+      return { type: "launch_app", payload: { name: target } };
+    }
+    match = text.match(/^(?:launch|start|run)\s+(.+)$/i);
+    if (match) return { type: "launch_app", payload: { name: match[1].trim() } };
+    return null;
+  }
+
+  async function executeComputerCommand(action) {
+    if (action.confirmation) {
+      const approved = await confirmComputerAction(action.confirmation);
+      if (!approved) {
+        return { message: "Action cancelled. I did not make any changes.", title: "ACTION CANCELLED", lines: [action.confirmation.target] };
+      }
+    }
+    const result = await desktop.executeComputerAction({ type: action.type, payload: action.payload });
+    if (Array.isArray(result?.results)) state.lastFileResults = result.results;
+    if (result?.title && Array.isArray(result?.lines)) createIntelPanel(result.title, result.lines.slice(0, 35), action.type === "emergency_stop" ? "amber" : "cyan");
+    return result;
+  }
+
   function inferCommand(text) {
     if (/\b(cpu|memory|ram|system|computer|status|telemetry)\b/i.test(text)) return "system";
     if (/\b(project|ecosystem|relationship|architecture)\b/i.test(text)) return "projects";
@@ -541,6 +687,32 @@
     setCoreState("THINKING", "thinking");
     elements.voiceLink.textContent = "PROCESSING";
     logActivity(`Conversation request: ${text.slice(0, 48)}`);
+
+    const computerAction = parseComputerCommand(text);
+    if (computerAction) {
+      try {
+        const result = await executeComputerCommand(computerAction);
+        const reply = result?.message || "The computer action completed.";
+        state.messages.push({ role: "assistant", content: reply });
+        appendMessage("assistant", reply);
+        logActivity(`Computer action · ${computerAction.type}`);
+        elements.voiceLink.textContent = "ACTION COMPLETE";
+        void speak(reply);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "The computer action was blocked.";
+        const reply = message.includes("PERMISSION_REQUIRED")
+          ? "That capability is disabled. You can enable it in the SVANS Shield permissions panel."
+          : `Guardian blocked that action: ${message}`;
+        state.messages.push({ role: "assistant", content: reply });
+        appendMessage("assistant", reply);
+        logActivity(reply);
+        setCoreState("READY");
+        void speak(reply);
+      } finally {
+        state.busy = false;
+      }
+      return;
+    }
 
     const command = inferCommand(text);
     await runLocalCommand(command, text);
@@ -678,6 +850,79 @@
     logActivity(applied ? "Ambient orb mode enabled" : "Command deck restored");
   }
 
+  async function refreshComputerStatus() {
+    try {
+      const status = await desktop.computerStatus();
+      state.computerPermissions = status.permissions;
+      $$('[data-computer-permission]').forEach((input) => {
+        input.checked = Boolean(status.permissions[input.dataset.computerPermission]);
+      });
+      const rootNames = (status.roots ?? []).map((root) => root.name).join(", ");
+      logActivity(`Computer action engine online${rootNames ? ` · ${rootNames}` : ""}`);
+    } catch (error) {
+      logActivity(`Computer action engine unavailable: ${error instanceof Error ? error.message : "unknown"}`);
+    }
+  }
+
+  function bindComputerControl() {
+    $("#action-confirm-cancel").addEventListener("click", () => closeActionConfirmation(false));
+    $("#action-confirm-approve").addEventListener("click", () => closeActionConfirmation(true));
+    elements.actionConfirmation.addEventListener("click", (event) => {
+      if (event.target === elements.actionConfirmation) closeActionConfirmation(false);
+    });
+
+    $$('[data-computer-permission]').forEach((input) => {
+      input.addEventListener("change", async (event) => {
+        const capability = event.target.dataset.computerPermission;
+        const enabled = event.target.checked;
+        let confirmation;
+        if (capability === "admin" && enabled) {
+          const approved = await confirmComputerAction({
+            title: "Enable Administrator Guardian?",
+            description: "This permits only named, hard-coded administrator actions. Every execution still requires confirmation and Windows UAC approval.",
+            target: "Administrator Guardian · allowlisted operations only",
+            level: "ELEVATED CAPABILITY · OWNER APPROVAL",
+          });
+          if (!approved) {
+            event.target.checked = false;
+            return;
+          }
+          confirmation = "ENABLE_ADMIN_GUARDIAN";
+        }
+        try {
+          state.computerPermissions = await desktop.setComputerPermission(capability, enabled, confirmation);
+          event.target.checked = Boolean(state.computerPermissions[capability]);
+          logActivity(`${capability} capability ${enabled ? "enabled" : "disabled"}`);
+          showToast(`${capability.toUpperCase()} CONTROL ${enabled ? "ENABLED" : "DISABLED"}`);
+        } catch (error) {
+          event.target.checked = !enabled;
+          showToast(error instanceof Error ? error.message.toUpperCase() : "PERMISSION CHANGE BLOCKED");
+        }
+      });
+    });
+
+    $("#emergency-stop-button").addEventListener("click", async () => {
+      const result = await desktop.emergencyStop();
+      createIntelPanel(result.title, result.lines, "amber");
+      logActivity("Emergency stop activated by owner");
+      showToast("ALL SVANS HELPER OPERATIONS STOPPED");
+    });
+
+    desktop.onComputerAudit((entry) => {
+      if (!state.authenticated) return;
+      logActivity(`${entry.action} · ${entry.detail}`);
+    });
+    desktop.onEmergencyStop((result) => {
+      if (!state.authenticated) return;
+      state.busy = false;
+      stopRecognition();
+      state.audio?.pause();
+      state.audio = null;
+      createIntelPanel(result.title, result.lines, "amber");
+      showToast("EMERGENCY STOP ACTIVATED");
+    });
+  }
+
   function bindEvents() {
     elements.commandForm.addEventListener("submit", (event) => {
       event.preventDefault();
@@ -746,6 +991,10 @@
     });
     window.addEventListener("keydown", (event) => {
       if (event.key === "Escape") {
+        if (state.confirmationResolver) {
+          closeActionConfirmation(false);
+          return;
+        }
         if (state.compact) {
           void toggleCompact();
           return;
@@ -817,6 +1066,7 @@
     window.setInterval(updateClock, 1000);
     bindEvents();
     bindAuthentication();
+    bindComputerControl();
     createParticleField();
     loadVoiceProfiles();
     if ("speechSynthesis" in window) window.speechSynthesis.addEventListener("voiceschanged", loadVoiceProfiles);

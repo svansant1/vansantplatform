@@ -1158,7 +1158,10 @@ input:focus-visible {
 .permission-list {
   display: grid;
   gap: 8px;
+  max-height: calc(100vh - 410px);
   margin-top: 17px;
+  padding-right: 4px;
+  overflow-y: auto;
 }
 
 .permission-list label {
@@ -1202,6 +1205,61 @@ input:focus-visible {
 }
 
 .voice-preview-button:hover { border-color: var(--cyan); color: white; background: rgba(0, 212, 255, 0.14); }
+
+.admin-permission { border-color: rgba(255, 176, 32, 0.24) !important; }
+.admin-permission strong { color: #ffd18a; }
+
+.emergency-stop-button {
+  width: 100%;
+  height: 34px;
+  margin-top: 8px;
+  border: 1px solid rgba(255, 77, 104, 0.42);
+  color: #ff9bad;
+  background: rgba(255, 77, 104, 0.08);
+  cursor: pointer;
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: 0.11em;
+}
+
+.emergency-stop-button:hover { border-color: var(--red); color: white; background: rgba(255, 77, 104, 0.18); }
+
+.action-confirmation {
+  position: fixed;
+  z-index: 420;
+  display: grid;
+  inset: 0;
+  place-items: center;
+  visibility: hidden;
+  opacity: 0;
+  background: rgba(0, 5, 10, 0.78);
+  backdrop-filter: blur(14px);
+  transition: 180ms ease;
+}
+
+.action-confirmation.open { visibility: visible; opacity: 1; }
+
+.confirmation-card {
+  position: relative;
+  width: min(480px, calc(100vw - 40px));
+  padding: 0 24px 24px;
+  border: 1px solid rgba(255, 176, 32, 0.55);
+  clip-path: polygon(0 22px, 22px 0, calc(100% - 28px) 0, 100% 28px, 100% 100%, 0 100%);
+  background: radial-gradient(circle at 50% 28%, rgba(255, 176, 32, 0.1), transparent 34%), rgba(3, 14, 24, 0.98);
+  box-shadow: 0 0 80px rgba(255, 176, 32, 0.15), inset 0 0 35px rgba(0, 212, 255, 0.03);
+  text-align: center;
+}
+
+.confirmation-card > header { display: flex; height: 46px; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255, 176, 32, 0.18); color: #ffd18a; font: 800 8px Consolas, monospace; letter-spacing: 0.15em; }
+.confirmation-card > header i { color: #9c7950; font-size: 7px; font-style: normal; }
+.confirmation-shield { display: grid; width: 68px; height: 68px; margin: 22px auto 12px; place-items: center; color: var(--amber); font-size: 48px; text-shadow: 0 0 24px rgba(255, 176, 32, 0.5); }
+.confirmation-card h2 { margin: 0; font-size: 20px; }
+.confirmation-card p { margin: 10px auto; color: #839eac; font-size: 11px; line-height: 1.55; }
+.confirmation-target { margin: 15px 0; padding: 12px; border: 1px solid rgba(255, 176, 32, 0.16); color: #d7c3a2; background: rgba(255, 176, 32, 0.05); font: 9px Consolas, monospace; overflow-wrap: anywhere; }
+.confirmation-card > footer { display: grid; grid-template-columns: 1fr 1.35fr; gap: 8px; }
+.confirmation-card > footer button { height: 38px; border: 1px solid rgba(0, 212, 255, 0.2); color: #8eacba; background: rgba(0, 212, 255, 0.04); cursor: pointer; font-size: 7px; font-weight: 900; letter-spacing: 0.12em; }
+.confirmation-card > footer button:last-child { border-color: rgba(255, 176, 32, 0.48); color: #ffe0aa; background: rgba(255, 176, 32, 0.1); }
+.confirmation-card > footer button:hover { filter: brightness(1.35); }
 
 .permission-note {
   margin-top: 18px;

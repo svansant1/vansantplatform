@@ -6,7 +6,7 @@
   "main": "electron/main.cjs",
   "scripts": {
     "start": "electron electron/main.cjs",
-    "check": "node --check electron/main.cjs && node --check electron/preload.cjs && node --check renderer/app.js",
+    "check": "node --check electron/main.cjs && node --check electron/action-engine.cjs && node --check electron/preload.cjs && node --check renderer/app.js",
     "pack": "electron-builder --dir",
     "dist:win": "electron-builder --win nsis"
   },

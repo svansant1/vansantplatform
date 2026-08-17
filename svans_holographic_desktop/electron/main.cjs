@@ -12,6 +12,7 @@ const os = require("node:os");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const fs = require("node:fs");
+const { createActionEngine } = require("./action-engine.cjs");
 
 const CHAT_ENDPOINT = process.env.SVANSAI_CHAT_ENDPOINT || "https://svansai.com/api/chat";
 const SAFE_DESTINATIONS = Object.freeze({
@@ -28,6 +29,7 @@ const SPEECH_ENDPOINT = "https://api.openai.com/v1/audio/speech";
 let mainWindow = null;
 let tray = null;
 let previousCpuSample = null;
+let actionEngine = null;
 const authorizedContents = new Set();
 const authAttempts = new Map();
 
@@ -198,6 +200,34 @@ function registerIpc() {
     return systemSnapshot();
   });
 
+  ipcMain.handle("computer:status", (event) => {
+    assertAuthorized(event);
+    return {
+      permissions: actionEngine.permissionSnapshot(),
+      roots: actionEngine.allowedRoots(),
+    };
+  });
+
+  ipcMain.handle("computer:permission", (event, request) => {
+    assertAuthorized(event);
+    const capability = String(request?.capability || "");
+    const enabled = Boolean(request?.enabled);
+    if (capability === "admin" && enabled && request?.confirmation !== "ENABLE_ADMIN_GUARDIAN") {
+      throw new Error("Administrator Guardian confirmation is required.");
+    }
+    return actionEngine.setPermission(capability, enabled);
+  });
+
+  ipcMain.handle("computer:execute", async (event, action) => {
+    assertAuthorized(event);
+    return actionEngine.execute(action);
+  });
+
+  ipcMain.handle("computer:emergency-stop", (event) => {
+    assertAuthorized(event);
+    return actionEngine.cancelAll();
+  });
+
   ipcMain.handle("chat:send", async (event, payload) => {
     assertAuthorized(event);
     const messages = (Array.isArray(payload?.messages) ? payload.messages : [])
@@ -307,9 +337,17 @@ function registerIpc() {
 
 app.whenReady().then(() => {
   if (process.platform === "win32") app.setAppUserModelId("com.vansantplatform.svans.holographic");
+  actionEngine = createActionEngine({
+    workspaceRoot: path.resolve(__dirname, "..", ".."),
+    onAudit: (entry) => mainWindow?.webContents.send("computer:audit", entry),
+  });
   registerIpc();
   createWindow();
   globalShortcut.register("CommandOrControl+Space", toggleWindow);
+  globalShortcut.register("CommandOrControl+Alt+Shift+Escape", () => {
+    const result = actionEngine.cancelAll();
+    mainWindow?.webContents.send("computer:emergency-stopped", result);
+  });
 
   tray = new Tray(createTrayIcon());
   tray.setToolTip("SVANS Holographic Desktop");

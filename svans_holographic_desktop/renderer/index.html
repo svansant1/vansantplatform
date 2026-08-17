@@ -202,14 +202,29 @@
         <label><span><strong>Microphone</strong><small>Natural voice conversation</small></span><input id="microphone-permission" type="checkbox" /></label>
         <label><span><strong>Spoken responses</strong><small>SVANS answers aloud with neural speech</small></span><input id="spoken-output-permission" type="checkbox" checked /></label>
         <label class="voice-profile-row"><span><strong>SVANS neural voice</strong><small>Cedar · AI-generated voice · Windows fallback</small></span><select id="voice-profile" aria-label="Fallback voice profile"><option>Detecting fallback voices…</option></select></label>
-        <label><span><strong>Local workspace</strong><small>Approved files and project folders</small></span><input type="checkbox" /></label>
-        <label><span><strong>Screen context</strong><small>Current application and walkthrough overlays</small></span><input type="checkbox" /></label>
-        <label><span><strong>Camera gestures</strong><small>Optional hand tracking; camera off by default</small></span><input type="checkbox" /></label>
+        <label><span><strong>Owner files</strong><small>Approved personal and project folders</small></span><input data-computer-permission="files" type="checkbox" checked /></label>
+        <label><span><strong>Applications and games</strong><small>Discover and launch Start menu applications</small></span><input data-computer-permission="apps" type="checkbox" checked /></label>
+        <label><span><strong>Browser destinations</strong><small>Open validated HTTP and HTTPS addresses</small></span><input data-computer-permission="browser" type="checkbox" checked /></label>
+        <label><span><strong>Process control</strong><small>Inspect and close unprotected applications</small></span><input data-computer-permission="processes" type="checkbox" checked /></label>
+        <label class="admin-permission"><span><strong>Administrator Guardian</strong><small>Named system actions with confirmation and UAC</small></span><input data-computer-permission="admin" type="checkbox" /></label>
+        <label><span><strong>Screen context</strong><small>Planned: active application and walkthrough overlays</small></span><input type="checkbox" disabled /></label>
         <label><span><strong>External actions</strong><small>Email, social posts and connected services</small></span><input type="checkbox" disabled /></label>
       </div>
       <button class="voice-preview-button" id="voice-preview-button">PREVIEW HUMAN-LIKE VOICE</button>
+      <button class="emergency-stop-button" id="emergency-stop-button">EMERGENCY STOP · CTRL + ALT + SHIFT + ESC</button>
       <div class="permission-note">Sensitive and external actions remain in ASK mode even when a capability is connected.</div>
     </aside>
+
+    <section class="action-confirmation" id="action-confirmation" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="action-confirm-title">
+      <div class="confirmation-card">
+        <header><span>SVANS GUARDIAN</span><i id="action-confirm-level">CONFIRMATION REQUIRED</i></header>
+        <div class="confirmation-shield">⬡</div>
+        <h2 id="action-confirm-title">Approve computer action?</h2>
+        <p id="action-confirm-description"></p>
+        <div class="confirmation-target" id="action-confirm-target"></div>
+        <footer><button id="action-confirm-cancel">CANCEL</button><button id="action-confirm-approve">AUTHORIZE ACTION</button></footer>
+      </div>
+    </section>
 
     <div class="toast" id="toast" role="status"></div>
     <script src="app.js"></script>

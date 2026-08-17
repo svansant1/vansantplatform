@@ -4,7 +4,7 @@
   "scripts": {
     "dev": "concurrently \"cd frontend && npx next dev --webpack\" \"cd backend/app && python -m uvicorn main:app --reload\" \"wait-on http://localhost:3000 && electron ./electron/main.js\"",
     "svans:hud": "electron ./svans_holographic_desktop/electron/main.cjs",
-    "svans:hud:check": "node --check ./svans_holographic_desktop/electron/main.cjs && node --check ./svans_holographic_desktop/electron/preload.cjs && node --check ./svans_holographic_desktop/renderer/app.js"
+    "svans:hud:check": "node --check ./svans_holographic_desktop/electron/main.cjs && node --check ./svans_holographic_desktop/electron/action-engine.cjs && node --check ./svans_holographic_desktop/electron/preload.cjs && node --check ./svans_holographic_desktop/renderer/app.js"
   },
   "dependencies": {
     "autoprefixer": "^10.4.19",
