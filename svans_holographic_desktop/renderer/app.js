@@ -88,6 +88,7 @@
     globe: null,
     universalHologram: null,
     communicationProfile: loadCommunicationProfile(),
+    codingCoachMode: localStorage.getItem("svans.codingCoachMode") !== "false",
   };
 
   const elements = {
@@ -355,6 +356,19 @@
       oftenDirect ? "He prefers direct answers and action-oriented wording." : "Answer his actual intent without unnecessary setup.",
       "Interpret informal spelling and fragments by context. Treat corrections as durable preferences and adapt without over-apologizing.",
     ].join(" ");
+  }
+
+  function codingCoachPreference(text) {
+    if (/\b(?:turn off|disable|stop|exit) (?:the )?(?:coding )?coach(?: mode)?\b/i.test(text)) return false;
+    if (/\b(?:coding coach|teach me (?:how )?to code|learn (?:how )?to code|code (?:things )?on my own|without relying on (?:an? )?ai|help me learn programming)\b/i.test(text)) return true;
+    return null;
+  }
+
+  function setCodingCoachMode(enabled) {
+    state.codingCoachMode = Boolean(enabled);
+    localStorage.setItem("svans.codingCoachMode", String(state.codingCoachMode));
+    const control = $("#coding-coach-mode");
+    if (control) control.checked = state.codingCoachMode;
   }
 
   function setCoreState(label, mode = "ready") {
@@ -1173,6 +1187,21 @@
     elements.voiceLink.textContent = "PROCESSING";
     logActivity(`Conversation request: ${text.slice(0, 48)}`);
 
+    const coachPreference = codingCoachPreference(text);
+    if (coachPreference !== null) {
+      setCodingCoachMode(coachPreference);
+      const reply = coachPreference
+        ? "Coding Coach mode is on. You will write the code first; I will teach the concept, give hints, review your attempt, and explain what went wrong without taking the work away from you."
+        : "Coding Coach mode is off. I can return to giving direct coding help and complete solutions when you ask for them.";
+      state.messages.push({ role: "assistant", content: reply });
+      appendMessage("assistant", reply);
+      elements.voiceLink.textContent = coachPreference ? "COACH MODE" : "CHANNEL READY";
+      showToast(coachPreference ? "CODING COACH MODE ENABLED" : "CODING COACH MODE DISABLED");
+      state.busy = false;
+      void speak(reply);
+      return;
+    }
+
     const hologramCommand = parseHologramCommand(text);
     if (hologramCommand) {
       const reply = executeHologramCommand(hologramCommand);
@@ -1234,7 +1263,7 @@
     await runLocalCommand(command, text);
 
     try {
-      const response = await desktop.chat(state.messages.slice(-30), sessionId, communicationStyleSummary());
+      const response = await desktop.chat(state.messages.slice(-30), sessionId, communicationStyleSummary(), state.codingCoachMode);
       state.messages.push({ role: "assistant", content: response.text });
       appendMessage("assistant", response.text);
       logActivity(`SVANS responded${response.orchestration?.route ? ` · route ${response.orchestration.route}` : ""}`);
@@ -1478,6 +1507,10 @@
     elements.voiceSpeed.addEventListener("change", () => {
       showToast(`SVANS SPEAKING SPEED · ${state.speechRate.toFixed(2)}×`);
     });
+    $("#coding-coach-mode").addEventListener("change", (event) => {
+      setCodingCoachMode(event.target.checked);
+      showToast(state.codingCoachMode ? "CODING COACH MODE ENABLED" : "CODING COACH MODE DISABLED");
+    });
     $("#voice-preview-button").addEventListener("click", () => {
       void speak("Good evening, Shawn. SVANS is online and ready when you are.", { preview: true });
     });
@@ -1593,6 +1626,7 @@
   function initialize() {
     elements.voiceSpeed.value = String(state.speechRate);
     elements.voiceSpeedValue.textContent = `${state.speechRate.toFixed(2)}×`;
+    $("#coding-coach-mode").checked = state.codingCoachMode;
     updateClock();
     window.setInterval(updateClock, 1000);
     bindEvents();

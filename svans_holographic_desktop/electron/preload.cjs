@@ -18,7 +18,7 @@ contextBridge.exposeInMainWorld("svansDesktop", {
     ipcRenderer.on("computer:emergency-stopped", listener);
     return () => ipcRenderer.removeListener("computer:emergency-stopped", listener);
   },
-  chat: (messages, sessionId, communicationProfile) => ipcRenderer.invoke("chat:send", { messages, sessionId, communicationProfile }),
+  chat: (messages, sessionId, communicationProfile, codingCoachMode) => ipcRenderer.invoke("chat:send", { messages, sessionId, communicationProfile, codingCoachMode }),
   synthesizeSpeech: (text) => ipcRenderer.invoke("speech:synthesize", text),
   generateHologram: (subject) => ipcRenderer.invoke("hologram:generate", subject),
   openDestination: (destination) => ipcRenderer.invoke("destination:open", destination),

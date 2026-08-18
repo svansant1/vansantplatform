@@ -348,10 +348,11 @@ function registerIpc() {
     const communicationProfile = typeof payload?.communicationProfile === "string"
       ? payload.communicationProfile.trim().slice(0, 1200)
       : "Shawn prefers natural, direct conversation.";
+    const codingCoachMode = Boolean(payload?.codingCoachMode);
     const extendedAnswer = userRequestedExtendedAnswer(latestUserText);
     messages[latestUserIndex] = {
       ...messages[latestUserIndex],
-      content: `${latestUserText}\n\n[Private SVANS conversation direction: ${communicationProfile} Respond like a familiar, intelligent human assistant speaking naturally with Shawn. Match his level of formality and directness without copying misspellings. Lead with the actual answer. ${extendedAnswer ? "Shawn requested an expanded response, so use the space genuinely needed." : "Default to only two or three short sentences. Do not add extra explanation, background, examples, headings, or a list unless they are required to answer."} Avoid canned introductions, corporate phrasing, repetitive summaries, rigid AI-style headings, and unnecessary bullet lists. Use dry humor or light sarcasm when it fits naturally, but never force it. Do not display sources, citations, reference numbers, or a Sources section unless Shawn explicitly asks for them.]`,
+      content: `${latestUserText}\n\n[Private SVANS conversation direction: ${communicationProfile} Respond like a familiar, intelligent human assistant speaking naturally with Shawn. Match his level of formality and directness without copying misspellings. Lead with the actual answer. ${extendedAnswer ? "Shawn requested an expanded response, so use the space genuinely needed." : "Default to only two or three short sentences. Do not add extra explanation, background, examples, headings, or a list unless they are required to answer."} ${codingCoachMode ? "CODING COACH MODE IS ACTIVE. Help Shawn learn to code independently. Teach one concept or give one small exercise at a time, ask him to write or predict the code first, offer a hint before a solution, review his attempt, and explain errors plainly. Do not write the complete solution unless he explicitly asks after attempting it. Never answer a personal learning question by discussing how to redesign SVANS-AI, conversation-state architecture, routing layers, or memory systems." : ""} Avoid canned introductions, corporate phrasing, repetitive summaries, rigid AI-style headings, and unnecessary bullet lists. Use dry humor or light sarcasm when it fits naturally, but never force it. Do not display sources, citations, reference numbers, or a Sources section unless Shawn explicitly asks for them.]`,
     };
 
     const response = await fetch(CHAT_ENDPOINT, {
@@ -360,7 +361,7 @@ function registerIpc() {
       body: JSON.stringify({
         messages,
         sessionId: typeof payload?.sessionId === "string" ? payload.sessionId : undefined,
-        responseMode: extendedAnswer ? "auto" : "direct",
+        responseMode: codingCoachMode ? "tutor" : extendedAnswer ? "auto" : "direct",
       }),
       signal: AbortSignal.timeout(60000),
     });
@@ -368,7 +369,14 @@ function registerIpc() {
     if (!response.ok) throw new Error(data?.error || `SVANS request failed (${response.status}).`);
     const text = data?.text ?? data?.response ?? data?.answer ?? data?.message;
     if (typeof text !== "string" || !text.trim()) throw new Error("SVANS returned an empty response.");
-    const conversationalText = userExplicitlyRequestedSources(latestUserText) ? text.trim() : removeUnrequestedSources(text);
+    let conversationalText = userExplicitlyRequestedSources(latestUserText) ? text.trim() : removeUnrequestedSources(text);
+    if (
+      codingCoachMode &&
+      !/\bSVANS(?:-AI)?\b/i.test(latestUserText) &&
+      /\b(?:SVANS-AI needs|conversation-state layer|memory gate|route-specific prompts|redesign SVANS)\b/i.test(conversationalText)
+    ) {
+      conversationalText = "That answer drifted away from your coding lesson, so I stopped it. Show me what you are trying to code, and I will help you understand the first step without writing it for you.";
+    }
     return { text: conversationalText, orchestration: data?.orchestration ?? null };
   });
 
