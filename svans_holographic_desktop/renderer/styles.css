@@ -869,6 +869,11 @@ input:focus-visible {
   font-size: 7px;
 }
 
+.conversation-header-actions { display: flex; align-items: center; gap: 12px; }
+.conversation-console > header .stop-voice-button { padding: 4px 7px; border: 1px solid rgba(255, 105, 130, .28); color: #ff91a4; background: rgba(255, 77, 104, .07); font-weight: 800; letter-spacing: .08em; }
+.conversation-console > header .stop-voice-button span { margin-right: 4px; font-size: 6px; }
+.conversation-console > header .stop-voice-button:hover { border-color: #ff6b84; color: white; background: rgba(255, 77, 104, .18); }
+
 .message-stream {
   overflow-y: auto;
   padding: 8px 12px;

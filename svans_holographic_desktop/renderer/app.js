@@ -442,6 +442,26 @@
     if (!preview) startRecognition();
   }
 
+  function stopSpeaking() {
+    const wasSpeaking = Boolean(state.audio) || Boolean(window.speechSynthesis?.speaking) || /(?:VOICE|SPEAKING|FORMING)/i.test(elements.voiceLink.textContent);
+    if (!wasSpeaking) return false;
+    state.speechRequestId += 1;
+    if (state.audio) {
+      state.audio.onended = null;
+      state.audio.onerror = null;
+      state.audio.pause();
+      state.audio.currentTime = 0;
+      state.audio = null;
+    }
+    window.speechSynthesis?.cancel();
+    setCoreState("READY");
+    elements.voiceLink.textContent = state.voiceEnabled ? "CHANNEL READY" : "OUTPUT READY";
+    showToast("SVANS VOICE STOPPED");
+    logActivity("Spoken response stopped by owner");
+    if (state.voiceEnabled) window.setTimeout(startRecognition, 120);
+    return true;
+  }
+
   function speakWithWindowsVoice(text, preview = false) {
     if (!("speechSynthesis" in window)) {
       finishSpeaking(preview);
@@ -1462,6 +1482,7 @@
     $("#voice-preview-button").addEventListener("click", () => {
       void speak("Good evening, Shawn. SVANS is online and ready when you are.", { preview: true });
     });
+    $("#stop-voice-button").addEventListener("click", stopSpeaking);
 
     $$('[data-command]').forEach((button) => {
       button.addEventListener("click", () => void runLocalCommand(button.dataset.command));
@@ -1496,6 +1517,10 @@
     });
     window.addEventListener("keydown", (event) => {
       if (event.key === "Escape") {
+        if (stopSpeaking()) {
+          event.preventDefault();
+          return;
+        }
         if (state.confirmationResolver) {
           closeActionConfirmation(false);
           return;
