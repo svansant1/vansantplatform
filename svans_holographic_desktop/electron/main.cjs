@@ -85,6 +85,10 @@ function userExplicitlyRequestedSources(text) {
   return /\b(?:sources?|citations?|cite|references?|links?|research|look (?:it )?up|search (?:the )?(?:web|internet)|verify online)\b/i.test(text);
 }
 
+function userRequestedExtendedAnswer(text) {
+  return /\b(?:explain|elaborate|expand|in detail|detailed|thorough|deep dive|break (?:it )?down|step[- ]by[- ]step|walk me through|show your work|full answer|long answer|write|draft|compose|build|create|generate|code|script|essay|report|discussion post|outline|list all|everything)\b/i.test(text);
+}
+
 function removeUnrequestedSources(text) {
   return text
     .replace(/\n*\s*(?:#{1,4}\s*)?(?:Sources?|References?):\s*[\s\S]*$/i, "")
@@ -344,9 +348,10 @@ function registerIpc() {
     const communicationProfile = typeof payload?.communicationProfile === "string"
       ? payload.communicationProfile.trim().slice(0, 1200)
       : "Shawn prefers natural, direct conversation.";
+    const extendedAnswer = userRequestedExtendedAnswer(latestUserText);
     messages[latestUserIndex] = {
       ...messages[latestUserIndex],
-      content: `${latestUserText}\n\n[Private SVANS conversation direction: ${communicationProfile} Respond like a familiar, intelligent human assistant speaking naturally with Shawn. Match his level of formality and directness without copying misspellings. Lead with the actual answer. Avoid canned introductions, corporate phrasing, repetitive summaries, rigid AI-style headings, and unnecessary bullet lists. Use dry humor or light sarcasm when it fits naturally, but never force it. Do not display sources, citations, reference numbers, or a Sources section unless Shawn explicitly asks for them.]`,
+      content: `${latestUserText}\n\n[Private SVANS conversation direction: ${communicationProfile} Respond like a familiar, intelligent human assistant speaking naturally with Shawn. Match his level of formality and directness without copying misspellings. Lead with the actual answer. ${extendedAnswer ? "Shawn requested an expanded response, so use the space genuinely needed." : "Default to only two or three short sentences. Do not add extra explanation, background, examples, headings, or a list unless they are required to answer."} Avoid canned introductions, corporate phrasing, repetitive summaries, rigid AI-style headings, and unnecessary bullet lists. Use dry humor or light sarcasm when it fits naturally, but never force it. Do not display sources, citations, reference numbers, or a Sources section unless Shawn explicitly asks for them.]`,
     };
 
     const response = await fetch(CHAT_ENDPOINT, {
@@ -355,7 +360,7 @@ function registerIpc() {
       body: JSON.stringify({
         messages,
         sessionId: typeof payload?.sessionId === "string" ? payload.sessionId : undefined,
-        responseMode: "auto",
+        responseMode: extendedAnswer ? "auto" : "direct",
       }),
       signal: AbortSignal.timeout(60000),
     });

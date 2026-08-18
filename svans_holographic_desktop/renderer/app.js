@@ -1157,8 +1157,7 @@
     return [
       `Your local systems are looking ${stable ? "stable" : "busy"}.`,
       `CPU usage is ${snapshot.cpu} percent, which is ${cpuCondition}, and memory usage is ${snapshot.memory} percent, which is ${memoryCondition}.`,
-      `${snapshot.hostname} has ${snapshot.processors} logical cores, ${snapshot.networkAdapters} active network links, and an uptime of ${formatUptime(snapshot.uptimeSeconds)}.`,
-      `The SVANS desktop and local telemetry link are operational.`,
+      `${snapshot.hostname} has ${snapshot.processors} logical cores, ${snapshot.networkAdapters} active network links, and an uptime of ${formatUptime(snapshot.uptimeSeconds)}; the SVANS desktop and telemetry link are operational.`,
     ].join(" ");
   }
 
