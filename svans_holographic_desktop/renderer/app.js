@@ -51,6 +51,17 @@
   const $ = (selector) => document.querySelector(selector);
   const $$ = (selector) => [...document.querySelectorAll(selector)];
   const sessionId = crypto.randomUUID();
+
+  function loadCommunicationProfile() {
+    const fallback = { messageCount: 0, totalWords: 0, shortMessages: 0, casualMessages: 0, directMessages: 0, correctionMessages: 0 };
+    try {
+      const saved = JSON.parse(localStorage.getItem("svans.communicationProfile") || "null");
+      return saved && typeof saved === "object" ? { ...fallback, ...saved } : fallback;
+    } catch {
+      return fallback;
+    }
+  }
+
   const state = {
     messages: [
       { role: "assistant", content: "Holographic interface online. What are we building today, Shawn?" },
@@ -76,6 +87,7 @@
     confirmationResolver: null,
     globe: null,
     universalHologram: null,
+    communicationProfile: loadCommunicationProfile(),
   };
 
   const elements = {
@@ -316,6 +328,33 @@
     wrapper.append(label, body);
     elements.messageStream.append(wrapper);
     elements.messageStream.scrollTop = elements.messageStream.scrollHeight;
+  }
+
+  function learnCommunicationStyle(text) {
+    const profile = state.communicationProfile;
+    const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
+    profile.messageCount += 1;
+    profile.totalWords += wordCount;
+    if (wordCount <= 12) profile.shortMessages += 1;
+    if (/\b(?:yeah|nah|okay|good|kinda|basically|wanna|gonna|not sure|i want)\b/i.test(text)) profile.casualMessages += 1;
+    if (/^(?:can you|could you|i want|go ahead|make|add|remove|open|show|tell|give)\b/i.test(text.trim())) profile.directMessages += 1;
+    if (/\b(?:not what i meant|isn't right|is not right|doesn't|wrong|actually|i meant|that is not|that's not)\b/i.test(text)) profile.correctionMessages += 1;
+    localStorage.setItem("svans.communicationProfile", JSON.stringify(profile));
+  }
+
+  function communicationStyleSummary() {
+    const profile = state.communicationProfile;
+    if (!profile.messageCount) return "Shawn prefers direct, relaxed, natural conversation.";
+    const averageWords = Math.max(1, Math.round(profile.totalWords / profile.messageCount));
+    const usuallyShort = profile.shortMessages / profile.messageCount > 0.45;
+    const oftenCasual = profile.casualMessages / profile.messageCount > 0.18;
+    const oftenDirect = profile.directMessages / profile.messageCount > 0.28;
+    return [
+      `Shawn's messages average about ${averageWords} words and are ${usuallyShort ? "usually concise" : "sometimes detailed"}.`,
+      oftenCasual ? "His tone is conversational and informal." : "Keep the tone relaxed rather than formal.",
+      oftenDirect ? "He prefers direct answers and action-oriented wording." : "Answer his actual intent without unnecessary setup.",
+      "Interpret informal spelling and fragments by context. Treat corrections as durable preferences and adapt without over-apologizing.",
+    ].join(" ");
   }
 
   function setCoreState(label, mode = "ready") {
@@ -1109,6 +1148,7 @@
     state.busy = true;
     elements.commandInput.value = "";
     appendMessage("user", text);
+    learnCommunicationStyle(text);
     state.messages.push({ role: "user", content: text });
     setCoreState("THINKING", "thinking");
     elements.voiceLink.textContent = "PROCESSING";
@@ -1175,7 +1215,7 @@
     await runLocalCommand(command, text);
 
     try {
-      const response = await desktop.chat(state.messages.slice(-30), sessionId);
+      const response = await desktop.chat(state.messages.slice(-30), sessionId, communicationStyleSummary());
       state.messages.push({ role: "assistant", content: response.text });
       appendMessage("assistant", response.text);
       logActivity(`SVANS responded${response.orchestration?.route ? ` · route ${response.orchestration.route}` : ""}`);

@@ -81,6 +81,19 @@ function isSpokenLoginGreeting(input) {
   return /^Good (?:morning|afternoon|evening), Shawn\. Welcome back\. S-Vans is online, the command deck is ready, and I am standing by\.$/i.test(input);
 }
 
+function userExplicitlyRequestedSources(text) {
+  return /\b(?:sources?|citations?|cite|references?|links?|research|look (?:it )?up|search (?:the )?(?:web|internet)|verify online)\b/i.test(text);
+}
+
+function removeUnrequestedSources(text) {
+  return text
+    .replace(/\n*\s*(?:#{1,4}\s*)?(?:Sources?|References?):\s*[\s\S]*$/i, "")
+    .replace(/\s*\[\d+\](?=[\s.,;:!?]|$)/g, "")
+    .replace(/[ \t]+([.,;:!?])/g, "$1")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 async function synthesizeNeuralSpeech(input, cacheGreeting = false) {
   const apiKey = openAiApiKey();
   if (!apiKey) return { available: false };
@@ -326,6 +339,15 @@ function registerIpc() {
     if (!messages.some((message) => message.role === "user")) {
       throw new Error("A user message is required.");
     }
+    const latestUserIndex = messages.findLastIndex((message) => message.role === "user");
+    const latestUserText = messages[latestUserIndex].content;
+    const communicationProfile = typeof payload?.communicationProfile === "string"
+      ? payload.communicationProfile.trim().slice(0, 1200)
+      : "Shawn prefers natural, direct conversation.";
+    messages[latestUserIndex] = {
+      ...messages[latestUserIndex],
+      content: `${latestUserText}\n\n[Private SVANS conversation direction: ${communicationProfile} Respond like a familiar, intelligent human assistant speaking naturally with Shawn. Match his level of formality and directness without copying misspellings. Lead with the actual answer. Avoid canned introductions, corporate phrasing, repetitive summaries, rigid AI-style headings, and unnecessary bullet lists. Use dry humor or light sarcasm when it fits naturally, but never force it. Do not display sources, citations, reference numbers, or a Sources section unless Shawn explicitly asks for them.]`,
+    };
 
     const response = await fetch(CHAT_ENDPOINT, {
       method: "POST",
@@ -341,7 +363,8 @@ function registerIpc() {
     if (!response.ok) throw new Error(data?.error || `SVANS request failed (${response.status}).`);
     const text = data?.text ?? data?.response ?? data?.answer ?? data?.message;
     if (typeof text !== "string" || !text.trim()) throw new Error("SVANS returned an empty response.");
-    return { text: text.trim(), orchestration: data?.orchestration ?? null };
+    const conversationalText = userExplicitlyRequestedSources(latestUserText) ? text.trim() : removeUnrequestedSources(text);
+    return { text: conversationalText, orchestration: data?.orchestration ?? null };
   });
 
   ipcMain.handle("speech:synthesize", async (event, rawText) => {
