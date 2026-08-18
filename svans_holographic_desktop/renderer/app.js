@@ -1084,6 +1084,25 @@
     return "conversation";
   }
 
+  function isLocalSystemHealthRequest(text) {
+    return /\b(?:how (?:are|is) (?:my |the )?(?:systems?|computer|pc)(?: doing| looking| running)?|systems? health|systems? status|status report|health report|computer health|pc health|local systems?|system telemetry)\b/i.test(text);
+  }
+
+  async function localSystemHealthReport() {
+    await refreshTelemetry();
+    const snapshot = state.snapshot ?? (await desktop.systemSnapshot());
+    const cpuCondition = snapshot.cpu < 70 ? "normal" : snapshot.cpu < 85 ? "elevated" : "high";
+    const memoryCondition = snapshot.memory < 75 ? "normal" : snapshot.memory < 90 ? "elevated" : "high";
+    const stable = snapshot.cpu < 85 && snapshot.memory < 90;
+    await runLocalCommand("system");
+    return [
+      `Your local systems are looking ${stable ? "stable" : "busy"}.`,
+      `CPU usage is ${snapshot.cpu} percent, which is ${cpuCondition}, and memory usage is ${snapshot.memory} percent, which is ${memoryCondition}.`,
+      `${snapshot.hostname} has ${snapshot.processors} logical cores, ${snapshot.networkAdapters} active network links, and an uptime of ${formatUptime(snapshot.uptimeSeconds)}.`,
+      `The SVANS desktop and local telemetry link are operational.`,
+    ].join(" ");
+  }
+
   async function sendMessage(rawText) {
     const text = rawText.trim();
     if (!text || state.busy) return;
@@ -1125,6 +1144,26 @@
         appendMessage("assistant", reply);
         logActivity(reply);
         setCoreState("READY");
+        void speak(reply);
+      } finally {
+        state.busy = false;
+      }
+      return;
+    }
+
+    if (isLocalSystemHealthRequest(text)) {
+      try {
+        const reply = await localSystemHealthReport();
+        state.messages.push({ role: "assistant", content: reply });
+        appendMessage("assistant", reply);
+        logActivity("Local system health report generated");
+        elements.voiceLink.textContent = "SYSTEMS NOMINAL";
+        void speak(reply);
+      } catch (error) {
+        const reply = `I could not read the local telemetry: ${error instanceof Error ? error.message : "unknown system error"}`;
+        state.messages.push({ role: "assistant", content: reply });
+        appendMessage("assistant", reply);
+        setCoreState("STANDBY");
         void speak(reply);
       } finally {
         state.busy = false;
