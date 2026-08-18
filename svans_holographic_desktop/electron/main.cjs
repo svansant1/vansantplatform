@@ -33,8 +33,17 @@ let previousCpuSample = null;
 let actionEngine = null;
 const authorizedContents = new Set();
 const authAttempts = new Map();
+const launchHidden = process.argv.includes("--hidden");
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
 
 app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
+
+if (!hasSingleInstanceLock) app.quit();
+app.on("second-instance", () => {
+  if (!mainWindow) return;
+  mainWindow.show();
+  mainWindow.focus();
+});
 
 function readEnvValue(filePath, key) {
   try {
@@ -106,7 +115,9 @@ function createWindow() {
     authorizedContents.delete(contentsId);
     authAttempts.delete(contentsId);
   });
-  mainWindow.once("ready-to-show", () => mainWindow?.show());
+  mainWindow.once("ready-to-show", () => {
+    if (!launchHidden) mainWindow?.show();
+  });
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
@@ -123,6 +134,19 @@ function toggleWindow() {
     mainWindow.show();
     mainWindow.focus();
   }
+}
+
+function enableWindowsStartup() {
+  if (process.platform !== "win32") return;
+  const startup = { openAtLogin: true, enabled: true };
+  if (process.defaultApp) {
+    startup.path = process.execPath;
+    startup.args = [path.resolve(__dirname, "main.cjs"), "--hidden"];
+  } else {
+    startup.path = process.execPath;
+    startup.args = ["--hidden"];
+  }
+  app.setLoginItemSettings(startup);
 }
 
 function readCpuPercent() {
@@ -377,8 +401,9 @@ function registerIpc() {
   });
 }
 
-app.whenReady().then(() => {
+if (hasSingleInstanceLock) app.whenReady().then(() => {
   if (process.platform === "win32") app.setAppUserModelId("com.vansantplatform.svans.holographic");
+  enableWindowsStartup();
   actionEngine = createActionEngine({
     workspaceRoot: path.resolve(__dirname, "..", ".."),
     onAudit: (entry) => mainWindow?.webContents.send("computer:audit", entry),
