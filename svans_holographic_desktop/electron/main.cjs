@@ -26,6 +26,7 @@ const MAX_AUTH_ATTEMPTS = 5;
 const LOCKOUT_MS = 30_000;
 const SPEECH_ENDPOINT = "https://api.openai.com/v1/audio/speech";
 const IMAGE_ENDPOINT = "https://api.openai.com/v1/images/generations";
+const SPEECH_INSTRUCTIONS = "Speak like a real person in a calm, warm, intelligent and confident conversational tone. Pronounce the assistant name S-Vans exactly as two connected parts: the letter S, then Vans. Keep pauses at commas and sentence endings brief and fluid, maintaining the natural momentum of a live conversation. Use subtle emotional inflection and an American English accent. Sound like a trusted personal assistant speaking directly to Shawn. Never use an announcer voice, exaggerated drama, drawn-out punctuation pauses or robotic cadence.";
 
 let mainWindow = null;
 let tray = null;
@@ -33,6 +34,7 @@ let previousCpuSample = null;
 let actionEngine = null;
 const authorizedContents = new Set();
 const authAttempts = new Map();
+const pendingSpeech = new Map();
 const launchHidden = process.argv.includes("--hidden");
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 
@@ -67,6 +69,59 @@ function openAiApiKey() {
     if (key) return key;
   }
   return "";
+}
+
+function spokenLoginGreeting() {
+  const hour = new Date().getHours();
+  const period = hour < 12 ? "morning" : hour < 18 ? "afternoon" : "evening";
+  return `Good ${period}, Shawn. Welcome back. S-Vans is online, the command deck is ready, and I am standing by.`;
+}
+
+function isSpokenLoginGreeting(input) {
+  return /^Good (?:morning|afternoon|evening), Shawn\. Welcome back\. S-Vans is online, the command deck is ready, and I am standing by\.$/i.test(input);
+}
+
+async function synthesizeNeuralSpeech(input, cacheGreeting = false) {
+  const apiKey = openAiApiKey();
+  if (!apiKey) return { available: false };
+  const cacheKey = crypto.createHash("sha256").update(`cedar-v2:${input}`).digest("hex");
+  const cacheDirectory = path.join(app.getPath("userData"), "speech-cache");
+  const cachePath = path.join(cacheDirectory, `${cacheKey}.wav`);
+  if (cacheGreeting) {
+    try {
+      const cached = fs.readFileSync(cachePath);
+      if (cached.length) return { available: true, mimeType: "audio/wav", audio: cached.toString("base64"), voice: "cedar", cached: true };
+    } catch {
+      // A cache miss continues to neural synthesis.
+    }
+  }
+  if (pendingSpeech.has(cacheKey)) return pendingSpeech.get(cacheKey);
+  const request = (async () => {
+    try {
+      const response = await fetch(SPEECH_ENDPOINT, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "gpt-4o-mini-tts", voice: "cedar", input, instructions: SPEECH_INSTRUCTIONS, response_format: "wav" }),
+        signal: AbortSignal.timeout(60_000),
+      });
+      if (!response.ok) return { available: false };
+      const audio = Buffer.from(await response.arrayBuffer());
+      if (!audio.length) return { available: false };
+      if (cacheGreeting) {
+        fs.mkdirSync(cacheDirectory, { recursive: true });
+        fs.writeFileSync(cachePath, audio);
+      }
+      return { available: true, mimeType: "audio/wav", audio: audio.toString("base64"), voice: "cedar", cached: false };
+    } catch {
+      return { available: false };
+    }
+  })();
+  pendingSpeech.set(cacheKey, request);
+  try {
+    return await request;
+  } finally {
+    pendingSpeech.delete(cacheKey);
+  }
 }
 
 function authorizationState(senderId) {
@@ -293,28 +348,7 @@ function registerIpc() {
     assertAuthorized(event);
     const input = String(rawText ?? "").trim().slice(0, 6000);
     if (!input) throw new Error("Speech text is required.");
-    const apiKey = openAiApiKey();
-    if (!apiKey) return { available: false };
-
-    const response = await fetch(SPEECH_ENDPOINT, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini-tts",
-        voice: "cedar",
-        input,
-        instructions: "Speak like a real person in a calm, warm, intelligent and confident conversational tone. Pronounce the assistant name S-Vans exactly as two connected parts: the letter S, then Vans. Keep pauses at commas and sentence endings brief and fluid, maintaining the natural momentum of a live conversation. Use subtle emotional inflection and an American English accent. Sound like a trusted personal assistant speaking directly to Shawn. Never use an announcer voice, exaggerated drama, drawn-out punctuation pauses or robotic cadence.",
-        response_format: "wav",
-      }),
-      signal: AbortSignal.timeout(60_000),
-    });
-    if (!response.ok) return { available: false };
-    const audio = Buffer.from(await response.arrayBuffer());
-    if (!audio.length) return { available: false };
-    return { available: true, mimeType: "audio/wav", audio: audio.toString("base64"), voice: "cedar" };
+    return synthesizeNeuralSpeech(input, isSpokenLoginGreeting(input));
   });
 
   ipcMain.handle("hologram:generate", async (event, rawSubject) => {
@@ -404,6 +438,7 @@ function registerIpc() {
 if (hasSingleInstanceLock) app.whenReady().then(() => {
   if (process.platform === "win32") app.setAppUserModelId("com.vansantplatform.svans.holographic");
   enableWindowsStartup();
+  void synthesizeNeuralSpeech(spokenLoginGreeting(), true);
   actionEngine = createActionEngine({
     workspaceRoot: path.resolve(__dirname, "..", ".."),
     onAudit: (entry) => mainWindow?.webContents.send("computer:audit", entry),

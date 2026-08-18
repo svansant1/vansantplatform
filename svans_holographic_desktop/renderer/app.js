@@ -184,6 +184,10 @@
     state.authenticated = true;
     elements.loginTerminal.classList.add("authorized");
     setLoginStatus("IDENTITY CONFIRMED · WELCOME, ADMIN", "success");
+    const greeting = loginGreeting();
+    state.messages.push({ role: "assistant", content: greeting });
+    appendMessage("assistant", greeting);
+    void speak(greeting);
     window.setTimeout(() => {
       document.body.classList.remove("auth-locked");
       elements.loginGate.classList.add("unlocked");
@@ -194,11 +198,7 @@
       state.telemetryTimer = window.setInterval(() => void refreshTelemetry(), 2500);
       logActivity("Administrator identity confirmed");
       showToast("WELCOME, ADMIN · SVANS COMMAND DECK ONLINE");
-      const greeting = loginGreeting();
-      state.messages.push({ role: "assistant", content: greeting });
-      appendMessage("assistant", greeting);
-      window.setTimeout(() => void speak(greeting), 250);
-    }, 620);
+    }, 180);
   }
 
   async function submitLogin() {
