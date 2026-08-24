@@ -30,18 +30,18 @@ export default function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="min-h-screen w-72 border-r border-[#17304a] bg-[#07101d]/95 text-white shadow-[18px_0_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
-      <div className="border-b border-[#17304a] px-6 py-5">
-        <h1 className="text-2xl font-bold tracking-wide">
+    <aside className="sticky top-0 z-40 w-full shrink-0 border-b border-[#17304a] bg-[#07101d]/95 text-white shadow-[0_14px_40px_rgba(0,0,0,0.22)] backdrop-blur-xl md:min-h-screen md:w-72 md:border-b-0 md:border-r md:shadow-[18px_0_60px_rgba(0,0,0,0.22)]">
+      <div className="border-b border-[#17304a] px-4 py-4 sm:px-6 md:px-6 md:py-5">
+        <h1 className="text-xl font-bold tracking-wide sm:text-2xl">
           <span className="text-cyan-300">Vansant</span>
           <span className="text-blue-400">Platform</span>
         </h1>
-        <p className="mt-1 text-sm text-zinc-400">
+        <p className="mt-1 text-xs text-zinc-400 sm:text-sm">
           AI Development Operating System
         </p>
       </div>
 
-      <nav className="space-y-2 p-4">
+      <nav className="flex gap-2 overflow-x-auto p-3 [scrollbar-width:none] md:block md:space-y-2 md:overflow-visible md:p-4 [&::-webkit-scrollbar]:hidden">
         {navItems.map((item) => {
           const Icon = item.icon;
           const active = pathname === item.href;
@@ -64,14 +64,14 @@ export default function Sidebar() {
                     window.location.href = item.href;
                   }
                 }}
-                className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm transition ${
+                className={`flex shrink-0 items-center gap-2 rounded-xl px-3 py-2.5 text-sm transition md:w-full md:gap-3 md:px-4 md:py-3 ${
                   active
                     ? "border border-cyan-300/20 bg-cyan-400/10 text-cyan-100 shadow-[inset_3px_0_0_#00d4ff]"
                     : "border border-transparent text-zinc-300 hover:border-[#17304a] hover:bg-[#0b1626] hover:text-white"
                 }`}
               >
-                <Icon size={18} />
-                <span>{item.name}</span>
+                <Icon className="shrink-0" size={18} />
+                <span className="whitespace-nowrap">{item.name}</span>
               </button>
             );
           }
@@ -80,14 +80,14 @@ export default function Sidebar() {
             <Link
               key={item.name}
               href={item.href}
-              className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm transition ${
+              className={`flex shrink-0 items-center gap-2 rounded-xl px-3 py-2.5 text-sm transition md:gap-3 md:px-4 md:py-3 ${
                 active
                   ? "border border-cyan-300/20 bg-cyan-400/10 text-cyan-100 shadow-[inset_3px_0_0_#00d4ff]"
                   : "border border-transparent text-zinc-300 hover:border-[#17304a] hover:bg-[#0b1626] hover:text-white"
               }`}
             >
-              <Icon size={18} />
-              <span>{item.name}</span>
+              <Icon className="shrink-0" size={18} />
+              <span className="whitespace-nowrap">{item.name}</span>
             </Link>
           );
         })}
