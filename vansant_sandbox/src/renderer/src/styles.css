@@ -477,7 +477,16 @@ button {
   text-overflow: ellipsis;
 }
 
+.tree-node-row {
+  position: relative;
+}
+
 .tree-diagnostic-badge {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
   min-width: 18px;
   height: 18px;
   display: inline-flex;
@@ -1849,7 +1858,7 @@ button {
 
 .problems-panel {
   border: 1px solid rgba(148, 163, 184, 0.16);
-  border-radius: 12px;
+  border-radius: 6px;
   margin-bottom: 12px;
   overflow: hidden;
   background: rgba(15, 23, 42, 0.78);
@@ -1880,7 +1889,7 @@ button {
 
 .problem-item {
   display: grid;
-  grid-template-columns: auto minmax(160px, 0.45fr) 1fr;
+  grid-template-columns: auto minmax(130px, 0.3fr) minmax(0, 1fr);
   gap: 10px;
   align-items: start;
   padding: 9px 11px;
@@ -1894,6 +1903,7 @@ button {
 }
 
 .problem-severity {
+  justify-self: start;
   border-radius: 999px;
   padding: 2px 7px;
   text-transform: uppercase;
@@ -1929,6 +1939,56 @@ button {
 
 .problem-message {
   color: #e5e7eb;
+}
+
+.terminal-problems-view {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.problem-link {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #93c5fd;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+
+.problem-link:hover {
+  text-decoration: underline;
+}
+
+.problem-link:focus-visible,
+.tree-diagnostic-badge:focus-visible {
+  outline: 2px solid #93c5fd;
+  outline-offset: 2px;
+}
+
+.problem-location > span,
+.problem-source {
+  display: block;
+  margin-top: 4px;
+  color: #a1a1aa;
+  font-size: 11px;
+}
+
+.problems-filter {
+  display: flex;
+  gap: 16px;
+  padding: 8px 11px;
+  font-size: 12px;
+}
+
+.problems-filter > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.debug-panel .problem-item {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .problems-empty {

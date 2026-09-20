@@ -21,6 +21,7 @@ type Props = {
   activePath: string | null;
   diagnosticsByPath: Record<string, DiagnosticSummary>;
   onOpenFile: (filePath: string) => void;
+  onShowProblems: (filePath: string) => void;
   onCreateEntry: (parentDir: string | null, type: EntryType) => void;
   onRenameEntry: (node: FileNode) => void;
   onDeleteEntry: (node: FileNode) => void;
@@ -53,6 +54,7 @@ function TreeNode({
   activePath,
   diagnosticsByPath,
   onOpenFile,
+  onShowProblems,
   onContextMenu,
 }: {
   node: FileNode;
@@ -60,6 +62,7 @@ function TreeNode({
   activePath: string | null;
   diagnosticsByPath: Record<string, DiagnosticSummary>;
   onOpenFile: (filePath: string) => void;
+  onShowProblems: (filePath: string) => void;
   onContextMenu: (event: React.MouseEvent, node: FileNode) => void;
 }) {
   const [expanded, setExpanded] = React.useState(false);
@@ -126,12 +129,13 @@ function TreeNode({
 
   return (
     <div>
+      <div className="tree-node-row">
       <button
         type="button"
         className={`tree-node ${
           activePath === node.path ? "tree-node-active" : ""
         }`}
-        style={{ paddingLeft: `${depth * 14 + 12}px` }}
+        style={{ paddingLeft: `${depth * 14 + 12}px`, paddingRight: diagnostics.errors + diagnostics.warnings > 0 ? 42 : undefined }}
         onClick={() => {
           if (isFile) {
             onOpenFile(node.path);
@@ -150,20 +154,23 @@ function TreeNode({
         <span className="tree-icon">{getFileIcon()}</span>
 
         <span className="tree-label">{node.name}</span>
-
+      </button>
         {(diagnostics.errors > 0 || diagnostics.warnings > 0) && (
-          <span
+          <button
+            type="button"
             className={`tree-diagnostic-badge ${
               diagnostics.errors > 0
                 ? "tree-diagnostic-badge-error"
                 : "tree-diagnostic-badge-warning"
             }`}
-            title={`${diagnostics.errors} error(s), ${diagnostics.warnings} warning(s)`}
+            title={`${diagnostics.errors} error(s), ${diagnostics.warnings} warning(s): show problems`}
+            aria-label={`Show problems in ${node.name}`}
+            onClick={() => onShowProblems(node.path)}
           >
             {diagnostics.errors > 0 ? diagnostics.errors : diagnostics.warnings}
-          </span>
+          </button>
         )}
-      </button>
+      </div>
 
       {!isFile &&
         expanded &&
@@ -175,6 +182,7 @@ function TreeNode({
             activePath={activePath}
             diagnosticsByPath={diagnosticsByPath}
             onOpenFile={onOpenFile}
+            onShowProblems={onShowProblems}
             onContextMenu={onContextMenu}
           />
         ))}
@@ -187,6 +195,7 @@ export default function FileTree({
   activePath,
   diagnosticsByPath,
   onOpenFile,
+  onShowProblems,
   onCreateEntry,
   onRenameEntry,
   onDeleteEntry,
@@ -258,6 +267,7 @@ export default function FileTree({
             activePath={activePath}
             diagnosticsByPath={diagnosticsByPath}
             onOpenFile={onOpenFile}
+            onShowProblems={onShowProblems}
             onContextMenu={openNodeMenu}
           />
         ))

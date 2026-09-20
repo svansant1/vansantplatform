@@ -139,14 +139,15 @@
           <section class="conversation-console" id="conversation-panel">
             <header>
               <div><span class="status-dot"></span> CONVERSATION CHANNEL</div>
-              <div class="conversation-header-actions"><button id="stop-voice-button" class="stop-voice-button" aria-label="Stop SVANS speaking">STOP</button><button id="clear-chat-button" aria-label="Clear conversation">CLEAR</button></div>
+              <div class="conversation-header-actions"><button id="stop-voice-button" class="stop-voice-button" aria-label="Stop the current SVANS operation">STOP</button><button id="clear-chat-button" aria-label="Clear conversation">CLEAR</button></div>
             </header>
             <div class="message-stream" id="message-stream" aria-live="polite">
               <div class="message svans-message"><span>SVANS</span><p>Holographic interface online. What are we building today, Shawn?</p></div>
             </div>
             <form class="command-input" id="command-form">
               <button type="button" id="microphone-button" class="mic-button" aria-label="Start voice conversation">●</button>
-              <input id="command-input" autocomplete="off" placeholder="Speak naturally or enter a command…" />
+              <button type="button" id="roblox-reference-button" class="reference-button" aria-label="Upload Roblox reference views" title="Upload Roblox reference views">▣</button>
+              <textarea id="command-input" rows="1" autocomplete="off" placeholder="Speak naturally or enter a command…" aria-label="Message SVANS"></textarea>
               <button type="submit" class="send-button">TRANSMIT</button>
             </form>
           </section>
@@ -172,6 +173,34 @@
             <button class="panel-action" data-command="permissions">REVIEW PERMISSIONS</button>
           </article>
 
+          <article class="hud-panel agent-panel" id="agent-panel">
+            <header><span>AGENT TASKS</span><button id="add-agent-task-button">＋</button></header>
+            <ul id="agent-task-list">
+              <li class="agent-task-empty">No agent tasks yet. Tap ＋ to give SVANS a multi-step goal.</li>
+            </ul>
+          </article>
+
+          <article class="hud-panel roblox-panel" id="roblox-panel" aria-hidden="true">
+            <header><span>ROBLOX OPERATIONS</span><div class="roblox-header-actions"><button id="refresh-roblox-button" title="Refresh Roblox statistics">⟳</button><button id="close-roblox-button" title="Close Roblox operations">×</button></div></header>
+            <div class="roblox-project-summary"><small>LOCAL PROJECTS</small><strong id="roblox-project-summary">INTERNAL TRACKING READY</strong></div>
+            <div class="roblox-stats-grid">
+              <div><small>PLAYING</small><strong id="roblox-playing">—</strong></div>
+              <div><small>VISITS</small><strong id="roblox-visits">—</strong></div>
+              <div><small>PLAYERS</small><strong id="roblox-players">—</strong></div>
+              <div><small>ROBUX</small><strong id="roblox-robux">—</strong></div>
+            </div>
+            <div class="roblox-config-row"><input id="roblox-universe-id" inputmode="numeric" placeholder="Universe ID" aria-label="Roblox Universe ID" /><button id="save-roblox-config">LINK</button></div>
+            <div class="roblox-agent-state"><span class="status-dot"></span><strong id="roblox-agent-status">LOCAL BUILDER READY</strong><small>PUBLISHING OWNER-ONLY</small></div>
+            <button class="panel-action" id="build-roblox-button">BUILD ROBLOX GAME</button>
+          </article>
+
+          <article class="hud-panel business-panel" id="business-panel">
+            <header><span>BUSINESS OPS</span><button id="refresh-business-button">⟳</button></header>
+            <ul id="business-summary-list">
+              <li class="business-empty">No business data yet. Try "add lead", "log revenue", or "show business summary".</li>
+            </ul>
+          </article>
+
           <article class="hud-panel activity-panel" id="activity-panel">
             <header><span>ACTIVITY STREAM</span><i>AUDITED</i></header>
             <ol id="activity-list">
@@ -190,6 +219,7 @@
         <button data-command="browser"><span>◎</span><strong>BROWSER</strong><small>RESEARCH</small></button>
         <button data-command="debugger"><span>⌁</span><strong>DEBUGGER</strong><small>DIAGNOSTICS</small></button>
         <button data-command="shield"><span>⬡</span><strong>SHIELD</strong><small>GUARDIAN</small></button>
+        <button data-command="roblox" id="roblox-context-tab" class="contextual-module-tab" hidden><span>◈</span><strong>ROBLOX</strong><small>GAME AGENT</small><b id="roblox-project-badge">1</b></button>
         <button id="compact-button"><span>⊙</span><strong>AMBIENT</strong><small>COMPACT ORB</small></button>
       </nav>
     </main>
@@ -199,19 +229,115 @@
       <p>SVANS can observe or act only through capabilities you explicitly allow. Sensitive actions still require confirmation.</p>
       <div class="permission-list">
         <label><span><strong>System telemetry</strong><small>CPU, memory, uptime and device status</small></span><input type="checkbox" checked disabled /></label>
-        <label><span><strong>Microphone</strong><small>Natural voice conversation</small></span><input id="microphone-permission" type="checkbox" /></label>
+        <label><span><strong>Microphone</strong><small>Natural voice conversation</small></span><input id="microphone-permission" type="checkbox" checked /></label>
         <label><span><strong>Spoken responses</strong><small>SVANS answers aloud with neural speech</small></span><input id="spoken-output-permission" type="checkbox" checked /></label>
         <label class="voice-profile-row"><span><strong>SVANS neural voice</strong><small>Cedar · AI-generated voice · Windows fallback</small></span><select id="voice-profile" aria-label="Fallback voice profile"><option>Detecting fallback voices…</option></select></label>
         <label class="voice-speed-row"><span><strong>Speaking speed</strong><small>Adjust how quickly SVANS talks</small></span><span class="voice-speed-control"><input id="voice-speed" type="range" min="0.7" max="1.3" step="0.05" value="1" aria-label="SVANS speaking speed" /><output id="voice-speed-value" for="voice-speed">1.00×</output></span></label>
         <label><span><strong>Coding Coach mode</strong><small>Teach, hint, review, and let you write the code</small></span><input id="coding-coach-mode" type="checkbox" /></label>
         <label><span><strong>Owner files</strong><small>Approved personal and project folders</small></span><input data-computer-permission="files" type="checkbox" checked /></label>
         <label><span><strong>Applications and games</strong><small>Discover and launch Start menu applications</small></span><input data-computer-permission="apps" type="checkbox" checked /></label>
+        <label><span><strong>Roblox Studio development</strong><small>Create, edit, test, debug, save, and monitor local Roblox projects · publishing excluded</small></span><input type="checkbox" checked disabled /></label>
         <label><span><strong>Browser destinations</strong><small>Open validated HTTP and HTTPS addresses</small></span><input data-computer-permission="browser" type="checkbox" checked /></label>
         <label><span><strong>Process control</strong><small>Inspect and close unprotected applications</small></span><input data-computer-permission="processes" type="checkbox" checked /></label>
-        <label class="admin-permission"><span><strong>Administrator Guardian</strong><small>Named system actions with confirmation and UAC</small></span><input data-computer-permission="admin" type="checkbox" /></label>
-        <label><span><strong>Screen context</strong><small>Planned: active application and walkthrough overlays</small></span><input type="checkbox" disabled /></label>
-        <label><span><strong>External actions</strong><small>Email, social posts and connected services</small></span><input type="checkbox" disabled /></label>
+        <label class="admin-permission"><span><strong>Administrator Guardian</strong><small>Named system actions with confirmation and UAC</small></span><input data-computer-permission="admin" type="checkbox" checked /></label>
+        <label><span><strong>Web research</strong><small>Read-only page fetch and web search</small></span><input data-computer-permission="research" type="checkbox" checked /></label>
+        <label><span><strong>Social connectors</strong><small>Facebook, Instagram, YouTube, X, Threads, TikTok, Reddit, Discord</small></span><input data-computer-permission="social" type="checkbox" checked /></label>
+        <label><span><strong>Screen context</strong><small>Allow active-application context and walkthrough overlays when available</small></span><input data-computer-permission="screen" type="checkbox" checked /></label>
       </div>
+
+      <div class="connector-panel" id="connector-panel">
+        <header><small>SVANS CONNECTORS</small><h3>Linked Accounts &amp; Keys</h3></header>
+        <p>Add credentials here to activate connected services. Keys are encrypted at rest and sent only to the service they authorize.</p>
+        <div class="connector-row" data-connector="search:api_key">
+          <span><strong>Web search</strong><small>Brave Search API key</small></span>
+          <span class="connector-status" data-connector-status="search:api_key">Not connected</span>
+          <input type="password" placeholder="Paste API key" data-connector-input="search:api_key" />
+          <button data-connector-save="search:api_key">Save</button>
+        </div>
+        <div class="connector-row" data-connector="reddit:access_token">
+          <span><strong>Reddit</strong><small>OAuth access token</small></span>
+          <span class="connector-status" data-connector-status="reddit:access_token">Not connected</span>
+          <input type="password" placeholder="Paste access token" data-connector-input="reddit:access_token" />
+          <button data-connector-save="reddit:access_token">Save</button>
+        </div>
+        <div class="connector-row" data-connector="x:access_token">
+          <span><strong>X</strong><small>OAuth 2.0 user token (tweet.write)</small></span>
+          <span class="connector-status" data-connector-status="x:access_token">Not connected</span>
+          <input type="password" placeholder="Paste access token" data-connector-input="x:access_token" />
+          <button data-connector-save="x:access_token">Save</button>
+        </div>
+        <div class="connector-row" data-connector="discord:bot_token">
+          <span><strong>Discord</strong><small>Bot token for your own server</small></span>
+          <span class="connector-status" data-connector-status="discord:bot_token">Not connected</span>
+          <input type="password" placeholder="Paste bot token" data-connector-input="discord:bot_token" />
+          <button data-connector-save="discord:bot_token">Save</button>
+        </div>
+        <div class="connector-row" data-connector="facebook:page_id">
+          <span><strong>Facebook</strong><small>Page ID</small></span>
+          <span class="connector-status" data-connector-status="facebook:page_id">Not connected</span>
+          <input type="text" placeholder="Page ID" data-connector-input="facebook:page_id" />
+          <button data-connector-save="facebook:page_id">Save</button>
+        </div>
+        <div class="connector-row" data-connector="facebook:page_access_token">
+          <span><strong>Facebook</strong><small>Page Access Token</small></span>
+          <span class="connector-status" data-connector-status="facebook:page_access_token">Not connected</span>
+          <input type="password" placeholder="Paste Page Access Token" data-connector-input="facebook:page_access_token" />
+          <button data-connector-save="facebook:page_access_token">Save</button>
+        </div>
+        <div class="connector-row" data-connector="instagram:ig_user_id">
+          <span><strong>Instagram</strong><small>Business/Creator account ID</small></span>
+          <span class="connector-status" data-connector-status="instagram:ig_user_id">Not connected</span>
+          <input type="text" placeholder="IG User ID" data-connector-input="instagram:ig_user_id" />
+          <button data-connector-save="instagram:ig_user_id">Save</button>
+        </div>
+        <div class="connector-row" data-connector="instagram:access_token">
+          <span><strong>Instagram</strong><small>Graph API access token</small></span>
+          <span class="connector-status" data-connector-status="instagram:access_token">Not connected</span>
+          <input type="password" placeholder="Paste access token" data-connector-input="instagram:access_token" />
+          <button data-connector-save="instagram:access_token">Save</button>
+        </div>
+        <div class="connector-row" data-connector="threads:user_id">
+          <span><strong>Threads</strong><small>Threads user ID</small></span>
+          <span class="connector-status" data-connector-status="threads:user_id">Not connected</span>
+          <input type="text" placeholder="Threads user ID" data-connector-input="threads:user_id" />
+          <button data-connector-save="threads:user_id">Save</button>
+        </div>
+        <div class="connector-row" data-connector="threads:access_token">
+          <span><strong>Threads</strong><small>OAuth access token</small></span>
+          <span class="connector-status" data-connector-status="threads:access_token">Not connected</span>
+          <input type="password" placeholder="Paste access token" data-connector-input="threads:access_token" />
+          <button data-connector-save="threads:access_token">Save</button>
+        </div>
+        <div class="connector-row" data-connector="youtube:access_token">
+          <span><strong>YouTube</strong><small>Data API v3 OAuth token</small></span>
+          <span class="connector-status" data-connector-status="youtube:access_token">Not connected</span>
+          <input type="password" placeholder="Paste access token" data-connector-input="youtube:access_token" />
+          <button data-connector-save="youtube:access_token">Save</button>
+        </div>
+        <div class="connector-row" data-connector="roblox:open_cloud_key">
+          <span><strong>Roblox private analytics</strong><small>Owner-created Open Cloud key with read-only Data Store access · never grants publishing</small></span>
+          <span class="connector-status" data-connector-status="roblox:open_cloud_key">Not connected</span>
+          <input type="password" placeholder="Paste read-only Open Cloud key" data-connector-input="roblox:open_cloud_key" />
+          <button data-connector-save="roblox:open_cloud_key">Save</button>
+        </div>
+        <div class="connector-row" data-connector="tiktok:access_token">
+          <span><strong>TikTok</strong><small>Content Posting API token (private until app audit)</small></span>
+          <span class="connector-status" data-connector-status="tiktok:access_token">Not connected</span>
+          <input type="password" placeholder="Paste access token" data-connector-input="tiktok:access_token" />
+          <button data-connector-save="tiktok:access_token">Save</button>
+        </div>
+        <div class="connector-row connector-unavailable">
+          <span><strong>Online 3D Libraries</strong><small>Built in · searches verified public GLB assets from Smithsonian Open Access and Khronos</small></span>
+          <span class="connector-status connected">Active · no API key</span>
+        </div>
+        <div class="connector-row connector-unavailable">
+          <span><strong>Snapchat</strong><small>No public API exists for posting to a personal account — Snap Kit only opens their own share sheet client-side.</small></span>
+        </div>
+        <div class="connector-row connector-unavailable">
+          <span><strong>MySpace</strong><small>No public developer API currently exists to connect to.</small></span>
+        </div>
+      </div>
+
       <button class="voice-preview-button" id="voice-preview-button">PREVIEW HUMAN-LIKE VOICE</button>
       <button class="emergency-stop-button" id="emergency-stop-button">EMERGENCY STOP · CTRL + ALT + SHIFT + ESC</button>
       <div class="permission-note">Sensitive and external actions remain in ASK mode even when a capability is connected.</div>
@@ -228,7 +354,26 @@
       </div>
     </section>
 
+    <section class="roblox-reference-modal" id="roblox-reference-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="roblox-reference-title">
+      <div class="reference-card">
+        <header><div><small>SVANS VISUAL ARCHITECT</small><h2 id="roblox-reference-title">Multi-View Roblox Reference</h2></div><button type="button" id="roblox-reference-close">×</button></header>
+        <p>Upload the four sides and a top view. An interior view is optional. Keep the same object centered in every image.</p>
+        <div class="reference-view-grid">
+          <label data-reference-role="front"><input type="file" accept="image/png,image/jpeg,image/webp" /><span>FRONT</span><small>Required</small><img alt="Front preview" /></label>
+          <label data-reference-role="back"><input type="file" accept="image/png,image/jpeg,image/webp" /><span>BACK</span><small>Required</small><img alt="Back preview" /></label>
+          <label data-reference-role="left"><input type="file" accept="image/png,image/jpeg,image/webp" /><span>LEFT</span><small>Required</small><img alt="Left preview" /></label>
+          <label data-reference-role="right"><input type="file" accept="image/png,image/jpeg,image/webp" /><span>RIGHT</span><small>Required</small><img alt="Right preview" /></label>
+          <label data-reference-role="top"><input type="file" accept="image/png,image/jpeg,image/webp" /><span>TOP</span><small>Required</small><img alt="Top preview" /></label>
+          <label data-reference-role="interior"><input type="file" accept="image/png,image/jpeg,image/webp" /><span>INTERIOR</span><small>Optional</small><img alt="Interior preview" /></label>
+        </div>
+        <div class="reference-status" id="roblox-reference-status">0 OF 5 REQUIRED VIEWS LOADED</div>
+        <footer><button type="button" id="roblox-reference-cancel">CANCEL</button><button type="button" id="roblox-reference-analyze">ANALYZE REFERENCES</button></footer>
+      </div>
+    </section>
+
     <div class="toast" id="toast" role="status"></div>
+    <script type="module" src="hologram-3d.js"></script>
+    <script src="roblox-intent.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

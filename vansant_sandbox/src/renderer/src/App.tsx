@@ -10,11 +10,13 @@ import AIAssistantPanel from "./components/AIAssistantPanel";
 import TrainingPanel from "./components/TrainingPanel";
 import DebugPanel from "./components/DebugPanel";
 import PracticePanel from "./components/PracticePanel";
+import { collectEditorDiagnostics } from "./components/problems";
 import type {
-  DiagnosticSummary,
+  FileDiagnostics,
   FileNode,
   GitStatus,
   OpenTab,
+  Problem,
   RunResult,
   TrashEntry,
 } from "./components/types";
@@ -347,9 +349,63 @@ export default function App() {
     useState<TerminalRunRequest | null>(null);
   const textInputResolver = useRef<((value: string | null) => void) | null>(null);
   const activeRunIdRef = useRef(0);
+  const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+  const pendingProblemRef = useRef<Problem | null>(null);
+  const [problemsRequest, setProblemsRequest] = useState<{ id: number; path: string } | null>(null);
   const [diagnosticsByPath, setDiagnosticsByPath] = useState<
-    Record<string, DiagnosticSummary>
+    Record<string, FileDiagnostics>
   >({});
+
+  const diagnosticPaths = JSON.stringify(openTabs.filter((tab) => tab.kind === "text").map((tab) => tab.path));
+  useEffect(() => {
+    const paths = JSON.parse(diagnosticPaths) as string[];
+    const refresh = () => {
+      const next: Record<string, FileDiagnostics> = {};
+      for (const filePath of paths) {
+        const markers = monaco.editor.getModelMarkers({ resource: monaco.Uri.parse(filePath) });
+        const diagnostics = collectEditorDiagnostics(filePath, markers);
+        if (diagnostics.problems.length) next[filePath] = diagnostics;
+      }
+      setDiagnosticsByPath((current) => JSON.stringify(current) === JSON.stringify(next) ? current : next);
+    };
+    refresh();
+    const listener = monaco.editor.onDidChangeMarkers(refresh);
+    return () => listener.dispose();
+  }, [diagnosticPaths]);
+
+  function revealPendingProblem() {
+    const editor = editorRef.current;
+    const problem = pendingProblemRef.current;
+    const model = editor?.getModel();
+    if (!editor || !model || !problem?.file || model.uri.toString() !== monaco.Uri.parse(problem.file).toString()) return;
+    const range = model.validateRange({
+      startLineNumber: problem.line ?? 1,
+      startColumn: problem.column ?? 1,
+      endLineNumber: problem.endLine ?? problem.line ?? 1,
+      endColumn: problem.endColumn ?? problem.column ?? 1,
+    });
+    editor.setSelection(range);
+    editor.revealRangeInCenter(range);
+    editor.focus();
+    pendingProblemRef.current = null;
+  }
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(revealPendingProblem);
+    return () => cancelAnimationFrame(frame);
+  }, [activePath, trainingOpen, practiceOpen]);
+
+  async function selectProblem(problem: Problem) {
+    if (!problem.file) return;
+    const normalized = normalizePath(problem.file);
+    const file = /^(?:[A-Za-z]:\/|\/)/.test(normalized) || !workspacePath
+      ? problem.file
+      : `${workspacePath}/${problem.file}`;
+    const existing = openTabs.find((tab) => normalizePath(tab.path).toLowerCase() === normalizePath(file).toLowerCase());
+    pendingProblemRef.current = { ...problem, file: existing?.path ?? file };
+    await openFile(existing?.path ?? file);
+    requestAnimationFrame(revealPendingProblem);
+  }
 
   function requestTextInput(
     title: string,
@@ -598,30 +654,6 @@ export default function App() {
 
   function resetImageZoom() {
     setImageZoom(DEFAULT_IMAGE_ZOOM);
-  }
-
-  function updateDiagnosticsForPath(
-    filePath: string,
-    markers: monaco.editor.IMarker[],
-  ) {
-    const errors = markers.filter(
-      (marker) => marker.severity === monaco.MarkerSeverity.Error,
-    ).length;
-    const warnings = markers.filter(
-      (marker) => marker.severity === monaco.MarkerSeverity.Warning,
-    ).length;
-
-    setDiagnosticsByPath((current) => {
-      const next = { ...current };
-
-      if (errors === 0 && warnings === 0) {
-        delete next[filePath];
-      } else {
-        next[filePath] = { errors, warnings };
-      }
-
-      return next;
-    });
   }
 
   async function refreshTree(folderPath: string) {
@@ -1123,6 +1155,7 @@ export default function App() {
       const runId = activeRunIdRef.current + 1;
       activeRunIdRef.current = runId;
       setRunning(true);
+      setRunResult(null);
       setStatusMessage(`Running ${activeTab.name}...`);
 
       const result = await window.sandboxApi.runFile(
@@ -1133,7 +1166,7 @@ export default function App() {
 
       if (activeRunIdRef.current !== runId) return null;
 
-      setRunResult(result);
+      setRunResult({ ...result, filePath: activeTab.path });
 
       if (workspacePath) {
         await refreshTree(workspacePath);
@@ -1506,6 +1539,7 @@ export default function App() {
             activePath={activePath}
             diagnosticsByPath={diagnosticsByPath}
             onOpenFile={openFile}
+            onShowProblems={(path) => setProblemsRequest({ id: Date.now(), path })}
             onCreateEntry={(parentDir, type) => createEntry(type, parentDir)}
             onRenameEntry={renameEntry}
             onDeleteEntry={deleteEntry}
@@ -1640,9 +1674,15 @@ export default function App() {
                 language={getLanguage(activeTab.path)}
                 value={activeTab.content}
                 onChange={updateActiveContent}
-                onValidate={(markers) =>
-                  updateDiagnosticsForPath(activeTab.path, markers)
-                }
+                onMount={(editor) => {
+                  editorRef.current = editor;
+                  const listener = editor.onDidChangeModel(() => requestAnimationFrame(revealPendingProblem));
+                  editor.onDidDispose(() => {
+                    listener.dispose();
+                    if (editorRef.current === editor) editorRef.current = null;
+                  });
+                  revealPendingProblem();
+                }}
                 options={{
                   minimap: { enabled: true },
                   fontSize: editorFontSize,
@@ -1687,6 +1727,7 @@ export default function App() {
             running={running}
             onDebugFile={() => void debugActiveFile()}
             onClose={() => setDebugOpen(false)}
+            onSelectProblem={selectProblem}
           />
         )}
       </div>
@@ -1703,6 +1744,9 @@ export default function App() {
         workspacePath={workspacePath}
         height={terminalHeight}
         runRequest={terminalRunRequest}
+        diagnosticsByPath={diagnosticsByPath}
+        problemsRequest={problemsRequest}
+        onSelectProblem={selectProblem}
       />
 
       <StatusBar

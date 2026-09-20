@@ -1,57 +1,23 @@
-import type { DiagnosticSummary, OpenTab, RunResult } from "./types";
+import type { DiagnosticSummary, FileDiagnostics, OpenTab, Problem, RunResult } from "./types";
+import ProblemList from "./ProblemList";
+import { parseRunProblems } from "./problems";
 
 type DebugPanelProps = {
   activeTab: OpenTab | null;
   runResult: RunResult | null;
-  diagnosticsByPath: Record<string, DiagnosticSummary>;
+  diagnosticsByPath: Record<string, FileDiagnostics>;
   running: boolean;
   onDebugFile: () => void;
   onClose: () => void;
+  onSelectProblem: (problem: Problem) => void;
 };
 
-type DebugProblem = {
-  line?: number;
-  column?: number;
-  message: string;
-};
 
 function basename(filePath: string): string {
   const normalized = filePath.replace(/\\/g, "/");
   return normalized.split("/").pop() || filePath;
 }
 
-function parseDebugProblems(result: RunResult | null): DebugProblem[] {
-  if (!result) return [];
-
-  const output = `${result.stderr}\n${result.stdout}`;
-  const lines = output
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  const problems: DebugProblem[] = [];
-
-  for (const line of lines) {
-    const pythonMatch = line.match(/File ".*?", line (\d+)/);
-    const jsMatch = line.match(/:(\d+):(\d+)\)?$/);
-
-    if (/error|exception|traceback|syntax/i.test(line) || pythonMatch || jsMatch) {
-      problems.push({
-        line: pythonMatch ? Number(pythonMatch[1]) : jsMatch ? Number(jsMatch[1]) : undefined,
-        column: jsMatch ? Number(jsMatch[2]) : undefined,
-        message: line,
-      });
-    }
-  }
-
-  if (problems.length === 0 && result.exitCode !== 0) {
-    problems.push({
-      message: result.stderr.trim() || result.stdout.trim() || "Process exited with an error.",
-    });
-  }
-
-  return problems.slice(0, 8);
-}
 
 function buildDebugSummary(
   activeTab: OpenTab | null,
@@ -60,7 +26,6 @@ function buildDebugSummary(
 ): string {
   if (!activeTab) return "Open a code file to start debugging.";
   if (activeTab.kind !== "text") return "Image files cannot be debugged.";
-  if (activeTab.isDirty) return "Save the file before debugging for the cleanest result.";
   if (diagnostics && diagnostics.errors > 0) return "Fix editor errors before running.";
   if (runResult && !runResult.ok) return "The latest run found runtime errors.";
   if (runResult?.ok) return "The latest run completed without runtime errors.";
@@ -75,9 +40,10 @@ export default function DebugPanel({
   running,
   onDebugFile,
   onClose,
+  onSelectProblem,
 }: DebugPanelProps) {
   const activeDiagnostics = activeTab ? diagnosticsByPath[activeTab.path] ?? null : null;
-  const problems = parseDebugProblems(runResult);
+  const problems = parseRunProblems(runResult);
   const activeTextTab = activeTab?.kind === "text" ? activeTab : null;
   const canDebug = Boolean(activeTextTab && !running);
 
@@ -130,28 +96,23 @@ export default function DebugPanel({
 
       <div className="debug-card">
         <div className="debug-section-title">
+          <span>Editor Issues</span>
+          <strong>{activeDiagnostics?.problems.length ?? 0}</strong>
+        </div>
+        <ProblemList problems={activeDiagnostics?.problems ?? []} onSelect={onSelectProblem} emptyMessage="No editor issues reported for this file." />
+      </div>
+
+      <div className="debug-card">
+        <div className="debug-section-title">
           <span>Runtime Problems</span>
           <strong>{problems.length}</strong>
         </div>
 
-        {problems.length ? (
-          <div className="debug-problem-list">
-            {problems.map((problem, index) => (
-              <div key={`${problem.message}_${index}`} className="debug-problem">
-                <span>
-                  {problem.line
-                    ? `Line ${problem.line}${problem.column ? `:${problem.column}` : ""}`
-                    : "Runtime"}
-                </span>
-                <p>{problem.message}</p>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="debug-muted">
-            {runResult ? "No runtime problems detected in the latest run." : "Run Debug File to capture runtime output."}
-          </p>
-        )}
+        <ProblemList
+          problems={problems}
+          onSelect={onSelectProblem}
+          emptyMessage={runResult ? "No runtime problems detected in the latest run." : "No run results yet."}
+        />
       </div>
 
       <div className="debug-card">

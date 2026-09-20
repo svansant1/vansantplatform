@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Terminal, type ILink } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
-import type { RunResult } from "./types";
+import type { FileDiagnostics, Problem, RunResult } from "./types";
+import ProblemList from "./ProblemList";
+import { parseRunProblems } from "./problems";
 
 type Props = {
   result: RunResult | null;
@@ -10,6 +12,9 @@ type Props = {
   loading: boolean;
   workspacePath?: string | null;
   height: number;
+  diagnosticsByPath: Record<string, FileDiagnostics>;
+  problemsRequest: { id: number; path: string } | null;
+  onSelectProblem: (problem: Problem) => void;
   runRequest?: {
     id: number;
     command: string;
@@ -29,13 +34,6 @@ type TerminalSession = {
   cwd: string;
 };
 
-type RunProblem = {
-  file?: string;
-  line?: number;
-  column?: number;
-  severity: "error" | "warning" | "info";
-  message: string;
-};
 
 const TERMINAL_URL_PATTERN = /\bhttps?:\/\/[^\s<>"'`]+/gi;
 const TRAILING_URL_PUNCTUATION = /[),.;:!?]+$/;
@@ -83,109 +81,6 @@ function getTerminalUrlLinks(
   return links.length > 0 ? links : undefined;
 }
 
-function addProblem(
-  problems: RunProblem[],
-  nextProblem: RunProblem,
-): void {
-  const key = `${nextProblem.file ?? ""}:${nextProblem.line ?? ""}:${
-    nextProblem.column ?? ""
-  }:${nextProblem.message}`;
-
-  const exists = problems.some((problem) => {
-    const problemKey = `${problem.file ?? ""}:${problem.line ?? ""}:${
-      problem.column ?? ""
-    }:${problem.message}`;
-
-    return problemKey === key;
-  });
-
-  if (!exists) {
-    problems.push(nextProblem);
-  }
-}
-
-function parseRunProblems(result: RunResult | null): RunProblem[] {
-  if (!result) return [];
-
-  const problems: RunProblem[] = [];
-  const output = `${result.stderr}\n${result.stdout}`;
-  const lines = output.split(/\r?\n/);
-
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index].trim();
-    if (!line) continue;
-
-    const tsMatch = line.match(
-      /^(.+?)\((\d+),(\d+)\):\s+(error|warning)\s+(TS\d+):\s+(.+)$/i,
-    );
-
-    if (tsMatch) {
-      addProblem(problems, {
-        file: tsMatch[1],
-        line: Number(tsMatch[2]),
-        column: Number(tsMatch[3]),
-        severity: tsMatch[4].toLowerCase() === "warning" ? "warning" : "error",
-        message: `${tsMatch[5]}: ${tsMatch[6]}`,
-      });
-      continue;
-    }
-
-    const javaMatch = line.match(/^(.+?\.java):(\d+):\s+(error|warning):\s+(.+)$/i);
-
-    if (javaMatch) {
-      addProblem(problems, {
-        file: javaMatch[1],
-        line: Number(javaMatch[2]),
-        severity:
-          javaMatch[3].toLowerCase() === "warning" ? "warning" : "error",
-        message: javaMatch[4],
-      });
-      continue;
-    }
-
-    const genericMatch = line.match(/^(.+?):(\d+):(\d+):\s+(.+)$/);
-
-    if (genericMatch) {
-      addProblem(problems, {
-        file: genericMatch[1],
-        line: Number(genericMatch[2]),
-        column: Number(genericMatch[3]),
-        severity: /warning/i.test(genericMatch[4]) ? "warning" : "error",
-        message: genericMatch[4],
-      });
-      continue;
-    }
-
-    const pythonMatch = line.match(/^File "(.+?)", line (\d+)(?:, in .*)?$/);
-
-    if (pythonMatch) {
-      const nextLine = lines
-        .slice(index + 1)
-        .map((candidate) => candidate.trim())
-        .find(Boolean);
-
-      addProblem(problems, {
-        file: pythonMatch[1],
-        line: Number(pythonMatch[2]),
-        severity: "error",
-        message: nextLine || "Python traceback",
-      });
-    }
-  }
-
-  if (problems.length === 0 && result.exitCode !== 0) {
-    const fallbackMessage =
-      lines.map((line) => line.trim()).find(Boolean) ||
-      "The run finished with an error, but no file location was reported.";
-
-    addProblem(problems, {
-      severity: "error",
-      message: fallbackMessage,
-    });
-  }
-
-  return problems.slice(0, 8);
-}
 
 export default function TerminalPanel({
   result,
@@ -194,8 +89,12 @@ export default function TerminalPanel({
   workspacePath,
   height,
   runRequest,
+  diagnosticsByPath,
+  problemsRequest,
+  onSelectProblem,
 }: Props) {
-  const [viewMode, setViewMode] = useState<"terminal" | "output">("terminal");
+  const [viewMode, setViewMode] = useState<"terminal" | "output" | "problems">("terminal");
+  const [problemPath, setProblemPath] = useState<string | null>(null);
   const [profiles, setProfiles] = useState<TerminalProfile[]>([]);
   const [sessions, setSessions] = useState<TerminalSession[]>([]);
   const [activeTerminalId, setActiveTerminalId] = useState<string | null>(null);
@@ -214,6 +113,22 @@ export default function TerminalPanel({
   );
   const processedRunRequestRef = useRef<number | null>(null);
   const runProblems = useMemo(() => parseRunProblems(result), [result]);
+  const editorProblems = useMemo(() => Object.values(diagnosticsByPath).flatMap((entry) => entry.problems), [diagnosticsByPath]);
+  const normalize = (path: string) => path.replace(/\\/g, "/").toLowerCase();
+  const matchesPath = (problem: Problem) => !problemPath || Boolean(problem.file && (
+    normalize(problem.file) === normalize(problemPath) || normalize(problem.file).startsWith(`${normalize(problemPath)}/`)
+  ));
+  const visibleEditorProblems = editorProblems.filter(matchesPath);
+  const visibleRunProblems = runProblems.filter(matchesPath);
+  const problemCount = editorProblems.length + runProblems.length;
+
+  useEffect(() => {
+    if (!problemsRequest) return;
+    setProblemPath(problemsRequest.path);
+    setViewMode("problems");
+  }, [problemsRequest]);
+
+  useEffect(() => setProblemPath(null), [workspacePath]);
 
   const activeSession = useMemo(
     () =>
@@ -604,12 +519,14 @@ export default function TerminalPanel({
   return (
     <section className="terminal-panel" style={{ height }}>
       <div className="panel-title-row">
-        <h3>{viewMode === "terminal" ? "Terminal" : "Output"}</h3>
+        <h3>{viewMode === "terminal" ? "Terminal" : viewMode === "problems" ? "Problems" : "Output"}</h3>
         <span className="status-pill">
           {viewMode === "terminal"
             ? activeSession
               ? activeSession.label
               : "No Session"
+            : viewMode === "problems"
+              ? `${visibleEditorProblems.length + visibleRunProblems.length} found`
             : loading
               ? "Running"
               : "Ready"}
@@ -631,6 +548,14 @@ export default function TerminalPanel({
             onClick={() => setViewMode("output")}
           >
             Output
+          </button>
+          <button
+            type="button"
+            className={`terminal-tab ${viewMode === "problems" ? "terminal-tab-active" : ""}`}
+            aria-pressed={viewMode === "problems"}
+            onClick={() => { setProblemPath(null); setViewMode("problems"); }}
+          >
+            Problems ({problemCount})
           </button>
         </div>
 
@@ -675,6 +600,23 @@ export default function TerminalPanel({
           </div>
         ) : null}
       </div>
+
+      {viewMode === "problems" && (
+        <div className="terminal-problems-view">
+          {problemPath && (
+            <div className="problems-filter">
+              <span title={problemPath}>{problemPath.split(/[/\\]/).pop()}</span>
+              <button type="button" className="problem-link" onClick={() => setProblemPath(null)}>Show all</button>
+            </div>
+          )}
+          <div className="problems-header"><span>Editor issues</span><span>{visibleEditorProblems.length}</span></div>
+          <ProblemList problems={visibleEditorProblems} onSelect={onSelectProblem} emptyMessage="No editor issues reported for open files." />
+          {result && <>
+            <div className="problems-header"><span>Last run{result.filePath ? `: ${result.filePath.split(/[/\\]/).pop()}` : ""}</span><span>{visibleRunProblems.length}</span></div>
+            <ProblemList problems={visibleRunProblems} onSelect={onSelectProblem} emptyMessage={runProblems.length ? "No run issues for this selection." : "No issues reported by the last run."} />
+          </>}
+        </div>
+      )}
 
       <div
         className={`terminal-live-view ${
@@ -749,40 +691,15 @@ export default function TerminalPanel({
               <div className="problems-header">
                 <span>Problems</span>
                 <span>
-                  {result.ok ? "No run errors" : `${runProblems.length} found`}
+                  {runProblems.length ? `${runProblems.length} found` : "No run errors"}
                 </span>
               </div>
 
-              {runProblems.length > 0 ? (
-                <div className="problems-list">
-                  {runProblems.map((problem, index) => (
-                    <div
-                      key={`${problem.file ?? "run"}-${problem.line ?? index}-${problem.message}`}
-                      className="problem-item"
-                    >
-                      <span className={`problem-severity problem-${problem.severity}`}>
-                        {problem.severity}
-                      </span>
-                      <span className="problem-location">
-                        {problem.file
-                          ? `${problem.file}${
-                              problem.line
-                                ? `:${problem.line}${problem.column ? `:${problem.column}` : ""}`
-                                : ""
-                            }`
-                          : "Run output"}
-                      </span>
-                      <span className="problem-message">{problem.message}</span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="problems-empty">
-                  {result.ok
-                    ? "The run completed successfully."
-                    : "No exact file location was reported. Check the output below."}
-                </div>
-              )}
+              <ProblemList
+                problems={runProblems}
+                onSelect={onSelectProblem}
+                emptyMessage={result.ok ? "The run completed successfully." : "No exact file location was reported. Check the output below."}
+              />
             </div>
             {result.stdout ? (
               <pre className="terminal-stdout">{result.stdout}</pre>

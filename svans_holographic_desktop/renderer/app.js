@@ -23,10 +23,10 @@
       };
     },
     async computerStatus() {
-      return { permissions: { files: true, apps: true, browser: true, processes: true, admin: false }, roots: [] };
+      return { permissions: { files: true, apps: true, browser: true, processes: true, admin: false, research: false, social: false }, roots: [] };
     },
     async setComputerPermission(capability, enabled) {
-      return { files: true, apps: true, browser: true, processes: true, admin: capability === "admin" ? enabled : false };
+      return { files: true, apps: true, browser: true, processes: true, admin: false, research: false, social: false, [capability]: enabled };
     },
     async executeComputerAction(action) {
       return { message: `Desktop preview accepted ${action.type}.`, title: "COMPUTER ACTION PREVIEW", lines: [JSON.stringify(action.payload ?? {})] };
@@ -46,6 +46,35 @@
     windowAction() {},
     async setAlwaysOnTop(enabled) { return enabled; },
     async setCompact(enabled) { return enabled; },
+    async saveSecret() { return { ok: true }; },
+    async deleteSecret() { return { ok: true }; },
+    async connectorStatus() { return { search: false, reddit: false, x: false, discord: false, facebook: false, instagram: false, threads: false, youtube: false, tiktok: false, hologram: false, roblox: false }; },
+    async planAgentTask(goal) {
+      return { id: "preview", goal, steps: [], cursor: 0, status: "awaiting_start", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+    },
+    async startAgentTask() { return null; },
+    async approveAgentStep() { return null; },
+    async rejectAgentStep() { return null; },
+    async cancelAgentTask() { return null; },
+    async listAgentTasks() { return []; },
+    onAgentUpdate() { return () => {}; },
+    async generateHologram3D() { return { available: false, reason: "Online 3D library search is available in the desktop app." }; },
+    async loadHologramFromUrl() { return { available: false, reason: "Model loading is available in the desktop app." }; },
+    onHologramProgress() { return () => {}; },
+    async robloxConfig() { return { universeId: "", placeId: "", publishCapability: false }; },
+    async configureRoblox(config) { return { ...config, publishCapability: false }; },
+    async buildRobloxGame(description) { return { name: "Preview Roblox Game", description, placePath: "preview.rbxlx", publishCapability: false }; },
+    async updateRobloxGame(description) { return { name: "Preview Roblox Game", description, placePath: "preview.rbxlx", buildingCount: 1, characterCount: 1, publishCapability: false }; },
+    async buildInsideRobloxProject() { return { available: false, reason: "Live Studio building is unavailable in preview mode." }; },
+    async analyzeRobloxReferences() { return { blueprint: "Preview reference blueprint", viewCount: 5, roles: ["front", "back", "left", "right", "top"] }; },
+    async launchRobloxProject() { return { ok: true, publishCapability: false }; },
+    async openRobloxStudio() { return { ok: true, message: "Opening Roblox Studio.", publishCapability: false }; },
+    async robloxStudioContext() { return { running: false, projectName: null, recentProjects: [] }; },
+    async inspectRobloxProject() { return { available: false, opened: false, reason: "Studio inspection is unavailable in preview mode." }; },
+    async fixRobloxProject() { return { available: false, reason: "Live Studio control is unavailable in preview mode." }; },
+    async listRobloxProjects() { return []; },
+    async refreshRobloxStats() { return { configured: false, publishCapability: false }; },
+    onRobloxStats() { return () => {}; },
   };
 
   const $ = (selector) => document.querySelector(selector);
@@ -62,14 +91,31 @@
     }
   }
 
+  const defaultConversationContext = () => ({ domain: "general", intent: "greeting", topic: "SVANS desktop", subject: null, unresolved: null, lastUserText: "", lastAssistantText: "", entities: [], updatedAt: Date.now() });
+
+  function loadConversationMemory() {
+    try {
+      const saved = JSON.parse(localStorage.getItem("svans.conversationMemory") || "null");
+      const messages = Array.isArray(saved?.messages)
+        ? saved.messages.filter((message) => ["user", "assistant"].includes(message?.role) && typeof message?.content === "string").slice(-50)
+        : [];
+      const context = saved?.context && typeof saved.context === "object" ? { ...defaultConversationContext(), ...saved.context } : defaultConversationContext();
+      const pendingRobloxAction = saved?.pendingRobloxAction?.type === "live_build" ? saved.pendingRobloxAction : null;
+      return { messages, context, pendingRobloxAction };
+    } catch {
+      return { messages: [], context: defaultConversationContext(), pendingRobloxAction: null };
+    }
+  }
+
+  const restoredConversation = loadConversationMemory();
+
   const state = {
-    messages: [
-      { role: "assistant", content: "Holographic interface online. What are we building today, Shawn?" },
-    ],
+    messages: restoredConversation.messages.length ? restoredConversation.messages : [{ role: "assistant", content: "Holographic interface online. What are we building today, Shawn?" }],
     busy: false,
-    voiceEnabled: false,
+    voiceEnabled: true,
     speechOutputEnabled: true,
     speechRate: Math.min(1.3, Math.max(0.7, Number(localStorage.getItem("svans.speechRate")) || 1)),
+    speechVolume: Math.min(1, Math.max(0.08, Number(localStorage.getItem("svans.speechVolume")) || 1)),
     listening: false,
     recognition: null,
     pinned: false,
@@ -81,15 +127,36 @@
     lockoutTimer: null,
     voice: null,
     audio: null,
+    speechAnimationFrame: null,
+    speechHighlighter: null,
     speechRequestId: 0,
-    computerPermissions: { files: true, apps: true, browser: true, processes: true, admin: false },
+    operationGeneration: 0,
+    conversationContext: restoredConversation.context,
+    computerPermissions: { files: true, apps: true, browser: true, processes: true, admin: true, research: true, social: true, screen: true },
     lastFileResults: [],
     confirmationResolver: null,
     globe: null,
     universalHologram: null,
     communicationProfile: loadCommunicationProfile(),
-    codingCoachMode: localStorage.getItem("svans.codingCoachMode") !== "false",
+    codingCoachMode: localStorage.getItem("svans.codingCoachMode") === "true",
+    agentTasks: [],
+    robloxProjects: [],
+    robloxStats: null,
+    pendingRobloxAction: restoredConversation.pendingRobloxAction,
+    lastRobloxBuildBrief: localStorage.getItem("svans.lastRobloxBuildBrief") || "",
+    robloxReferenceBlueprint: localStorage.getItem("svans.robloxReferenceBlueprint") || "",
+    robloxReferenceViews: {},
   };
+
+  function persistConversationMemory() {
+    try {
+      const messages = state.messages.slice(-50).map((message) => ({ role: message.role, content: String(message.content || "").slice(0, 12000) }));
+      const pendingRobloxAction = state.pendingRobloxAction ? { ...state.pendingRobloxAction, description: String(state.pendingRobloxAction.description || "").slice(0, 16000) } : null;
+      localStorage.setItem("svans.conversationMemory", JSON.stringify({ messages, context: state.conversationContext, pendingRobloxAction }));
+    } catch {
+      // Local memory is best-effort; a full storage quota must not break chat.
+    }
+  }
 
   const elements = {
     activityList: $("#activity-list"),
@@ -131,6 +198,9 @@
     actionConfirmDescription: $("#action-confirm-description"),
     actionConfirmTarget: $("#action-confirm-target"),
     actionConfirmLevel: $("#action-confirm-level"),
+    robloxReferenceModal: $("#roblox-reference-modal"),
+    robloxReferenceStatus: $("#roblox-reference-status"),
+    robloxReferenceButton: $("#roblox-reference-button"),
   };
 
   function closeActionConfirmation(approved = false) {
@@ -319,16 +389,110 @@
     }
   }
 
+  function appendInlineContent(parent, content) {
+    const text = String(content || "");
+    const tokenPattern = /(\*\*[^*]+\*\*|`[^`]+`)/g;
+    let cursor = 0;
+    for (const match of text.matchAll(tokenPattern)) {
+      if (match.index > cursor) parent.append(document.createTextNode(text.slice(cursor, match.index)));
+      const token = match[0];
+      const element = document.createElement(token.startsWith("**") ? "strong" : "code");
+      element.textContent = token.startsWith("**") ? token.slice(2, -2) : token.slice(1, -1);
+      parent.append(element);
+      cursor = match.index + token.length;
+    }
+    if (cursor < text.length) parent.append(document.createTextNode(text.slice(cursor)));
+  }
+
+  function assistantResponseLines(content) {
+    return String(content || "")
+      .replace(/\r/g, "")
+      .replace(/[ \t]+(?=\*\*(?:overall|overall assessment|strongest areas|important risks|most important risks|next three improvements|what these structural facts[^*]*)\s*:?\*\*)/gi, "\n")
+      .replace(/[ \t]+(?=\d+\.\s+\*\*)/g, "\n")
+      .replace(/[ \t]+(?=\*\s+\*\*)/g, "\n")
+      .split(/\n+/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+  }
+
+  function renderAssistantResponse(body, content) {
+    const lines = assistantResponseLines(content);
+    for (const line of lines) {
+      const numbered = line.match(/^(\d+)\.\s+(.+)$/);
+      const bullet = line.match(/^(?:[-•*])\s+(.+)$/);
+      const heading = line.match(/^\*\*([^*]{2,90}):?\*\*\s*(.*)$/);
+      if (numbered) {
+        const item = document.createElement("div");
+        const index = document.createElement("b");
+        const copy = document.createElement("div");
+        item.className = "response-list-item numbered";
+        index.textContent = numbered[1];
+        appendInlineContent(copy, numbered[2]);
+        item.append(index, copy);
+        body.append(item);
+      } else if (bullet) {
+        const item = document.createElement("div");
+        const marker = document.createElement("i");
+        const copy = document.createElement("div");
+        item.className = "response-list-item";
+        marker.setAttribute("aria-hidden", "true");
+        appendInlineContent(copy, bullet[1]);
+        item.append(marker, copy);
+        body.append(item);
+      } else if (heading) {
+        const section = document.createElement("section");
+        const title = document.createElement("h4");
+        title.textContent = heading[1].replace(/:$/, "");
+        section.className = "response-section";
+        section.append(title);
+        if (heading[2]) {
+          const paragraph = document.createElement("p");
+          appendInlineContent(paragraph, heading[2]);
+          section.append(paragraph);
+        }
+        body.append(section);
+      } else {
+        const paragraph = document.createElement("p");
+        appendInlineContent(paragraph, line.replace(/^---+$/, ""));
+        if (paragraph.textContent.trim()) body.append(paragraph);
+      }
+    }
+  }
+
   function appendMessage(role, content) {
     const wrapper = document.createElement("div");
     const label = document.createElement("span");
-    const body = document.createElement("p");
+    const body = document.createElement(role === "user" ? "p" : "div");
     wrapper.className = `message ${role === "user" ? "user-message" : "svans-message"}`;
+    wrapper.svansRawContent = String(content);
+    body.className = "message-body";
     label.textContent = role === "user" ? "SHAWN" : "SVANS";
-    body.textContent = content;
+    if (role === "user") body.textContent = content;
+    else renderAssistantResponse(body, content);
+    if (role === "user") {
+      state.conversationContext.lastUserText = String(content).slice(0, 800);
+      state.conversationContext.updatedAt = Date.now();
+    } else {
+      state.conversationContext.lastAssistantText = String(content).slice(0, 1200);
+      state.conversationContext.unresolved = /\?\s*$/.test(String(content)) ? String(content).slice(0, 800) : null;
+      state.conversationContext.updatedAt = Date.now();
+    }
     wrapper.append(label, body);
     elements.messageStream.append(wrapper);
-    elements.messageStream.scrollTop = elements.messageStream.scrollHeight;
+    queueMicrotask(persistConversationMemory);
+    if (role === "user") {
+      elements.messageStream.scrollTop = elements.messageStream.scrollHeight;
+      return;
+    }
+    requestAnimationFrame(() => {
+      const panel = $("#conversation-panel");
+      const chromeHeight = 30 + elements.commandForm.offsetHeight + 22;
+      const desiredHeight = Math.max(170, wrapper.scrollHeight + chromeHeight);
+      const maximumHeight = Math.max(220, Math.floor(window.innerHeight * 0.46));
+      panel.style.height = `${Math.min(desiredHeight, maximumHeight)}px`;
+      elements.messageStream.scrollTop = Math.max(0, wrapper.offsetTop - elements.messageStream.offsetTop - 8);
+    });
+    return wrapper;
   }
 
   function learnCommunicationStyle(text) {
@@ -361,6 +525,12 @@
   function codingCoachPreference(text) {
     if (/\b(?:turn off|disable|stop|exit) (?:the )?(?:coding )?coach(?: mode)?\b/i.test(text)) return false;
     if (/\b(?:coding coach|teach me (?:how )?to code|learn (?:how )?to code|code (?:things )?on my own|without relying on (?:an? )?ai|help me learn programming)\b/i.test(text)) return true;
+    return null;
+  }
+
+  function voiceVolumePreference(text) {
+    if (/\b(?:keep it down|keep (?:your|the) voice down|speak (?:more )?quietly|lower (?:your|the) voice|quiet voice|family is sleeping|people are sleeping|whisper)\b/i.test(text)) return 0.18;
+    if (/\b(?:normal volume|regular volume|speak normally|turn (?:your|the) voice back up|you can speak up|louder now)\b/i.test(text)) return 1;
     return null;
   }
 
@@ -419,6 +589,68 @@
       .trim();
   }
 
+  function clearSpeechHighlight() {
+    if (state.speechAnimationFrame) cancelAnimationFrame(state.speechAnimationFrame);
+    state.speechAnimationFrame = null;
+    state.speechHighlighter?.clear?.();
+    state.speechHighlighter = null;
+  }
+
+  function speechMessageFor(text) {
+    const messages = [...elements.messageStream.querySelectorAll(".svans-message")].reverse();
+    return messages.find((message) => message.svansRawContent === String(text)) || messages[0] || null;
+  }
+
+  function createSpeechHighlighter(text) {
+    clearSpeechHighlight();
+    const message = speechMessageFor(text);
+    const body = message?.querySelector(".message-body");
+    if (!body) return null;
+    const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);
+    const textNodes = [];
+    while (walker.nextNode()) textNodes.push(walker.currentNode);
+    const words = [];
+    for (const node of textNodes) {
+      if (!node.nodeValue?.trim()) continue;
+      const fragment = document.createDocumentFragment();
+      let cursor = 0;
+      for (const match of node.nodeValue.matchAll(/\S+/g)) {
+        if (match.index > cursor) fragment.append(document.createTextNode(node.nodeValue.slice(cursor, match.index)));
+        const word = document.createElement("span");
+        word.className = "spoken-word";
+        word.textContent = match[0];
+        words.push(word);
+        fragment.append(word);
+        cursor = match.index + match[0].length;
+      }
+      if (cursor < node.nodeValue.length) fragment.append(document.createTextNode(node.nodeValue.slice(cursor)));
+      node.replaceWith(fragment);
+    }
+    if (!words.length) return null;
+    message.classList.add("voice-reading");
+    let activeIndex = -1;
+    const setProgress = (progress) => {
+      const nextIndex = Math.min(words.length - 1, Math.max(0, Math.floor(progress * words.length)));
+      if (nextIndex === activeIndex) return;
+      if (activeIndex >= 0) {
+        const previousWord = words[activeIndex];
+        previousWord.classList.remove("active");
+        previousWord.classList.add("read", "leaving");
+        window.setTimeout(() => previousWord.classList.remove("leaving"), 260);
+      }
+      activeIndex = nextIndex;
+      words[activeIndex].classList.remove("read", "leaving");
+      words[activeIndex].classList.add("active");
+      if (activeIndex % 7 === 0) words[activeIndex].scrollIntoView({ block: "nearest", behavior: "smooth" });
+    };
+    const clear = () => {
+      message.classList.remove("voice-reading");
+      words.forEach((word) => word.classList.remove("active", "read", "leaving", "approaching"));
+    };
+    state.speechHighlighter = { setProgress, clear };
+    return state.speechHighlighter;
+  }
+
   function speechChunks(text, limit = 900) {
     const sentences = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g)?.map((sentence) => sentence.trim()).filter(Boolean) ?? [text];
     const chunks = [];
@@ -451,15 +683,17 @@
 
   function finishSpeaking(preview = false) {
     state.audio = null;
+    clearSpeechHighlight();
     setCoreState("READY");
     elements.voiceLink.textContent = state.voiceEnabled ? "CHANNEL READY" : "OUTPUT READY";
     if (!preview) startRecognition();
   }
 
-  function stopSpeaking() {
+  function stopSpeaking({ quiet = false } = {}) {
     const wasSpeaking = Boolean(state.audio) || Boolean(window.speechSynthesis?.speaking) || /(?:VOICE|SPEAKING|FORMING)/i.test(elements.voiceLink.textContent);
     if (!wasSpeaking) return false;
     state.speechRequestId += 1;
+    clearSpeechHighlight();
     if (state.audio) {
       state.audio.onended = null;
       state.audio.onerror = null;
@@ -470,13 +704,33 @@
     window.speechSynthesis?.cancel();
     setCoreState("READY");
     elements.voiceLink.textContent = state.voiceEnabled ? "CHANNEL READY" : "OUTPUT READY";
-    showToast("SVANS VOICE STOPPED");
-    logActivity("Spoken response stopped by owner");
+    if (!quiet) {
+      showToast("SVANS VOICE STOPPED");
+      logActivity("Spoken response stopped by owner");
+    }
     if (state.voiceEnabled) window.setTimeout(startRecognition, 120);
     return true;
   }
 
-  function speakWithWindowsVoice(text, preview = false) {
+  function stopCurrentOperation() {
+    const loadingHologram = Boolean(state.universalHologram?.panel?.querySelector(".universal-loading"));
+    const wasActive = state.busy || loadingHologram || Boolean(state.audio) || Boolean(window.speechSynthesis?.speaking) || /(?:VOICE|SPEAKING|FORMING|PROCESSING|BUILDING|SEARCHING|GENERATING)/i.test(elements.voiceLink.textContent);
+    if (!wasActive) return false;
+
+    state.operationGeneration += 1;
+    state.busy = false;
+    stopSpeaking({ quiet: true });
+    if (loadingHologram) state.universalHologram?.close?.();
+    void desktop.cancelCurrentOperation?.().catch(() => {});
+    setCoreState("READY");
+    elements.voiceLink.textContent = state.voiceEnabled ? "CHANNEL READY" : "OUTPUT READY";
+    showToast("CURRENT OPERATION STOPPED");
+    logActivity("Current conversation operation stopped by owner");
+    if (state.voiceEnabled) window.setTimeout(startRecognition, 120);
+    return true;
+  }
+
+  function speakWithWindowsVoice(text, preview = false, highlighter = null) {
     if (!("speechSynthesis" in window)) {
       finishSpeaking(preview);
       return;
@@ -485,14 +739,17 @@
     utterance.voice = state.voice;
     utterance.rate = state.speechRate;
     utterance.pitch = 0.98;
-    utterance.volume = 1;
+    utterance.volume = state.speechVolume;
+    utterance.onboundary = (event) => {
+      if (event.name === "word" && text.length) highlighter?.setProgress(event.charIndex / text.length);
+    };
     utterance.onend = () => finishSpeaking(preview);
     utterance.onerror = utterance.onend;
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(utterance);
   }
 
-  function playNeuralSegment(generated, requestId) {
+  function playNeuralSegment(generated, requestId, onProgress = null) {
     return new Promise((resolve, reject) => {
       if (requestId !== state.speechRequestId) {
         resolve(false);
@@ -500,8 +757,29 @@
       }
       const audio = new Audio(`data:${generated.mimeType ?? "audio/wav"};base64,${generated.audio}`);
       audio.playbackRate = state.speechRate;
+      audio.volume = state.speechVolume;
       state.audio = audio;
-      audio.onended = () => resolve(true);
+      const alignedWords = (Array.isArray(generated.words) ? generated.words : [])
+        .filter((word) => Number.isFinite(Number(word?.start)) && Number.isFinite(Number(word?.end)))
+        .map((word) => ({ start: Number(word.start), end: Number(word.end) }));
+      let alignedIndex = 0;
+      const trackProgress = () => {
+        if (requestId !== state.speechRequestId || audio.paused || audio.ended) return;
+        if (alignedWords.length) {
+          while (alignedIndex + 1 < alignedWords.length && audio.currentTime >= alignedWords[alignedIndex + 1].start) alignedIndex += 1;
+          if (audio.currentTime >= alignedWords[0].start) onProgress?.((alignedIndex + 0.01) / alignedWords.length);
+        } else if (Number.isFinite(audio.duration) && audio.duration > 0) {
+          onProgress?.(audio.currentTime / audio.duration);
+        }
+        state.speechAnimationFrame = requestAnimationFrame(trackProgress);
+      };
+      audio.onplay = trackProgress;
+      audio.onended = () => {
+        if (state.speechAnimationFrame) cancelAnimationFrame(state.speechAnimationFrame);
+        state.speechAnimationFrame = null;
+        onProgress?.(1);
+        resolve(true);
+      };
       audio.onerror = () => reject(new Error("Neural audio playback failed."));
       audio.play().catch(reject);
     });
@@ -517,6 +795,9 @@
     elements.voiceLink.textContent = "NEURAL VOICE · FORMING";
     const spokenText = conversationalText(text);
     const chunks = speechChunks(spokenText);
+    const highlighter = preview ? null : createSpeechHighlighter(text);
+    const chunkWordCounts = chunks.map((chunk) => chunk.match(/\S+/g)?.length || 1);
+    const totalSpeechWords = Math.max(1, chunkWordCounts.reduce((total, count) => total + count, 0));
     const requestId = ++state.speechRequestId;
     state.audio?.pause();
     state.audio = null;
@@ -524,20 +805,25 @@
     try {
       const requestAudio = (chunk) => desktop.synthesizeSpeech(chunk).catch(() => ({ available: false }));
       let pendingAudio = requestAudio(chunks[0]);
+      let spokenWords = 0;
       for (let index = 0; index < chunks.length; index += 1) {
         const generated = await pendingAudio;
         if (requestId !== state.speechRequestId) return;
         if (!generated?.available || !generated.audio) throw new Error("Neural voice unavailable.");
         pendingAudio = index + 1 < chunks.length ? requestAudio(chunks[index + 1]) : null;
         elements.voiceLink.textContent = "NEURAL VOICE";
-        const played = await playNeuralSegment(generated, requestId);
+        const chunk = chunks[index];
+        const played = await playNeuralSegment(generated, requestId, (segmentProgress) => {
+          highlighter?.setProgress((spokenWords + (chunkWordCounts[index] * segmentProgress)) / totalSpeechWords);
+        });
         if (!played || requestId !== state.speechRequestId) return;
+        spokenWords += chunkWordCounts[index];
       }
       finishSpeaking(preview);
     } catch {
       if (requestId !== state.speechRequestId) return;
       elements.voiceLink.textContent = "WINDOWS FALLBACK";
-      speakWithWindowsVoice(spokenText, preview);
+      speakWithWindowsVoice(spokenText, preview, highlighter);
     }
   }
 
@@ -715,8 +1001,8 @@
     panel.className = "universal-hologram";
     panel.innerHTML = `
       <header><div><small>SVANS UNIVERSAL HOLOGRAM ENGINE</small><strong></strong></div><button data-hologram="close" aria-label="Close hologram">×</button></header>
-      <div class="universal-viewport"><canvas></canvas><div class="globe-scan"></div><div class="universal-reticle"></div><div class="universal-loading"><i></i><span>SYNTHESIZING SUBJECT-SPECIFIC MODEL</span></div><div class="universal-label"><span>AI HOLOGRAPHIC MODEL</span><strong></strong><small>VISUAL GENERATION · CONNECTING</small></div></div>
-      <footer><span>DRAG TO ROTATE · SCROLL TO ZOOM</span><div><button data-hologram="zoom-out">−</button><button data-hologram="pause">PAUSE</button><button data-hologram="reset">RESET</button><button data-hologram="zoom-in">＋</button></div></footer>`;
+      <div class="universal-viewport"><canvas></canvas><div class="hologram3d-mount"></div><div class="globe-scan"></div><div class="universal-reticle"></div><div class="universal-loading"><i></i><span>CHECKING 3D MODEL SOURCES</span></div><div class="universal-label"><span>AI HOLOGRAPHIC MODEL</span><strong></strong><small>MODEL REQUEST · PENDING</small></div></div>
+      <footer><span>MODEL CONTROLS ACTIVATE WHEN READY</span><div><button data-hologram="zoom-out" disabled>−</button><button data-hologram="pause" disabled>PAUSE</button><button data-hologram="explode" disabled>EXPLODE</button><button data-hologram="xray" disabled>X-RAY</button><button data-hologram="reset" disabled>RESET</button><button data-hologram="zoom-in" disabled>＋</button></div></footer>`;
     panel.querySelector("header strong").textContent = subject.toUpperCase();
     panel.querySelector(".universal-label strong").textContent = subject;
     $(".hologram-stage").append(panel);
@@ -766,8 +1052,24 @@
         }
       }
     }
-    const model = { panel, points, yaw: -0.45, pitch: -0.2, zoom: 1, spinning: true, dragging: false, lastX: 0, lastY: 0, frame: 0, observer: null, close: null, asset: null };
+    const model = { panel, points, yaw: -0.45, pitch: -0.2, zoom: 1, spinning: true, dragging: false, lastX: 0, lastY: 0, frame: 0, observer: null, close: null, asset: null, viewer3D: null, has3D: false, xray: false, exploded: false, fallbackStarted: false, resultAnnounced: false };
     state.universalHologram = model;
+    const setControls = (mode) => {
+      const enabled = new Set(mode === "3d" ? ["zoom-out", "pause", "explode", "xray", "reset", "zoom-in"] : mode === "flat" || mode === "network" ? ["zoom-out", "pause", "reset", "zoom-in"] : []);
+      panel.querySelectorAll("footer [data-hologram]").forEach((button) => { button.disabled = !enabled.has(button.dataset.hologram); });
+      panel.querySelector("footer > span").textContent = mode === "3d"
+        ? "DRAG TO ROTATE · SCROLL TO ZOOM · EXPLODE / X-RAY AVAILABLE"
+        : mode === "flat" ? "DRAG TO TILT · SCROLL TO ZOOM · 2D VISUAL FALLBACK"
+          : mode === "network" ? "DRAG TO ROTATE · SCROLL TO ZOOM · LIVE DATA FLOW"
+            : "MODEL UNAVAILABLE · SEARCH VERIFIED LIBRARIES AGAIN";
+    };
+    const announceResult = (message, { speakResult = true } = {}) => {
+      if (model.resultAnnounced || !panel.isConnected) return;
+      model.resultAnnounced = true;
+      state.messages.push({ role: "assistant", content: message });
+      appendMessage("assistant", message);
+      if (speakResult) void speak(message);
+    };
     const resize = () => {
       const bounds = canvas.getBoundingClientRect();
       const ratio = Math.min(devicePixelRatio || 1, 2);
@@ -854,6 +1156,8 @@
     model.close = () => {
       cancelAnimationFrame(model.frame);
       model.observer?.disconnect();
+      model.viewer3D?.dispose?.();
+      model.stopHologramProgress?.();
       panel.remove();
       if (state.universalHologram === model) state.universalHologram = null;
       logActivity(`${subject} hologram closed`);
@@ -861,10 +1165,34 @@
     panel.addEventListener("click", (event) => {
       const action = event.target.closest("[data-hologram]")?.dataset.hologram;
       if (action === "close") model.close();
-      if (action === "pause") { model.spinning = !model.spinning; event.target.textContent = model.spinning ? "PAUSE" : "RESUME"; }
-      if (action === "reset") { Object.assign(model, { yaw: -0.45, pitch: -0.2, zoom: 1, spinning: true }); panel.querySelector('[data-hologram="pause"]').textContent = "PAUSE"; }
+      if (action === "retry") {
+        model.close();
+        createUniversalHologram(subject);
+      }
+      if (action === "pause") {
+        model.spinning = !model.spinning;
+        model.viewer3D?.setSpinning?.(model.spinning);
+        event.target.textContent = model.spinning ? "PAUSE" : "RESUME";
+      }
+      if (action === "reset") {
+        Object.assign(model, { yaw: -0.45, pitch: -0.2, zoom: 1, spinning: true, exploded: false, xray: false });
+        panel.querySelector('[data-hologram="pause"]').textContent = "PAUSE";
+        model.viewer3D?.reset?.();
+      }
       if (action === "zoom-in") model.zoom = Math.min(1.45, model.zoom + 0.1);
       if (action === "zoom-out") model.zoom = Math.max(0.65, model.zoom - 0.1);
+      if (action === "explode") {
+        if (!model.has3D) { showToast("EXPLODE VIEW NEEDS A REAL 3D MODEL"); return; }
+        model.exploded = !model.exploded;
+        model.viewer3D?.explode?.(model.exploded ? 0.6 : 0);
+        event.target.textContent = model.exploded ? "COLLAPSE" : "EXPLODE";
+      }
+      if (action === "xray") {
+        if (!model.has3D) { showToast("X-RAY VIEW NEEDS A REAL 3D MODEL"); return; }
+        model.xray = !model.xray;
+        model.viewer3D?.setTransparent?.("", model.xray ? 0.28 : 1);
+        event.target.textContent = model.xray ? "SOLID" : "X-RAY";
+      }
     });
     canvas.addEventListener("pointerdown", (event) => { model.dragging = true; model.lastX = event.clientX; model.lastY = event.clientY; canvas.setPointerCapture(event.pointerId); });
     canvas.addEventListener("pointermove", (event) => {
@@ -878,19 +1206,23 @@
     model.observer = new ResizeObserver(resize);
     model.observer.observe(canvas);
     requestAnimationFrame(() => { panel.classList.add("visible"); resize(); draw(); });
-    if (networkMode) {
-      panel.querySelector(".universal-loading")?.remove();
-      panel.querySelector(".universal-label span").textContent = "LIVE NETWORK TOPOLOGY";
-      panel.querySelector(".universal-label small").textContent = "ROUTER · HUBS · ENDPOINTS · DATA FLOW";
-    } else {
+
+    function fallbackToFlatImage() {
+      if (model.fallbackStarted) return;
+      model.fallbackStarted = true;
+      const pendingLoading = panel.querySelector(".universal-loading span");
+      if (pendingLoading) pendingLoading.textContent = "NO VERIFIED 3D MATCH · CREATING DETAILED VISUAL";
       void desktop.generateHologram(subject).then((result) => {
         if (!panel.isConnected) return;
         const loading = panel.querySelector(".universal-loading");
         const status = panel.querySelector(".universal-label small");
         if (!result?.available || !result.image) {
           loading?.classList.add("failed");
+          if (loading) loading.innerHTML = `<i></i><span></span><button type="button" data-hologram="retry">SEARCH AGAIN</button>`;
           if (loading) loading.querySelector("span").textContent = result?.reason || "DETAILED MODEL UNAVAILABLE";
-          status.textContent = "NO SUBSTITUTE SHAPE DISPLAYED";
+          status.textContent = "NO MATCHING 3D ASSET OR VISUAL AVAILABLE";
+          setControls("failed");
+          announceResult(`I searched the available 3D libraries, but I could not find a trustworthy model or create a detailed visual of ${subject}.`);
           return;
         }
         const asset = new Image();
@@ -900,6 +1232,9 @@
           loading?.remove();
           status.textContent = result.cached ? "CACHED MODEL · INTERACTIVE · LIVE" : "NEW MODEL · INTERACTIVE · LIVE";
           asset.classList.add("visible");
+          setControls("flat");
+          announceResult(`Here it is—your holographic model of ${subject} is ready. You can tilt it or zoom in for a closer look.`);
+          logActivity(`${subject} holographic visual ready`);
         });
         asset.src = `data:${result.mimeType || "image/png"};base64,${result.image}`;
         model.asset = asset;
@@ -907,11 +1242,67 @@
       }).catch(() => {
         const loading = panel.querySelector(".universal-loading");
         loading?.classList.add("failed");
-        if (loading) loading.querySelector("span").textContent = "VISUAL GENERATION LINK UNAVAILABLE";
-        panel.querySelector(".universal-label small").textContent = "NO SUBSTITUTE SHAPE DISPLAYED";
+        if (loading) loading.innerHTML = `<i></i><span>VISUAL GENERATION LINK UNAVAILABLE</span><button type="button" data-hologram="retry">SEARCH AGAIN</button>`;
+        panel.querySelector(".universal-label small").textContent = "MODEL NOT CREATED · ONLINE SEARCH UNAVAILABLE";
+        setControls("failed");
+        announceResult(`I opened the hologram workspace, but the model generator is unavailable, so I did not create a substitute shape for ${subject}.`);
       });
     }
-    logActivity(`${subject} universal hologram generated`);
+
+    if (networkMode) {
+      panel.querySelector(".universal-loading")?.remove();
+      panel.querySelector(".universal-label span").textContent = "LIVE NETWORK TOPOLOGY";
+      panel.querySelector(".universal-label small").textContent = "ROUTER · HUBS · ENDPOINTS · DATA FLOW";
+      setControls("network");
+      announceResult("The live network topology is ready. The center is the router, the larger points are hubs, the outer points are connected devices, and the moving lights represent data flow.");
+      logActivity("Live network topology ready");
+    } else if (window.SvansHologram3D && typeof desktop.generateHologram3D === "function") {
+      // Try real geometry first. This is the actual "universal hologram engine"
+      // capability — genuine mesh you can explode, cross-section, and X-ray —
+      // not the flat-image fallback below, which only exists for subjects or
+      // setups where 3D generation isn't available.
+      const loading = panel.querySelector(".universal-loading");
+      const status = panel.querySelector(".universal-label small");
+      model.stopHologramProgress = desktop.onHologramProgress((update) => {
+        if (update.subject !== subject || !panel.isConnected) return;
+        if (loading) loading.querySelector("span").textContent = `${String(update.status || update.stage).toUpperCase()} · ${update.progress ?? 0}%`;
+      });
+      void desktop.generateHologram3D(subject).then((result) => {
+        model.stopHologramProgress?.();
+        if (!panel.isConnected) return;
+        if (!result?.available || !result.glbBase64) {
+          if (loading) loading.querySelector("span").textContent = result?.reason || "REAL GEOMETRY UNAVAILABLE";
+          fallbackToFlatImage();
+          return;
+        }
+        const mount = panel.querySelector(".hologram3d-mount");
+        const viewer = window.SvansHologram3D.mount(mount);
+        model.viewer3D = viewer;
+        viewer.loadGlbFromBase64(result.glbBase64, {
+          onLoaded: () => {
+            if (!panel.isConnected) return;
+            loading?.remove();
+            mount.classList.add("visible");
+            model.has3D = true;
+            status.textContent = `${result.title || result.source || "VERIFIED ONLINE LIBRARY"} · REAL GEOMETRY`;
+            setControls("3d");
+            const foundTitle = result.title && result.title.toLowerCase() !== subject.toLowerCase() ? ` called ${result.title}` : "";
+            announceResult(`I found a verified 3D model${foundTitle} online and loaded it for ${subject}. You can rotate it, zoom in, use X-ray, or explode the assembly.`);
+            logActivity(`${subject} 3D hologram ready`);
+          },
+          onError: () => {
+            if (loading) loading.querySelector("span").textContent = "MODEL FAILED TO LOAD";
+            fallbackToFlatImage();
+          },
+        });
+      }).catch(() => {
+        model.stopHologramProgress?.();
+        fallbackToFlatImage();
+      });
+    } else {
+      fallbackToFlatImage();
+    }
+    logActivity(`${subject} hologram requested`);
   }
 
   function parseHologramCommand(rawText) {
@@ -927,6 +1318,22 @@
     }
     if (/^(?:open|show|display|launch|start|create|generate|bring up)(?: me)? (?:a |the )?(?:holographic |3d |interactive )?(?:globe|earth)(?: hologram)?[.!?]*$/i.test(text)) return { type: "open_globe", subject: "Earth" };
     if (/^(?:close|hide|dismiss|remove)(?: the)? (?:holographic |3d )?(?:globe|earth)(?: hologram)?[.!?]*$/i.test(text)) return { type: "close_hologram" };
+
+    if (/^(?:explode|separate|blow apart)(?: the)?(?: model| assembly| hologram)?(?: view)?[.!?]*$/i.test(text)) return { type: "hologram3d_explode", value: true };
+    if (/^(?:collapse|reassemble|un-?explode|put (?:it|the model) back together)(?: the)?(?: model)?[.!?]*$/i.test(text)) return { type: "hologram3d_explode", value: false };
+    if (/^(?:x-?ray|show (?:me )?(?:an? )?x-?ray|make (?:it|the model) transparent|see through it)(?: view)?[.!?]*$/i.test(text)) return { type: "hologram3d_xray", value: true };
+    if (/^(?:solid(?:ify)?|turn off x-?ray|make (?:it|the model) solid again)[.!?]*$/i.test(text)) return { type: "hologram3d_xray", value: false };
+    let holoMatch = text.match(/^(?:highlight|glow|flash|point out)(?: the)?\s+(.+?)[.!?]*$/i);
+    if (holoMatch) return { type: "hologram3d_highlight", target: holoMatch[1].trim() };
+    holoMatch = text.match(/^(?:isolate|show only|focus on)(?: the)?\s+(.+?)[.!?]*$/i);
+    if (holoMatch) return { type: "hologram3d_isolate", target: holoMatch[1].trim() };
+    holoMatch = text.match(/^(?:hide|remove)(?: the)?\s+(.+?)[.!?]*$/i);
+    if (holoMatch && !/hologram|holographic display/i.test(holoMatch[1])) return { type: "hologram3d_layer", target: holoMatch[1].trim(), visible: false };
+    holoMatch = text.match(/^show(?: the)?\s+(.+?)(?: again)?[.!?]*$/i);
+    if (holoMatch && /^(?:everything|all|all parts|all components)$/i.test(holoMatch[1].trim())) return { type: "hologram3d_showall" };
+    if (holoMatch) return { type: "hologram3d_layer", target: holoMatch[1].trim(), visible: true };
+    if (/^(?:reset|restore)(?: the)?(?: model| hologram| view)?[.!?]*$/i.test(text)) return { type: "hologram3d_reset" };
+
     return null;
   }
 
@@ -937,12 +1344,54 @@
     }
     if (command.type === "open_universal") {
       createUniversalHologram(command.subject);
-      return `Creating a holographic model of ${command.subject}. You can rotate, zoom, pause, or reset it.`;
+      return `I’m opening the hologram workspace and generating ${command.subject}. I’ll tell you when the model is actually ready.`;
     }
     if (command.type === "close_hologram") {
       state.globe?.panel?.querySelector('[data-globe="close"]')?.click();
       state.universalHologram?.close?.();
       return "The active hologram is closed.";
+    }
+
+    const model = state.universalHologram;
+    if (!model) return "There's no active hologram to work with. Open one first.";
+    if (!model.has3D) return "This hologram is the flat-image fallback, not real geometry, so I can't explode, cross-section, or isolate parts of it — only a real generated model supports that.";
+    const viewer = model.viewer3D;
+
+    if (command.type === "hologram3d_explode") {
+      model.exploded = command.value;
+      viewer.explode(command.value ? 0.6 : 0);
+      model.panel.querySelector('[data-hologram="explode"]').textContent = command.value ? "COLLAPSE" : "EXPLODE";
+      return command.value ? "Exploding the assembly so you can see how the parts relate." : "Reassembling the model.";
+    }
+    if (command.type === "hologram3d_xray") {
+      model.xray = command.value;
+      viewer.setTransparent("", command.value ? 0.28 : 1);
+      model.panel.querySelector('[data-hologram="xray"]').textContent = command.value ? "SOLID" : "X-RAY";
+      return command.value ? "Switching to an X-ray view." : "Back to a solid view.";
+    }
+    if (command.type === "hologram3d_highlight") {
+      const count = viewer.highlight(command.target);
+      return count ? `Highlighting ${command.target}.` : `I don't see a component matching "${command.target}" in this model's parts list.`;
+    }
+    if (command.type === "hologram3d_isolate") {
+      const count = viewer.isolate(command.target);
+      return count ? `Isolating ${command.target} and hiding the rest.` : `I don't see a component matching "${command.target}" — try "show everything" and I'll list what's visible instead.`;
+    }
+    if (command.type === "hologram3d_layer") {
+      const count = viewer.setLayerVisibility(command.target, command.visible);
+      return count ? `${command.visible ? "Showing" : "Hiding"} ${command.target}.` : `I don't see a component matching "${command.target}" in this model.`;
+    }
+    if (command.type === "hologram3d_showall") {
+      viewer.showAll();
+      return "Showing every component again.";
+    }
+    if (command.type === "hologram3d_reset") {
+      viewer.reset();
+      model.exploded = false;
+      model.xray = false;
+      model.panel.querySelector('[data-hologram="explode"]').textContent = "EXPLODE";
+      model.panel.querySelector('[data-hologram="xray"]').textContent = "X-RAY";
+      return "Resetting the hologram to its original view.";
     }
     return "That holographic module is not available yet.";
   }
@@ -1010,6 +1459,12 @@
       ]);
       return true;
     }
+    if (command === "roblox") {
+      openRobloxPanel();
+      await refreshRobloxStats();
+      showToast("ROBLOX OPERATIONS OPEN");
+      return true;
+    }
     if (command === "shield") {
       createIntelPanel("GUARDIAN POSTURE", [
         "Threat state: no active local alerts",
@@ -1046,7 +1501,8 @@
   }
 
   function parseComputerCommand(rawText) {
-    const text = rawText.trim().replace(/^svans[,.]?\s*/i, "").replace(/^please\s+/i, "");
+    const text = rawText.trim().replace(/^svans[,.]?\s*/i, "").replace(/^please\s+/i, "").replace(/^(?:(?:can|could|would|will) you|i (?:need|want) you to)\s+/i, "");
+    const contextualSubject = Date.now() - state.conversationContext.updatedAt < 30 * 60 * 1000 ? state.conversationContext.subject : null;
     const folderPattern = "desktop|documents|downloads|pictures|music|videos|onedrive|workspace";
     const siteAliases = {
       youtube: "https://youtube.com",
@@ -1060,6 +1516,15 @@
     };
     let match;
 
+    match = text.match(/^(?:open|launch|start)(?: the)?\s+(first|second|third|fourth)(?: one| result| app| application| file| project)?[.!?]*$/i);
+    if (match) {
+      const index = { first: 0, second: 1, third: 2, fourth: 3 }[match[1].toLowerCase()];
+      const entity = state.conversationContext.entities?.[index];
+      if (entity?.path) return { type: "open_path", payload: { path: entity.path } };
+      if (entity?.url) return { type: "open_url", payload: { url: entity.url } };
+      if (entity?.name || typeof entity === "string") return { type: "launch_app", payload: { name: entity.name || entity } };
+    }
+
     if (/^(?:emergency stop|stop all actions|cancel all actions)$/i.test(text)) {
       return { type: "emergency_stop", payload: {} };
     }
@@ -1068,6 +1533,13 @@
     }
     if (/^(?:show|list)(?: me)? (?:the )?(?:installed apps|installed applications|games)$/i.test(text)) {
       return { type: "list_apps", payload: {} };
+    }
+    if (
+      /\b(?:which|what|list|show|see)\b.{0,45}\b(?:sites?|tabs?|pages?)\b.{0,35}\b(?:open|opened|viewing|on)\b/i.test(text) ||
+      /\b(?:can you|do you|are you able to|acknowledge)\b.{0,60}\b(?:edge|browser)\b.{0,60}\b(?:open|site|tab|page)\b/i.test(text) ||
+      /\b(?:what site|which site|current site|active tab|browser context)\b/i.test(text)
+    ) {
+      return { type: "browser_context", payload: {} };
     }
     match = text.match(new RegExp(`^(?:show|list)(?: me)? (?:what(?:'s| is) in )?(?:my )?(${folderPattern})(?: folder)?$`, "i"));
     if (match) return { type: "list_directory", payload: { folder: match[1].toLowerCase() } };
@@ -1085,13 +1557,15 @@
     }
     match = text.match(/^(?:close|quit|stop) (?:the )?(.+)$/i);
     if (match && !/all actions/i.test(match[1])) {
+      const requestedTarget = match[1].trim();
+      const target = /^(?:it|that|this|the app|the application)$/i.test(requestedTarget) && contextualSubject ? contextualSubject : requestedTarget;
       return {
         type: "close_app",
-        payload: { name: match[1].trim() },
+        payload: { name: target },
         confirmation: {
           title: "Close this application?",
           description: "Unsaved work in this application could be lost.",
-          target: match[1].trim(),
+          target,
           level: "PROCESS CONTROL · CONFIRM",
         },
       };
@@ -1120,9 +1594,10 @@
         },
       };
     }
-    match = text.match(/^(?:open|go to|browse to)\s+(.+)$/i);
+    match = text.match(/^(?:open(?: up)?|bring up|go to|browse to)\s+(.+)$/i);
     if (match) {
-      const target = match[1].trim().replace(/[.?!]+$/, "");
+      const requestedTarget = match[1].trim().replace(/[.?!]+$/, "");
+      const target = /^(?:it|that|this|the app|the application|the same one)$/i.test(requestedTarget) && contextualSubject ? contextualSubject : requestedTarget;
       const alias = siteAliases[target.toLowerCase()];
       if (alias) return { type: "open_url", payload: { url: alias } };
       if (/^https?:\/\//i.test(target) || /^[a-z0-9.-]+\.[a-z]{2,}(?:\/\S*)?$/i.test(target)) {
@@ -1132,6 +1607,144 @@
     }
     match = text.match(/^(?:launch|start|run)\s+(.+)$/i);
     if (match) return { type: "launch_app", payload: { name: match[1].trim() } };
+
+    match = text.match(/^(?:search (?:the )?web for|web search|google|look up)\s+(.+)$/i);
+    if (match) return { type: "web_search", payload: { query: match[1].trim() } };
+
+    match = text.match(/^(?:read|summarize|what does it say on)\s+(?:the page at |this page:?\s*)?(https?:\/\/\S+)$/i);
+    if (match) return { type: "fetch_page", payload: { url: match[1].trim() } };
+    match = text.match(/^(?:fetch|read|open and summarize)\s+(?:the page\s+)?([a-z0-9.-]+\.[a-z]{2,}(?:\/\S*)?)$/i);
+    if (match && !siteAliases[match[1].toLowerCase()]) return { type: "fetch_page", payload: { url: match[1].trim() } };
+
+    match = text.match(/^(?:read|open and read|summarize)(?: the)?(?: file)?\s+(.+)$/i);
+    if (match && state.lastFileResults.length) {
+      const needle = match[1].trim().toLowerCase();
+      const found = state.lastFileResults.find((entry) => entry.name?.toLowerCase().includes(needle));
+      if (found) return { type: "read_file", payload: { path: found.path } };
+    }
+
+    match = text.match(/^(?:check|show)(?: my)? reddit (?:inbox|messages)$/i);
+    if (match) return { type: "social:reddit.checkInbox", payload: {} };
+
+    match = text.match(/^(?:post|tweet)(?: on x| on twitter)?\s*[:\-]?\s*(.+)$/i);
+    if (match) {
+      return {
+        type: "social:x.postUpdate",
+        payload: { text: match[1].trim() },
+        confirmation: {
+          title: "Post this publicly on X?",
+          description: "This will publish immediately to your connected account.",
+          target: match[1].trim().slice(0, 80),
+          level: "SOCIAL POST · CONFIRM",
+        },
+      };
+    }
+
+    match = text.match(/^post (?:on |to )?facebook\s*[:\-]?\s*(.+)$/i);
+    if (match) {
+      return {
+        type: "social:facebook.postToPage",
+        payload: { text: match[1].trim() },
+        confirmation: {
+          title: "Post this to your Facebook Page?",
+          description: "This will publish immediately to the connected Page.",
+          target: match[1].trim().slice(0, 80),
+          level: "SOCIAL POST · CONFIRM",
+        },
+      };
+    }
+
+    match = text.match(/^post (?:on |to )?threads\s*[:\-]?\s*(.+)$/i);
+    if (match) {
+      return {
+        type: "social:threads.postText",
+        payload: { text: match[1].trim() },
+        confirmation: {
+          title: "Post this to Threads?",
+          description: "This will publish immediately to your connected account.",
+          target: match[1].trim().slice(0, 80),
+          level: "SOCIAL POST · CONFIRM",
+        },
+      };
+    }
+
+    match = text.match(/^(?:post|share) (?:image|photo)(?: on| to)? instagram\s+(\S+)\s*[:\-]?\s*(.*)$/i);
+    if (match) {
+      return {
+        type: "social:instagram.postImage",
+        payload: { imageUrl: match[1].trim(), caption: match[2].trim() },
+        confirmation: {
+          title: "Post this image to Instagram?",
+          description: "This will publish immediately to your connected account.",
+          target: match[2].trim().slice(0, 80) || match[1].trim(),
+          level: "SOCIAL POST · CONFIRM",
+        },
+      };
+    }
+
+    match = text.match(/^(?:post|share) (?:video )?(?:on |to )?tiktok\s+(\S+)\s*[:\-]?\s*(.*)$/i);
+    if (match) {
+      return {
+        type: "social:tiktok.postVideoFromUrl",
+        payload: { videoUrl: match[1].trim(), title: match[2].trim() },
+        confirmation: {
+          title: "Submit this video to TikTok?",
+          description: "Posts from unaudited apps publish as private-only until TikTok reviews the client.",
+          target: match[2].trim().slice(0, 80) || match[1].trim(),
+          level: "SOCIAL POST · CONFIRM",
+        },
+      };
+    }
+
+    match = text.match(/^(?:show|check)(?: my)? youtube (?:stats|channel)$/i);
+    if (match) return { type: "social:youtube.channelStats", payload: {} };
+    match = text.match(/^(?:show|check)(?: my)? youtube comments(?: on video\s+(\S+))?$/i);
+    if (match) return { type: "social:youtube.recentComments", payload: { videoId: match[1] || "" } };
+
+    match = text.match(/^(?:send|message)\s+(?:to\s+)?discord(?:\s+channel\s+(\S+))?\s*[:\-]?\s*(.+)$/i);
+    if (match) {
+      return {
+        type: "social:discord.sendMessage",
+        payload: { channelId: match[1] || "", text: match[2].trim() },
+        confirmation: {
+          title: "Send this message on Discord?",
+          description: "This will post immediately to the connected channel.",
+          target: match[2].trim().slice(0, 80),
+          level: "SOCIAL POST · CONFIRM",
+        },
+      };
+    }
+
+    match = text.match(/^add(?: a)? lead\s+(.+?)(?:\s+from\s+(.+?))?(?:\s+(?:worth|valued at)\s+\$?(\d+(?:\.\d+)?))?$/i);
+    if (match) return { type: "business:addLead", payload: { name: match[1].trim(), source: match[2]?.trim() || "", value: match[3] ? Number(match[3]) : 0 } };
+
+    match = text.match(/^(?:mark|move|update)\s+(.+?)\s+(?:to|as)\s+(new|contacted|qualified|won|lost)$/i);
+    if (match) return { type: "business:updateLeadStatus", payload: { name: match[1].trim(), status: match[2].toLowerCase() } };
+
+    match = text.match(/^(?:show|list|check)(?: my)? leads$/i);
+    if (match) return { type: "business:listLeads", payload: {} };
+
+    match = text.match(/^log\s+(?:revenue|income)\s+(?:of\s+)?\$?(\d+(?:\.\d+)?)\s*(?:from\s+(.+?))?(?:\s+for\s+(.+))?$/i);
+    if (match) return { type: "business:logRevenue", payload: { amount: Number(match[1]), source: match[2]?.trim() || "", category: match[3]?.trim() || "" } };
+
+    match = text.match(/^(?:show|check)(?: my)? revenue(?: (?:for|over) the last (\d+) days)?$/i);
+    if (match) return { type: "business:revenueSummary", payload: { days: match[1] ? Number(match[1]) : 30 } };
+
+    match = text.match(/^set(?: a)? kpi\s+(.+?)\s+target\s+(\d+(?:\.\d+)?)(?:\s+current\s+(\d+(?:\.\d+)?))?$/i);
+    if (match) return { type: "business:setKpi", payload: { name: match[1].trim(), target: Number(match[2]), current: match[3] ? Number(match[3]) : undefined } };
+
+    match = text.match(/^(?:show|check)(?: my)? kpis?$/i);
+    if (match) return { type: "business:listKpis", payload: {} };
+
+    match = text.match(/^(?:draft|write|generate)(?: a)? proposal for\s+(.+?)(?:\s*[:\-]\s*(.+))?$/i);
+    if (match) return { type: "business:generateProposal", payload: { clientName: match[1].trim(), brief: match[2]?.trim() || match[1].trim() } };
+
+    match = text.match(/^(?:show|list) proposals$/i);
+    if (match) return { type: "business:listProposals", payload: {} };
+
+    match = text.match(/^(?:show|give me)(?: my|the)? business (?:summary|overview|status)$/i);
+    if (match) return { type: "business:summary", payload: {} };
+
     return null;
   }
 
@@ -1144,7 +1757,35 @@
     }
     const result = await desktop.executeComputerAction({ type: action.type, payload: action.payload });
     if (Array.isArray(result?.results)) state.lastFileResults = result.results;
+    if (result) {
+      const entities = Array.isArray(result.results) ? result.results : Array.isArray(result.lines) ? result.lines.map((name) => ({ name })) : state.conversationContext.entities;
+      rememberConversationContext(state.conversationContext.domain, action.type, {
+        subject: action.payload?.name || action.payload?.path || action.payload?.url || action.payload?.folder || state.conversationContext.subject,
+        entities,
+      });
+    }
     if (result?.title && Array.isArray(result?.lines)) createIntelPanel(result.title, result.lines.slice(0, 35), action.type === "emergency_stop" ? "amber" : "cyan");
+    if (action.type.startsWith("business:")) void refreshBusinessSummary();
+
+    // read_file / fetch_page hand back raw extracted text. Don't dump it into
+    // the transcript — route it through SVANS so it comes back as an actual
+    // spoken-style summary, same voice as the rest of the conversation.
+    if ((action.type === "read_file" || action.type === "fetch_page") && typeof result?.content === "string" && result.content.trim()) {
+      try {
+        const summaryPrompt = `Summarize the following for me in your own words, a few sentences unless I asked for more detail:\n\n${result.content.slice(0, 12000)}`;
+        const summary = await desktop.chat(
+          [...state.messages, { role: "user", content: summaryPrompt }],
+          sessionId,
+          communicationStyleSummary(),
+          state.codingCoachMode,
+          conversationContextSummary(),
+        );
+        return { ...result, message: summary.text };
+      } catch {
+        // If the summarization call fails, fall back to the raw result message.
+        return result;
+      }
+    }
     return result;
   }
 
@@ -1175,11 +1816,474 @@
     ].join(" ");
   }
 
+  function parseRobloxCommand(rawText) {
+    const originalText = rawText.trim();
+    if (originalText.length >= 350 && /\b(?:roblox|elemental realms?|game overview|progression|ascension|gameplay|open-world)\b/i.test(originalText)) {
+      state.lastRobloxBuildBrief = originalText.slice(0, 5000);
+      localStorage.setItem("svans.lastRobloxBuildBrief", state.lastRobloxBuildBrief);
+    }
+    const text = originalText
+      .replace(/^svans[,.]?\s*/i, "")
+      .replace(/^please\s+/i, "")
+      .replace(/^(?:go ahead and\s+)?(?:(?:can|could|would|will)\s+you|(?:i\s+)?(?:need|want|wan)\s+(?:for\s+)?you\s+to)\s+/i, "")
+      .replace(/\bcaslte\b/gi, "castle");
+    const recentConversation = state.messages.slice(-30).map((message) => message.content).join(" ");
+    const recentRobloxContext = /\b(?:roblox studio|roblox (?:game|project|experience)|elemental realms?|ascension islands?|water castle|fire castle|earth castle|wind castle)\b/i.test(`${originalText} ${recentConversation}`);
+    const robloxContextActive = (state.conversationContext.domain === "roblox" && Date.now() - state.conversationContext.updatedAt < 30 * 60 * 1000) || recentRobloxContext;
+    const recoveredProject = window.svansRobloxIntent?.inferProject(`${originalText} ${recentConversation}`, state.conversationContext.subject || "") || "";
+    const compiledRobloxIntent = window.svansRobloxIntent?.compileRobloxIntent(text, {
+      robloxActive: robloxContextActive,
+
+      currentProject:
+        state.conversationContext.robloxProject ||
+        recoveredProject ||
+        state.conversationContext.subject ||
+        null,
+
+      currentSubject:
+        state.conversationContext.robloxSubject ||
+        null,
+
+      previousSubject:
+        state.conversationContext.previousRobloxSubject ||
+        null,
+
+      currentCastleRequested:
+        Boolean(state.conversationContext.robloxCastleRequested),
+
+      currentSettlementRequested:
+        Boolean(state.conversationContext.robloxSettlementRequested),
+
+      currentStyles:
+        Array.isArray(state.conversationContext.robloxStyle)
+          ? state.conversationContext.robloxStyle
+          : [],
+
+      knownProjects:
+        Array.isArray(state.robloxProjects)
+        ? state.robloxProjects
+        : [],
+  }) || null;
+    const expandBuildReference = (description) => {
+      const clean = String(description || "").trim();
+      const referencesEarlierBrief = /\b(?:that|this|the)\s+(?:game|overview|plan|concept|description)\b|\bbased on (?:that|this|the|my)\b|^(?:it|that|this|now)$/i.test(clean);
+      if (!referencesEarlierBrief || !state.lastRobloxBuildBrief || clean.includes(state.lastRobloxBuildBrief.slice(0, 120))) return clean;
+      return `${clean}\n\nUse this complete owner-provided build overview:\n${state.lastRobloxBuildBrief}`.slice(0, 5000);
+    };
+    // ============================================================
+// PHASE 2 — STRUCTURED ROBLOX INTENT ROUTING
+// ============================================================
+
+if (
+  compiledRobloxIntent?.action === "create" &&
+  compiledRobloxIntent.scope === "new-project"
+) {
+  const projectDescription =
+    text.match(
+      /\b(?:roblox\s+)?(?:game|experience|project)\b(?:\s+(?:where|about|based on|with|that|using)\s+|\s*[:\-]\s*)?([\s\S]*)$/i
+    )?.[1]?.trim() || text;
+
+  return {
+    type: "build",
+    description: expandBuildReference(projectDescription),
+    newProject: true,
+    intent: compiledRobloxIntent,
+  };
+}
+
+if (
+  state.robloxReferenceBlueprint &&
+  compiledRobloxIntent?.referenceRequested &&
+  ["create", "modify"].includes(compiledRobloxIntent.action)
+) {
+  const subject =
+    compiledRobloxIntent.targetProject ||
+    recoveredProject ||
+    state.conversationContext.robloxProject ||
+    state.conversationContext.subject ||
+    "current Roblox project";
+
+  return {
+    type: "live_build",
+    target: subject,
+    useReferences: true,
+    description: `${text} in ${subject}`,
+    intent: compiledRobloxIntent,
+  };
+}
+
+if (
+  compiledRobloxIntent?.related &&
+  ["create", "modify"].includes(compiledRobloxIntent.action) &&
+  compiledRobloxIntent.scope !== "new-project"
+) {
+  const subject =
+    compiledRobloxIntent.targetProject ||
+    recoveredProject ||
+    state.conversationContext.robloxProject ||
+    state.conversationContext.subject ||
+    "current Roblox project";
+
+  return {
+    type: "live_build",
+    target: subject,
+    description: `${expandBuildReference(text)} in ${subject}`,
+    followUp: compiledRobloxIntent.followUp,
+    intent: compiledRobloxIntent,
+  };
+}
+    const compoundStudioBuild = text.match(/^(?:open(?: up)?|bring up|launch|start|run)(?: the)?\s+roblox studio\s*,?\s*(?:and then|and|then)\s+(?:create|build|make|construct|add|design)\s+([\s\S]+)$/i);
+    if (compoundStudioBuild?.[1] && !/^\s*(?:a\s+)?new\s+roblox\s+(?:game|experience)\b/i.test(compoundStudioBuild[1])) {
+      const subject = recoveredProject || state.conversationContext.subject || "current Roblox project";
+      return { type: "live_build", target: subject, description: `${expandBuildReference(compoundStudioBuild[1].trim())} in ${subject}`, openStudio: true, intent: compiledRobloxIntent };
+    }
+    const directRobloxObjectBuild = text.match(/^(?:create|build|make|construct|add|design)(?: me)?\s+([\s\S]+?)\s+(?:in|inside|for)\s+roblox(?: studio)?[.!?]*$/i);
+    if (directRobloxObjectBuild?.[1]) {
+      const subject = recoveredProject || state.conversationContext.subject || "current Roblox project";
+      return { type: "live_build", target: subject, description: `${expandBuildReference(directRobloxObjectBuild[1].trim())} in ${subject}`, intent: compiledRobloxIntent };
+    }
+    const pendingRobloxAction = state.pendingRobloxAction;
+    if (pendingRobloxAction && robloxContextActive) {
+      if (/^(?:never mind|cancel|stop|forget it|discard (?:that|the update))[.!?]*$/i.test(text)) {
+        state.pendingRobloxAction = null;
+        return null;
+      }
+      if (/\b(?:i (?:know|said).{0,45}(?:want|need) you to (?:change|update|do)|resume|continue|try again|do it|do that|make the changes?|start the changes?|go ahead(?: and (?:do|change|update) it)?)\b/i.test(text)) {
+        return { ...pendingRobloxAction, type: "live_build", resumed: true };
+      }
+      if (/^(?:use\s+)?this overview\b/i.test(text) && text.length > 80) {
+        const target = recoveredProject || pendingRobloxAction.target || state.conversationContext.subject || "current Roblox project";
+        return { type: "live_build", target, description: `${text} in ${target}`, resumed: true, intent: compiledRobloxIntent };
+      }
+    }
+    if (robloxContextActive && state.conversationContext.intent === "awaiting_build_description") {
+      if (/^(?:never mind|cancel|stop|forget it)[.!?]*$/i.test(text)) {
+        state.conversationContext.intent = "cancelled";
+        return null;
+      }
+      if (text.length >= 3) return { type: "build", description: text };
+    }
+    if (robloxContextActive && /\b(?:take control|handle it|fix it|fix the (?:game|project)|apply (?:the|those) fixes|make (?:the|those) fixes|start (?:the )?(?:edits|updates|changes)|begin (?:the )?(?:edits|updates|changes)|get started(?: on (?:the )?(?:edits|updates|changes))?|go ahead and (?:start|begin)(?: the)? (?:edits|updates|changes))\b/i.test(text)) {
+      return { type: "control_fix", query: `${state.conversationContext.subject || recoveredProject || "current Roblox project"} ${text}` };
+    }
+    if (robloxContextActive) {
+      const liveBuild = text.match(/^(?:and\s+then\s+|then\s+|and\s+)?(?:add|create|build|make|implement|write|design|place|construct|update|modify|change|edit|improve|expand)(?:\s+and\s+(?:add|create|build|make|implement|write|design|place|construct|update|modify|change|edit|improve|expand))?(?:\s+(?:it|that|this))?\s+([\s\S]+)$/i);
+      if (liveBuild?.[1]?.trim()) {
+        const subject = recoveredProject || state.conversationContext.subject || "current Roblox project";
+        const description = expandBuildReference(liveBuild[1].trim());
+        if (/^(?:now|it|that|this)$/i.test(description) && !state.lastRobloxBuildBrief) return { type: "build_prompt", openStudio: false };
+        return { type: "live_build", target: subject, description: `${description} in ${subject}`, intent: compiledRobloxIntent };
+      }
+    }
+    if (/\bpublish\b.{0,50}\broblox\b|\broblox\b.{0,50}\bpublish\b/i.test(text)) return { type: "publish_blocked" };
+    if (/\b(?:assess|assessment|review|analy[sz]e|take a look|look over|inspect|evaluate)\b/i.test(text) && /\b(?:roblox|studio|game|experience|project|elemental)\b/i.test(text)) return { type: "assess_project", query: text };
+    if (/\b(?:show|check|refresh|monitor|view|what are|how are)\b.{0,60}\b(?:roblox|game)\b.{0,35}\b(?:stats|statistics|players|visits|robux|revenue|activity|doing)\b/i.test(text) || /^(?:roblox stats|game stats)$/i.test(text)) return { type: "stats" };
+    if (
+      /\b(?:see|read|identify|tell|know|what(?:'s| is))\b.{0,65}\b(?:title|name)\b.{0,65}\b(?:roblox|game|project|experience)\b/i.test(text) ||
+      /\b(?:roblox|game|project|experience)\b.{0,65}\b(?:title|name)\b/i.test(text) ||
+      /\brecent\b.{0,45}\b(?:roblox\s+)?(?:experiences?|games?|projects?)\b/i.test(text) ||
+      /\b(?:experiences?|games?|projects?)\b.{0,45}\brecent\b/i.test(text) ||
+      /^(?:what|which|show|list|tell me)(?: are| me)?(?: the| my| your)?\s*(?:recent\s+)?(?:roblox\s+)?(?:experiences?|games?|projects?)(?: do you see| are there| have I worked on)?[.!?]*$/i.test(text)
+    ) return { type: "studio_context", query: text };
+    const openAndBuild = text.match(/^(?:open(?: up)?|bring up|launch|start|run)(?: the)?\s+roblox studio\s*(?:,?\s*(?:and|then|and then)\s+)(?:build|create|make|develop)(?: me)?(?: a| an| the)?\s*(?:new\s+)?(?:roblox\s+)?(?:game|experience)(?:\s+(?:where|about|based on|with|that|using)\s+|\s*[:\-]\s*)?([\s\S]*)$/i);
+    if (openAndBuild) return openAndBuild[1].trim() ? { type: "build", description: openAndBuild[1].trim() } : { type: "build_prompt", openStudio: true };
+    if (/^(?:(?:open(?: up)?|bring up|launch|start|run)(?: the)?\s+)?roblox studio[.!?]*$/i.test(text)) return { type: "open_studio" };
+    if (/^(?:open|launch)(?: the)?(?: latest| last)? roblox (?:game|project|studio project)$/i.test(text)) return { type: "launch_latest" };
+    const updateMatch = text.match(/^(?:update|modify|change|edit|improve|expand|add to)(?: my| the)?(?: latest| current| existing)?\s*roblox (?:game|experience|project)(?:\s+(?:by|to|with|so|and|based on)\s+|\s*[:\-]\s*)([\s\S]+)$/i);
+    if (updateMatch) {
+      if (robloxContextActive) {
+        const subject = recoveredProject || state.conversationContext.subject || "current Roblox project";
+        return { type: "live_build", target: subject, description: `${expandBuildReference(updateMatch[1].trim())} in ${subject}`, intent: compiledRobloxIntent };
+      }
+      return { type: "update", description: updateMatch[1].trim() };
+    }
+    const buildMatch = text.match(/^(?:build|create|make|develop)(?: me)?(?: a| an| the)?\s+(?:new\s+)?roblox (?:game|experience)(?:\s+(?:where|about|based on|with|that|using)\s+|\s*[:\-]\s*)?([\s\S]*)$/i);
+    if (buildMatch) return buildMatch[1].trim() ? { type: "build", description: buildMatch[1].trim() } : { type: "build_prompt" };
+    if (robloxContextActive) {
+      const contextualBuild = text.match(/^(?:and\s+then\s+|then\s+|and\s+)?(?:build|create|make|develop)(?: me)?(?: a| an| the)?\s*(?:new\s+)?(?:game|experience)(?:\s+(?:where|about|based on|with|that|using)\s+|\s*[:\-]\s*)?([\s\S]*)$/i);
+      if (contextualBuild) return contextualBuild[1].trim() ? { type: "build", description: contextualBuild[1].trim() } : { type: "build_prompt" };
+      const contextualUpdate = text.match(/^(?:and\s+then\s+|then\s+|and\s+)?(?:add|put|include|change|update|modify|edit|improve|expand|make|build|create)(?:\s+(?:it|that|the game|the project))?\s*(?:by|to|with|so|and|:|-)?\s+([\s\S]+)$/i);
+      if (contextualUpdate) return { type: "update", description: contextualUpdate[1].trim() };
+      if (/^(?:open|launch|start)(?: it| that| the game| the project)[.!?]*$/i.test(text)) return { type: "launch_latest" };
+    }
+    return null;
+  }
+
+  function rememberConversationContext(domain, intent, details = {}) {
+    const switchedDomain = domain && domain !== state.conversationContext.domain;
+    state.conversationContext = {
+      ...state.conversationContext,
+      ...(switchedDomain ? { entities: [], unresolved: null, subject: null } : {}),
+      ...details,
+      domain: domain || state.conversationContext.domain || "general",
+      intent: intent || state.conversationContext.intent || "discussion",
+      updatedAt: Date.now(),
+    };
+    persistConversationMemory();
+  }
+
+  function isContextualFollowUp(text) {
+    const compact = String(text || "").trim();
+    if (compact.split(/\s+/).length > 12) return false;
+    return /^(?:yes|yeah|yep|no|nope|exactly|right|okay|ok|sure|why|why not|how|how so|what do you mean|do it|do that|try it|open it|close it|change it|update it|add that|the first one|the second one|that one|this one|what about that|and then|continue|go on)[.!?]*$/i.test(compact) || /\b(?:it|that|this|those|them|one|ones|same thing|as before)\b/i.test(compact);
+  }
+
+  function conversationContextSummary() {
+    const context = state.conversationContext;
+    const entities = (Array.isArray(context.entities) ? context.entities : []).slice(0, 8).map((entry) => typeof entry === "string" ? entry : entry?.name || entry?.title || "").filter(Boolean);
+    return [
+      `Active domain: ${context.domain || "general"}.`,
+      `Current intent: ${context.intent || "discussion"}.`,
+      context.topic ? `Topic: ${context.topic}.` : "",
+      context.subject ? `Current subject: ${context.subject}.` : "",
+      entities.length ? `Referenced items, in order: ${entities.join("; ")}.` : "",
+      context.unresolved ? `SVANS last asked: ${context.unresolved}` : "",
+      context.lastUserText ? `Shawn's last message: ${context.lastUserText}` : "",
+      context.lastAssistantText ? `SVANS's last answer: ${context.lastAssistantText}` : "",
+    ].filter(Boolean).join(" ").slice(0, 2200);
+  }
+
+  async function executeRobloxCommand(command) {
+    if (command.type === "publish_blocked") return "Publishing is owner-only, so I cannot publish or make a Roblox game public. I can finish, test, save, and prepare it for you.";
+    if (command.type === "stats") {
+      const stats = await refreshRobloxStats();
+      if (!stats?.configured) return "Add the game’s Universe ID in Roblox Operations first, and then I can monitor its public activity.";
+      const publicStats = stats.public;
+      const analytics = stats.analytics;
+      if (!publicStats) return stats.publicError || "Roblox statistics are unavailable right now.";
+      const revenue = analytics?.connected && !analytics.empty ? ` The SVANS tracker has recorded ${Number(analytics.totalRobuxSpent || 0).toLocaleString()} Robux across ${Number(analytics.totalPurchases || 0).toLocaleString()} purchases.` : " Private purchase tracking is not connected yet.";
+      return `${publicStats.name} currently has ${Number(publicStats.playing || 0).toLocaleString()} players online and ${Number(publicStats.visits || 0).toLocaleString()} total visits.${revenue}`;
+    }
+    if (command.type === "control_fix") {
+      const approved = await confirmComputerAction({
+        title: "Apply safe fixes inside Roblox Studio?",
+        description: "SVANS will enable Workspace streaming and anchor clearly static geometry while excluding characters, tools, vehicles, projectiles, doors, moving objects, and VFX. Studio Undo remains available, and nothing will be published.",
+        target: state.conversationContext.subject || "Current Roblox project",
+        level: "LIVE STUDIO CHANGE · CONFIRM",
+      });
+      if (!approved) return "Understood. I did not change the Roblox project.";
+      const fixed = await desktop.fixRobloxProject(command.query);
+      if (!fixed.available) return `I opened ${fixed.project?.name || "the Roblox project"}, but ${fixed.reason}`;
+      rememberConversationContext("roblox", "live_fix", {
+        topic: "Roblox Studio live project fixes",
+        subject: fixed.project?.name || state.conversationContext.subject,
+        entities: fixed.project ? [fixed.project] : state.conversationContext.entities,
+      });
+      return `I took control of ${fixed.project.name} inside Studio. I enabled streaming and anchored ${Number(fixed.result?.anchored || 0).toLocaleString()} clearly static parts while leaving protected dynamic objects alone. The changes are not published, and you can undo the complete operation in Studio if anything needs to be reversed.`;
+    }
+    if (command.type === "live_build") {
+      const buildDescription = command.useReferences && state.robloxReferenceBlueprint
+        ? `${command.description}\n\n[SVANS MULTI-VIEW REFERENCE BLUEPRINT]\n${state.robloxReferenceBlueprint}`
+        : command.description;
+      state.pendingRobloxAction = {
+  type: "live_build",
+
+  target:
+    command.target ||
+    state.conversationContext.robloxProject ||
+    state.conversationContext.subject ||
+    "Current Roblox project",
+
+  description: buildDescription,
+
+  // Preserve Phase 2 interpretation if Shawn pauses/resumes
+  // the operation through the authorization gate.
+  intent: command.intent || null,
+};
+      persistConversationMemory();
+      const confirmationSummary = String(command.description || "Create the requested Roblox content")
+        .replace(/\s+/g, " ")
+        .replace(/\s+in\s+[^.]{1,100}$/i, "")
+        .trim();
+      const approved = await confirmComputerAction({
+        title: "Build this visibly inside Roblox Studio?",
+        description: `${/\b(?:castle|citadel|fortress|palace)\b[^.]{0,100}\b(?:town|village|kingdom)\b/i.test(command.description) ? "SVANS will create the castle and its surrounding settlement together at the current Studio camera location." : /\b(?:town|village)\b/i.test(command.description) ? "SVANS will place this expansion around the most recent SVANS structure in the open place." : "Point the Studio camera at the ground where this should be built."} SVANS will shape terrain and construct the requested detailed models for: “${confirmationSummary.slice(0, 270)}${confirmationSummary.length > 270 ? "…" : ""}” Nothing will be saved or published automatically, and Studio Undo remains available.`,
+        target: command.target || state.conversationContext.subject || "Current Roblox project",
+        level: "LIVE STUDIO BUILD · CONFIRM",
+      });
+      if (!approved) {
+        rememberConversationContext("roblox", "awaiting_live_build_confirmation", {
+          topic: "Pending Roblox Studio update",
+          subject: command.target || state.conversationContext.subject || "Current Roblox project",
+          unresolved: "Authorize the pending live Studio update?",
+        });
+        return `I paused the requested ${command.target || "Roblox Studio"} update. Nothing changed. Say “resume the update” when you are ready, then press AUTHORIZE ACTION in the confirmation window.`;
+      }
+      const built = await desktop.buildInsideRobloxProject({
+  description: buildDescription,
+  intent: command.intent || null,
+});
+      if (!built.available) return `I opened ${built.project?.name || "the Roblox project"}, but ${built.reason}`;
+      state.pendingRobloxAction = null;
+      persistConversationMemory();
+      const previousRobloxSubject =
+  state.conversationContext.robloxSubject || null;
+
+const nextRobloxSubject =
+  command.intent?.currentSubject &&
+  command.intent.currentSubject !== "unspecified"
+    ? command.intent.currentSubject
+    : command.intent?.primarySubject &&
+        command.intent.primarySubject !== "unspecified"
+      ? command.intent.primarySubject
+      : previousRobloxSubject;
+
+rememberConversationContext("roblox", "live_build", {
+  topic: "Visible Roblox Studio building",
+
+  // Keep the existing general subject for compatibility.
+  subject:
+    built.project?.name ||
+    state.conversationContext.subject,
+
+  // Phase 2 separates project from object/subject.
+  robloxProject:
+    built.project?.name ||
+    command.intent?.targetProject ||
+    state.conversationContext.robloxProject ||
+    state.conversationContext.subject ||
+    null,
+
+  previousRobloxSubject:
+    nextRobloxSubject &&
+    previousRobloxSubject &&
+    nextRobloxSubject !== previousRobloxSubject
+      ? previousRobloxSubject
+      : state.conversationContext.previousRobloxSubject || null,
+
+  robloxSubject:
+    nextRobloxSubject,
+
+  robloxAction:
+    command.intent?.action || "modify",
+
+  robloxCastleRequested:
+    Boolean(command.intent?.castleRequested),
+
+  robloxSettlementRequested:
+    Boolean(command.intent?.settlementRequested),
+
+  robloxStyle:
+    Array.isArray(command.intent?.styles)
+      ? command.intent.styles
+      : [],
+
+  robloxBehaviors:
+    Array.isArray(command.intent?.behaviors)
+      ? command.intent.behaviors
+      : [],
+
+  robloxRestrictions:
+    Array.isArray(command.intent?.restrictions)
+      ? command.intent.restrictions
+      : [],
+
+  entities:
+    built.project
+      ? [built.project]
+      : state.conversationContext.entities,
+});
+      const reused = Number(built.result?.createdObjects || 0);
+      const skipped = Number(built.result?.skippedObjects || 0);
+      const reuseReport = reused || skipped ? ` It placed ${reused.toLocaleString()} approved reusable objects${skipped ? ` and skipped ${skipped.toLocaleString()} unmatched library requests` : ""}.` : "";
+      const architectureReport = built.architecturalPipeline
+        ? ` The architecture pipeline passed ${Number(built.architectureReport?.checks?.length || 0)} checks with ${Number(built.refinementPasses || 0)} refinement pass${Number(built.refinementPasses || 0) === 1 ? "" : "es"}, and loaded ${Number(built.result?.validatedCameraViews || 0)} ground-level review views.`
+        : "";
+      const scriptCount = Number(built.result?.createdScripts || 0);
+      const scriptReport = scriptCount ? ` It also verified ${scriptCount.toLocaleString()} complete scripts containing ${Number(built.result?.verifiedScriptCharacters || 0).toLocaleString()} characters across ${Number(built.result?.verifiedScriptLines || 0).toLocaleString()} actual lines of code.` : "";
+      const placementReport = built.additiveExpansion ? " The expansion was anchored around the most recent SVANS build instead of replacing or repeating the castle." : "";
+      const compoundReport = built.compoundBuild ? " The castle and surrounding town were created as one coordinated kingdom; neither portion was omitted." : "";
+      const referenceReport = built.referenceDriven ? " The geometry was planned from your uploaded front, back, left, right, top, and optional interior reference blueprint." : "";
+      const directorReport = built.gameDirector ? ` Game Director completed this playable vertical-slice manifest: ${(built.directorPhases || []).join(", ")}.` : "";
+      return `Done inside ${built.project.name}: Studio shaped ${Number(built.result?.createdTerrain || 0).toLocaleString()} terrain features, created ${Number(built.result?.createdParts || 0).toLocaleString()} structural parts and ${Number(built.result?.createdCharacters || 0).toLocaleString()} R15 characters.${scriptReport}${placementReport}${compoundReport}${referenceReport}${directorReport}${reuseReport}${architectureReport} I did not save or publish it; review it, then save when you are satisfied. The full operation is available in Studio Undo.`;
+    }
+    if (command.type === "assess_project") {
+      const inspection = await desktop.inspectRobloxProject(command.query);
+      rememberConversationContext("roblox", "assessment", {
+        topic: "Roblox project assessment",
+        subject: inspection.project?.name || "Roblox project",
+        entities: inspection.project ? [inspection.project] : state.conversationContext.entities,
+      });
+      if (!inspection.available) return `I opened ${inspection.project?.name || "the matching Roblox project"}, but ${inspection.reason}`;
+      const snapshot = inspection.snapshot;
+      const assessmentPrompt = [
+        `Assess Shawn's Roblox project ${inspection.project.name} using only this live Studio inspection snapshot.`,
+        "Start immediately with the assessment. Do not apologize, mention an earlier answer, narrate a correction, or add a generic introduction. Use these exact short sections: **Overall**, **Strongest Areas**, **Important Risks**, and **Next Three Improvements**. Keep paragraphs short, use numbered items where useful, remain under 450 words, and be specific, practical, and honest about what these structural facts cannot reveal about moment-to-moment gameplay.",
+        JSON.stringify(snapshot),
+      ].join("\n\n").slice(0, 24000);
+      const assessment = await desktop.chat(
+        [...state.messages, { role: "user", content: assessmentPrompt }].slice(-30),
+        sessionId,
+        communicationStyleSummary(),
+        state.codingCoachMode,
+        conversationContextSummary(),
+      );
+      return `I opened ${inspection.project.name} and inspected the live Studio project. ${assessment.text}`;
+    }
+    if (command.type === "open_studio") {
+      const studio = await desktop.openRobloxStudio();
+      return studio?.alreadyOpen ? studio.message : "Roblox Studio is opening now.";
+    }
+    if (command.type === "build_prompt") {
+      if (command.openStudio) await desktop.openRobloxStudio();
+      rememberConversationContext("roblox", "awaiting_build_description");
+      return "Absolutely. What kind of game do you want me to create—what is the world, objective, and basic gameplay?";
+    }
+    if (command.type === "studio_context") {
+      const context = await desktop.robloxStudioContext(command.query || "");
+      rememberConversationContext("roblox", "studio_context", {
+        topic: "Roblox Studio projects",
+        subject: context.projectName || context.recentProjects?.[0]?.name || "Roblox Studio Home",
+        entities: (context.recentProjects || []).map((project) => ({ name: project.name, path: project.path })),
+      });
+      if (!context.running) return "Roblox Studio is not open right now.";
+      const sessionDescriptions = (context.sessions || []).map((session) => session.projectName ? `${session.projectName} (${session.state})` : `Studio Home (${session.state})`);
+      if (context.sessionCount > 1) return `I can see ${context.sessionCount} Roblox Studio sessions: ${sessionDescriptions.join(", ")}. The selected editing target is ${context.projectName || "Studio Home"}.`;
+      if (context.projectName) return `The Roblox project open in Studio is ${context.projectName}. Its session state is ${context.state || "place"}.`;
+      const recent = context.recentProjects || [];
+      if (recent.length) {
+        const others = recent.slice(1, 3).map((project) => project.name);
+        return `Studio is on its Home screen, so no game is currently open. Your most recent local project is ${recent[0].name}${others.length ? `; I also see ${others.join(" and ")}` : ""}.`;
+      }
+      return "Roblox Studio is open on its Home screen, but I do not see a loaded or recent local project title.";
+    }
+    if (command.type === "launch_latest") {
+      const projects = await desktop.listRobloxProjects();
+      if (!projects.length) return "There is no SVANS Roblox project yet. Describe the game you want and I’ll build the first version.";
+      await desktop.launchRobloxProject(projects[0].placePath);
+      rememberConversationContext("roblox", "launch_project", { topic: "Roblox project", subject: projects[0].name, entities: projects.slice(0, 8) });
+      return `I opened ${projects[0].name} in Roblox Studio. Publishing remains locked to you.`;
+    }
+    if (command.type === "build") {
+      const project = await desktop.buildRobloxGame({
+        description: command.description,
+        intent: command.intent || null,
+      });
+      await desktop.launchRobloxProject(project.placePath);
+      state.robloxProjects = await desktop.listRobloxProjects();
+      syncRobloxAvailability({ announce: true });
+      rememberConversationContext("roblox", "build", { topic: "Roblox game creation", subject: project.name, entities: [project] });
+      return `I built ${project.name} with ${project.buildingCount || 0} structured building models and ${project.characterCount || 0} humanoid characters, then opened it in Roblox Studio. The project is saved locally, analytics are installed, and only you can publish it.`;
+    }
+    if (command.type === "update") {
+      const project = await desktop.updateRobloxGame(command.description);
+      await desktop.launchRobloxProject(project.placePath);
+      state.robloxProjects = await desktop.listRobloxProjects();
+      syncRobloxAvailability();
+      rememberConversationContext("roblox", "update", { topic: "Roblox game revision", subject: project.name, entities: [project] });
+      return `I updated ${project.name}, preserved a backup, and reopened it in Roblox Studio. It now contains ${project.buildingCount || 0} building models and ${project.characterCount || 0} humanoid characters.`;
+    }
+    return "The Roblox development agent is ready.";
+  }
+
   async function sendMessage(rawText) {
     const text = rawText.trim();
     if (!text || state.busy) return;
     state.busy = true;
+    const operationGeneration = ++state.operationGeneration;
+    const operationIsCurrent = () => operationGeneration === state.operationGeneration;
     elements.commandInput.value = "";
+    elements.commandInput.style.height = "33px";
     appendMessage("user", text);
     learnCommunicationStyle(text);
     state.messages.push({ role: "user", content: text });
@@ -1202,8 +2306,50 @@
       return;
     }
 
+    const volumePreference = voiceVolumePreference(text);
+    if (volumePreference !== null) {
+      state.speechVolume = volumePreference;
+      localStorage.setItem("svans.speechVolume", String(state.speechVolume));
+      const reply = volumePreference < 0.5
+        ? "Absolutely. I lowered my voice, and I’ll keep it quiet until you tell me otherwise."
+        : "Normal voice level restored.";
+      state.messages.push({ role: "assistant", content: reply });
+      appendMessage("assistant", reply);
+      elements.voiceLink.textContent = volumePreference < 0.5 ? "QUIET VOICE" : "CHANNEL READY";
+      state.busy = false;
+      void speak(reply);
+      return;
+    }
+
+    const robloxCommand = parseRobloxCommand(text);
+    if (robloxCommand) {
+      rememberConversationContext("roblox", robloxCommand.type, { topic: "Roblox Studio and game development", subject: robloxCommand.target || state.conversationContext.subject });
+      try {
+        elements.voiceLink.textContent = robloxCommand.type === "build" ? "BUILDING ROBLOX GAME" : "ROBLOX LINK ACTIVE";
+        const reply = await executeRobloxCommand(robloxCommand);
+        if (!operationIsCurrent()) return;
+        state.messages.push({ role: "assistant", content: reply });
+        appendMessage("assistant", reply);
+        logActivity(`Roblox agent · ${robloxCommand.type}`);
+        void speak(reply);
+      } catch (error) {
+        if (!operationIsCurrent()) return;
+        const reply = `The Roblox agent ran into a problem: ${error instanceof Error ? error.message : "unknown error"}`;
+        state.messages.push({ role: "assistant", content: reply });
+        appendMessage("assistant", reply);
+        void speak(reply);
+      } finally {
+        if (operationIsCurrent()) {
+          state.busy = false;
+          elements.voiceLink.textContent = "CHANNEL READY";
+        }
+      }
+      return;
+    }
+
     const hologramCommand = parseHologramCommand(text);
     if (hologramCommand) {
+      rememberConversationContext("hologram", hologramCommand.type, { topic: "interactive hologram", subject: hologramCommand.subject || state.universalHologram?.panel?.querySelector("header strong")?.textContent || "active hologram" });
       const reply = executeHologramCommand(hologramCommand);
       state.messages.push({ role: "assistant", content: reply });
       appendMessage("assistant", reply);
@@ -1213,10 +2359,44 @@
       return;
     }
 
+    const agentGoalMatch = text.match(/^(?:give (?:yourself|svans) a task to|start (?:an? )?(?:agent )?task(?: to)?|handle this while I(?:'m| am) away\s*[:\-]?)\s*(.+)$/i);
+    if (agentGoalMatch) {
+      const goal = agentGoalMatch[1].trim();
+      rememberConversationContext("agent", "task", { topic: goal, subject: goal });
+      let reply;
+      try {
+        const task = await desktop.planAgentTask(goal);
+        if (!operationIsCurrent()) return;
+        upsertAgentTask(task);
+        logActivity(`Agent task planned: ${goal.slice(0, 48)}`);
+        const started = await desktop.startAgentTask(task.id);
+        if (!operationIsCurrent()) return;
+        if (started) upsertAgentTask(started);
+        reply = started?.status === "awaiting_approval"
+          ? `I've planned that out and I'm ready to start, but the first sensitive step needs your approval in the Agent Tasks panel first.`
+          : `I've planned that out and I'm working through it now. You'll see it in the Agent Tasks panel.`;
+      } catch (error) {
+        if (!operationIsCurrent()) return;
+        reply = `I couldn't plan that task: ${error instanceof Error ? error.message : "unknown planning error"}`;
+      }
+      if (!operationIsCurrent()) return;
+      state.messages.push({ role: "assistant", content: reply });
+      appendMessage("assistant", reply);
+      elements.voiceLink.textContent = "TASK QUEUED";
+      state.busy = false;
+      void speak(reply);
+      return;
+    }
+
     const computerAction = parseComputerCommand(text);
     if (computerAction) {
+      rememberConversationContext(computerAction.type.startsWith("business:") ? "business" : "computer", computerAction.type, {
+        topic: computerAction.type.replace(/[_:]/g, " "),
+        subject: computerAction.payload?.name || computerAction.payload?.path || computerAction.payload?.url || computerAction.payload?.folder || null,
+      });
       try {
         const result = await executeComputerCommand(computerAction);
+        if (!operationIsCurrent()) return;
         const reply = result?.message || "The computer action completed.";
         state.messages.push({ role: "assistant", content: reply });
         appendMessage("assistant", reply);
@@ -1224,6 +2404,7 @@
         elements.voiceLink.textContent = "ACTION COMPLETE";
         void speak(reply);
       } catch (error) {
+        if (!operationIsCurrent()) return;
         const message = error instanceof Error ? error.message : "The computer action was blocked.";
         const reply = message.includes("PERMISSION_REQUIRED")
           ? "That capability is disabled. You can enable it in the SVANS Shield permissions panel."
@@ -1234,7 +2415,7 @@
         setCoreState("READY");
         void speak(reply);
       } finally {
-        state.busy = false;
+        if (operationIsCurrent()) state.busy = false;
       }
       return;
     }
@@ -1242,19 +2423,21 @@
     if (isLocalSystemHealthRequest(text)) {
       try {
         const reply = await localSystemHealthReport();
+        if (!operationIsCurrent()) return;
         state.messages.push({ role: "assistant", content: reply });
         appendMessage("assistant", reply);
         logActivity("Local system health report generated");
         elements.voiceLink.textContent = "SYSTEMS NOMINAL";
         void speak(reply);
       } catch (error) {
+        if (!operationIsCurrent()) return;
         const reply = `I could not read the local telemetry: ${error instanceof Error ? error.message : "unknown system error"}`;
         state.messages.push({ role: "assistant", content: reply });
         appendMessage("assistant", reply);
         setCoreState("STANDBY");
         void speak(reply);
       } finally {
-        state.busy = false;
+        if (operationIsCurrent()) state.busy = false;
       }
       return;
     }
@@ -1263,13 +2446,22 @@
     await runLocalCommand(command, text);
 
     try {
-      const response = await desktop.chat(state.messages.slice(-30), sessionId, communicationStyleSummary(), state.codingCoachMode);
+      if (!isContextualFollowUp(text)) rememberConversationContext("conversation", "discussion", { topic: text.slice(0, 280), subject: null, entities: [] });
+      const response = await desktop.chat(state.messages.slice(-30), sessionId, communicationStyleSummary(), state.codingCoachMode, conversationContextSummary());
+      if (!operationIsCurrent()) return;
       state.messages.push({ role: "assistant", content: response.text });
       appendMessage("assistant", response.text);
       logActivity(`SVANS responded${response.orchestration?.route ? ` · route ${response.orchestration.route}` : ""}`);
-      elements.voiceLink.textContent = "CHANNEL READY";
+      if (response.offline && response.localMode === "roblox") {
+        elements.voiceLink.textContent = "ROBLOX LOCAL MODE";
+        setCoreState("LOCAL", "ready");
+        showToast("SVANSAI OFFLINE · ROBLOX EDITING AVAILABLE");
+      } else {
+        elements.voiceLink.textContent = "CHANNEL READY";
+      }
       void speak(response.text);
     } catch (error) {
+      if (!operationIsCurrent()) return;
       const message = error instanceof Error ? error.message : "The intelligence link was interrupted.";
       appendMessage("assistant", message);
       state.messages.push({ role: "assistant", content: message });
@@ -1277,7 +2469,7 @@
       setCoreState("STANDBY");
       logActivity(`SVANSAI connection error: ${message}`);
     } finally {
-      state.busy = false;
+      if (operationIsCurrent()) state.busy = false;
     }
   }
 
@@ -1323,6 +2515,7 @@
       if (interim.trim()) elements.commandInput.value = interim.trim();
       if (finalText.trim()) {
         elements.commandInput.value = "";
+        elements.commandInput.style.height = "33px";
         recognition.stop();
         void sendMessage(finalText.trim());
       }
@@ -1387,6 +2580,314 @@
     logActivity(`Priority task added: ${task.trim().slice(0, 44)}`);
   }
 
+  // --- Agent orchestrator panel ---
+  function stepStatusLabel(task) {
+    const step = task.steps?.[task.cursor];
+    if (!step) return task.status === "completed" ? "All steps complete." : "";
+    return `${task.cursor + 1}/${task.steps.length} · ${step.description}`;
+  }
+
+  function renderAgentTasks() {
+    const list = $("#agent-task-list");
+    if (!list) return;
+    if (!state.agentTasks.length) {
+      list.innerHTML = `<li class="agent-task-empty">No agent tasks yet. Tap ＋ to give SVANS a multi-step goal.</li>`;
+      return;
+    }
+    list.innerHTML = "";
+    for (const task of state.agentTasks) {
+      const item = document.createElement("li");
+      item.className = "agent-task";
+      item.dataset.taskId = task.id;
+
+      const goal = document.createElement("span");
+      goal.className = "agent-task-goal";
+      goal.textContent = task.goal;
+
+      const meta = document.createElement("div");
+      meta.className = "agent-task-meta";
+      const status = document.createElement("span");
+      status.className = `agent-task-status status-${task.status}`;
+      status.textContent = task.status.replace(/_/g, " ");
+      meta.append(status);
+
+      const stepLine = document.createElement("div");
+      stepLine.className = "agent-task-step";
+      stepLine.textContent = stepStatusLabel(task);
+
+      item.append(goal, meta, stepLine);
+
+      if (task.status === "awaiting_approval") {
+        const currentStep = task.steps?.[task.cursor];
+        const actions = document.createElement("div");
+        actions.className = "agent-task-actions";
+        const approve = document.createElement("button");
+        approve.textContent = "APPROVE";
+        approve.addEventListener("click", () => approveAgentStep(task.id));
+        const reject = document.createElement("button");
+        reject.className = "reject";
+        reject.textContent = "SKIP";
+        reject.addEventListener("click", () => rejectAgentStep(task.id));
+        actions.append(approve, reject);
+        item.append(actions);
+        if (currentStep) {
+          const pending = document.createElement("div");
+          pending.className = "agent-task-step";
+          pending.textContent = `Waiting on approval: ${currentStep.description}`;
+          item.append(pending);
+        }
+      } else if (["awaiting_start", "scheduled", "paused"].includes(task.status)) {
+        const actions = document.createElement("div");
+        actions.className = "agent-task-actions";
+        const start = document.createElement("button");
+        start.textContent = task.status === "paused" ? "RESUME" : "START";
+        start.addEventListener("click", () => startAgentTask(task.id));
+        const cancel = document.createElement("button");
+        cancel.className = "reject";
+        cancel.textContent = "CANCEL";
+        cancel.addEventListener("click", () => cancelAgentTask(task.id));
+        actions.append(start, cancel);
+        item.append(actions);
+      } else if (task.status === "running") {
+        const actions = document.createElement("div");
+        actions.className = "agent-task-actions";
+        const cancel = document.createElement("button");
+        cancel.className = "reject";
+        cancel.textContent = "CANCEL";
+        cancel.addEventListener("click", () => cancelAgentTask(task.id));
+        actions.append(cancel);
+        item.append(actions);
+      }
+
+      list.append(item);
+    }
+  }
+
+  function upsertAgentTask(task) {
+    if (!task?.id) return;
+    const index = state.agentTasks.findIndex((entry) => entry.id === task.id);
+    if (index === -1) state.agentTasks.unshift(task);
+    else state.agentTasks[index] = task;
+    renderAgentTasks();
+  }
+
+  async function addAgentTask() {
+    const goal = window.prompt("What should SVANS accomplish? Describe the goal in a sentence or two:");
+    if (!goal?.trim()) return;
+    showToast("PLANNING TASK…");
+    try {
+      const task = await desktop.planAgentTask(goal.trim());
+      upsertAgentTask(task);
+      logActivity(`Agent task planned: ${goal.trim().slice(0, 48)}`);
+      const started = await desktop.startAgentTask(task.id);
+      if (started) upsertAgentTask(started);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message.toUpperCase() : "COULD NOT PLAN TASK");
+    }
+  }
+
+  async function startAgentTask(taskId) {
+    try {
+      const task = await desktop.startAgentTask(taskId);
+      if (task) upsertAgentTask(task);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message.toUpperCase() : "COULD NOT START TASK");
+    }
+  }
+
+  async function approveAgentStep(taskId) {
+    try {
+      const task = await desktop.approveAgentStep(taskId);
+      if (task) upsertAgentTask(task);
+      logActivity("Agent step approved");
+    } catch (error) {
+      showToast(error instanceof Error ? error.message.toUpperCase() : "COULD NOT APPROVE STEP");
+    }
+  }
+
+  async function rejectAgentStep(taskId) {
+    try {
+      const task = await desktop.rejectAgentStep(taskId, "Skipped by owner from the Agent Tasks panel.");
+      if (task) upsertAgentTask(task);
+      logActivity("Agent step skipped by owner");
+    } catch (error) {
+      showToast(error instanceof Error ? error.message.toUpperCase() : "COULD NOT SKIP STEP");
+    }
+  }
+
+  async function cancelAgentTask(taskId) {
+    try {
+      const task = await desktop.cancelAgentTask(taskId);
+      if (task) upsertAgentTask(task);
+      logActivity("Agent task cancelled");
+    } catch (error) {
+      showToast(error instanceof Error ? error.message.toUpperCase() : "COULD NOT CANCEL TASK");
+    }
+  }
+
+  async function bindAgentPanel() {
+    $("#add-agent-task-button")?.addEventListener("click", addAgentTask);
+    desktop.onAgentUpdate((task) => upsertAgentTask(task));
+    try {
+      state.agentTasks = await desktop.listAgentTasks();
+      renderAgentTasks();
+    } catch {
+      // No persisted tasks yet, or the desktop bridge is unavailable in preview mode.
+    }
+  }
+
+  // --- Roblox development and live operations ---
+  function compactMetric(value) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return "—";
+    return Intl.NumberFormat("en-US", { notation: number >= 10000 ? "compact" : "standard", maximumFractionDigits: 1 }).format(number);
+  }
+
+  function syncRobloxAvailability({ announce = false } = {}) {
+    const projects = Array.isArray(state.robloxProjects) ? state.robloxProjects : [];
+    const available = projects.length > 0;
+    const tab = $("#roblox-context-tab");
+    const panel = $("#roblox-panel");
+    tab.hidden = !available;
+    panel.classList.toggle("available", available);
+    if (!available) panel.classList.remove("open");
+    panel.setAttribute("aria-hidden", String(!available || !panel.classList.contains("open")));
+    $("#roblox-project-badge").textContent = String(Math.min(projects.length, 99));
+    $("#roblox-project-summary").textContent = available
+      ? `${projects[0].name} · ${projects.length} LOCAL ${projects.length === 1 ? "PROJECT" : "PROJECTS"}`
+      : "INTERNAL TRACKING READY";
+    if (announce && available) {
+      tab.classList.add("newly-available");
+      window.setTimeout(() => tab.classList.remove("newly-available"), 1800);
+      showToast("ROBLOX TAB ADDED · PROJECT TRACKING ACTIVE");
+    }
+  }
+
+  function openRobloxPanel() {
+    if (!state.robloxProjects.length) return false;
+    const panel = $("#roblox-panel");
+    panel.classList.add("open");
+    panel.setAttribute("aria-hidden", "false");
+    return true;
+  }
+
+  function closeRobloxPanel() {
+    const panel = $("#roblox-panel");
+    panel.classList.remove("open");
+    panel.setAttribute("aria-hidden", "true");
+    document.querySelector('[data-command="roblox"]')?.classList.remove("active");
+  }
+
+  function renderRobloxStats(stats) {
+    state.robloxStats = stats;
+    const publicStats = stats?.public;
+    const analytics = stats?.analytics;
+    $("#roblox-playing").textContent = compactMetric(publicStats?.playing);
+    $("#roblox-visits").textContent = compactMetric(publicStats?.visits);
+    $("#roblox-players").textContent = compactMetric(analytics?.totalUniquePlayers);
+    $("#roblox-robux").textContent = compactMetric(analytics?.totalRobuxSpent);
+    const status = $("#roblox-agent-status");
+    if (!stats?.configured) status.textContent = "ADD UNIVERSE ID";
+    else if (stats.publicError) status.textContent = "ROBLOX LINK DEGRADED";
+    else status.textContent = `${publicStats?.name || "GAME"} · MONITORING`;
+  }
+
+  async function refreshRobloxStats() {
+    try {
+      const stats = await desktop.refreshRobloxStats();
+      renderRobloxStats(stats);
+      return stats;
+    } catch (error) {
+      $("#roblox-agent-status").textContent = "MONITOR UNAVAILABLE";
+      logActivity(`Roblox monitoring error: ${error instanceof Error ? error.message : "unknown"}`);
+      return null;
+    }
+  }
+
+  async function saveRobloxConfiguration() {
+    const universeId = $("#roblox-universe-id").value.trim();
+    if (!/^\d+$/.test(universeId)) { showToast("ENTER A VALID UNIVERSE ID"); return; }
+    try {
+      await desktop.configureRoblox({ universeId });
+      showToast("ROBLOX GAME LINKED · PUBLISHING DISABLED");
+      logActivity(`Roblox Universe ${universeId} linked for monitoring`);
+      await refreshRobloxStats();
+    } catch (error) {
+      showToast(error instanceof Error ? error.message.toUpperCase() : "COULD NOT LINK ROBLOX GAME");
+    }
+  }
+
+  async function buildRobloxFromPanel() {
+    const description = window.prompt("Describe the Roblox game SVANS should build. Include the gameplay, world, objectives, and style:");
+    if (!description?.trim()) return;
+    $("#roblox-agent-status").textContent = "DESIGNING AND BUILDING";
+    showToast("SVANS ROBLOX AGENT BUILDING…");
+    try {
+      const project = await desktop.buildRobloxGame(description.trim());
+      await desktop.launchRobloxProject(project.placePath);
+      state.robloxProjects = await desktop.listRobloxProjects();
+      syncRobloxAvailability({ announce: true });
+      $("#roblox-agent-status").textContent = "PROJECT OPEN IN STUDIO";
+      logActivity(`Roblox project built · ${project.name}`);
+      const reply = `I built ${project.name} with ${project.buildingCount || 0} structured buildings and ${project.characterCount || 0} humanoid characters, then opened it in Roblox Studio. It is saved locally and publishing is still yours alone.`;
+      state.messages.push({ role: "assistant", content: reply });
+      appendMessage("assistant", reply);
+      void speak(reply);
+    } catch (error) {
+      $("#roblox-agent-status").textContent = "BUILD NEEDS ATTENTION";
+      showToast(error instanceof Error ? error.message.toUpperCase() : "ROBLOX BUILD FAILED");
+    }
+  }
+
+  async function bindRobloxPanel() {
+    $("#refresh-roblox-button")?.addEventListener("click", refreshRobloxStats);
+    $("#close-roblox-button")?.addEventListener("click", closeRobloxPanel);
+    $("#save-roblox-config")?.addEventListener("click", saveRobloxConfiguration);
+    $("#build-roblox-button")?.addEventListener("click", buildRobloxFromPanel);
+    desktop.onRobloxStats((stats) => renderRobloxStats(stats));
+    try {
+      const config = await desktop.robloxConfig();
+      $("#roblox-universe-id").value = config.universeId || "";
+      state.robloxProjects = await desktop.listRobloxProjects();
+      syncRobloxAvailability();
+    } catch {
+      // Preview mode has no local Roblox bridge.
+    }
+    await refreshRobloxStats();
+  }
+
+  // --- Business Ops panel ---
+  async function refreshBusinessSummary() {
+    const list = $("#business-summary-list");
+    if (!list) return;
+    try {
+      const result = await desktop.executeComputerAction({ type: "business:summary", payload: {} });
+      const lines = result?.lines || [];
+      if (!lines.length) {
+        list.innerHTML = `<li class="business-empty">No business data yet. Try "add lead", "log revenue", or "show business summary".</li>`;
+        return;
+      }
+      list.innerHTML = "";
+      for (const line of lines) {
+        const [label, value] = line.split(/:\s*(?=[^:]+$)/);
+        const item = document.createElement("li");
+        const labelSpan = document.createElement("span");
+        labelSpan.textContent = label;
+        const valueStrong = document.createElement("strong");
+        valueStrong.textContent = value ?? "";
+        item.append(labelSpan, valueStrong);
+        list.append(item);
+      }
+    } catch {
+      list.innerHTML = `<li class="business-empty">Business data unavailable in this preview.</li>`;
+    }
+  }
+
+  function bindBusinessPanel() {
+    $("#refresh-business-button")?.addEventListener("click", refreshBusinessSummary);
+    void refreshBusinessSummary();
+  }
+
   async function toggleCompact() {
     state.compact = !state.compact;
     const applied = await desktop.setCompact(state.compact);
@@ -1409,13 +2910,48 @@
     }
   }
 
+  async function refreshConnectorStatus() {
+    try {
+      const status = await desktop.connectorStatus();
+      $$("[data-connector-status]").forEach((el) => {
+        const key = el.dataset.connectorStatus;
+        const platform = key.split(":")[0];
+        const connected = Boolean(status[platform]);
+        el.textContent = connected ? "Connected" : "Not connected";
+        el.classList.toggle("connected", connected);
+      });
+    } catch (error) {
+      logActivity(`Connector status unavailable: ${error instanceof Error ? error.message : "unknown"}`);
+    }
+  }
+
+  function bindConnectorPanel() {
+    $$("[data-connector-save]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const key = button.dataset.connectorSave;
+        const input = $(`[data-connector-input="${key}"]`);
+        const value = input?.value.trim();
+        if (!value) {
+          showToast("ENTER A KEY OR TOKEN FIRST");
+          return;
+        }
+        try {
+          await desktop.saveSecret(key, value);
+          input.value = "";
+          showToast(`${key.split(":")[0].toUpperCase()} CONNECTED`);
+          logActivity(`Connector credential saved for ${key.split(":")[0]}`);
+          await refreshConnectorStatus();
+        } catch (error) {
+          showToast(error instanceof Error ? error.message.toUpperCase() : "COULD NOT SAVE CREDENTIAL");
+        }
+      });
+    });
+    void refreshConnectorStatus();
+  }
+
   function bindComputerControl() {
     $("#action-confirm-cancel").addEventListener("click", () => closeActionConfirmation(false));
     $("#action-confirm-approve").addEventListener("click", () => closeActionConfirmation(true));
-    elements.actionConfirmation.addEventListener("click", (event) => {
-      if (event.target === elements.actionConfirmation) closeActionConfirmation(false);
-    });
-
     $$('[data-computer-permission]').forEach((input) => {
       input.addEventListener("change", async (event) => {
         const capability = event.target.dataset.computerPermission;
@@ -1453,6 +2989,8 @@
       showToast("ALL SVANS HELPER OPERATIONS STOPPED");
     });
 
+    bindConnectorPanel();
+
     desktop.onComputerAudit((entry) => {
       if (!state.authenticated) return;
       logActivity(`${entry.action} · ${entry.detail}`);
@@ -1468,10 +3006,116 @@
     });
   }
 
+  function closeRobloxReferenceModal() {
+    elements.robloxReferenceModal.classList.remove("open");
+    elements.robloxReferenceModal.setAttribute("aria-hidden", "true");
+  }
+
+  function openRobloxReferenceModal() {
+    elements.robloxReferenceModal.classList.add("open");
+    elements.robloxReferenceModal.setAttribute("aria-hidden", "false");
+  }
+
+  async function optimizedReferenceImage(file) {
+    if (!file?.type?.startsWith("image/")) throw new Error("Choose a PNG, JPEG, or WebP image.");
+    if (file.size > 12 * 1024 * 1024) throw new Error("Each source image must be under 12 MB.");
+    const source = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(new Error("The image could not be read."));
+      reader.readAsDataURL(file);
+    });
+    const image = await new Promise((resolve, reject) => {
+      const element = new Image();
+      element.onload = () => resolve(element);
+      element.onerror = () => reject(new Error("The image format could not be decoded."));
+      element.src = source;
+    });
+    const scale = Math.min(1, 1536 / Math.max(image.naturalWidth, image.naturalHeight));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+    canvas.getContext("2d", { alpha: false }).drawImage(image, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.86);
+    return { mimeType: "image/jpeg", data: dataUrl.split(",")[1], preview: dataUrl, name: file.name };
+  }
+
+  function updateReferenceStatus() {
+    const required = ["front", "back", "left", "right", "top"];
+    const loaded = required.filter((role) => state.robloxReferenceViews[role]).length;
+    const interior = state.robloxReferenceViews.interior ? " · INTERIOR LOADED" : "";
+    elements.robloxReferenceStatus.textContent = `${loaded} OF 5 REQUIRED VIEWS LOADED${interior}`;
+  }
+
+  function bindRobloxReferenceUpload() {
+    elements.robloxReferenceButton.addEventListener("click", openRobloxReferenceModal);
+    $("#roblox-reference-close").addEventListener("click", closeRobloxReferenceModal);
+    $("#roblox-reference-cancel").addEventListener("click", closeRobloxReferenceModal);
+    $$("[data-reference-role]").forEach((label) => {
+      const input = label.querySelector("input");
+      input.addEventListener("change", async () => {
+        const file = input.files?.[0];
+        if (!file) return;
+        try {
+          const view = await optimizedReferenceImage(file);
+          const role = label.dataset.referenceRole;
+          state.robloxReferenceViews[role] = { role, name: view.name, mimeType: view.mimeType, data: view.data };
+          label.querySelector("img").src = view.preview;
+          label.classList.add("loaded");
+          updateReferenceStatus();
+        } catch (error) {
+          showToast(error instanceof Error ? error.message.toUpperCase() : "IMAGE COULD NOT BE LOADED");
+        }
+      });
+    });
+    $("#roblox-reference-analyze").addEventListener("click", async () => {
+      const required = ["front", "back", "left", "right", "top"];
+      const missing = required.filter((role) => !state.robloxReferenceViews[role]);
+      if (missing.length) {
+        showToast(`ADD ${missing.join(", ").toUpperCase()} VIEW${missing.length === 1 ? "" : "S"}`);
+        return;
+      }
+      const button = $("#roblox-reference-analyze");
+      button.disabled = true;
+      button.textContent = "ANALYZING VIEWS…";
+      elements.robloxReferenceStatus.textContent = "RECONCILING GEOMETRY ACROSS ALL CAMERA ANGLES";
+      try {
+        const result = await desktop.analyzeRobloxReferences({ views: Object.values(state.robloxReferenceViews), brief: elements.commandInput.value });
+        state.robloxReferenceBlueprint = String(result.blueprint || "").slice(0, 16000);
+        localStorage.setItem("svans.robloxReferenceBlueprint", state.robloxReferenceBlueprint);
+        elements.robloxReferenceButton.classList.add("ready");
+        elements.commandInput.value = "Build the uploaded multi-view reference in Elemental Realm";
+        elements.commandInput.dispatchEvent(new Event("input"));
+        rememberConversationContext("roblox", "reference_ready", { topic: "Multi-view Roblox reference build", subject: "Elemental Realm", entities: result.roles || [] });
+        closeRobloxReferenceModal();
+        appendMessage("assistant", `I reconciled ${result.viewCount} reference views into one Roblox construction blueprint. Review the prepared command, then transmit it when you want me to build it visibly in Studio.`);
+        showToast("MULTI-VIEW ROBLOX BLUEPRINT READY");
+      } catch (error) {
+        elements.robloxReferenceStatus.textContent = error instanceof Error ? error.message.toUpperCase() : "REFERENCE ANALYSIS FAILED";
+      } finally {
+        button.disabled = false;
+        button.textContent = "ANALYZE REFERENCES";
+      }
+    });
+    updateReferenceStatus();
+    if (state.robloxReferenceBlueprint) elements.robloxReferenceButton.classList.add("ready");
+  }
+
   function bindEvents() {
+    bindRobloxReferenceUpload();
     elements.commandForm.addEventListener("submit", (event) => {
       event.preventDefault();
       void sendMessage(elements.commandInput.value);
+    });
+    elements.commandInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+        event.preventDefault();
+        elements.commandForm.requestSubmit();
+      }
+    });
+    elements.commandInput.addEventListener("input", () => {
+      elements.commandInput.style.height = "auto";
+      elements.commandInput.style.height = `${Math.min(elements.commandInput.scrollHeight, 76)}px`;
     });
     elements.core.addEventListener("click", toggleVoice);
     elements.microphone.addEventListener("click", toggleVoice);
@@ -1514,7 +3158,7 @@
     $("#voice-preview-button").addEventListener("click", () => {
       void speak("Good evening, Shawn. SVANS is online and ready when you are.", { preview: true });
     });
-    $("#stop-voice-button").addEventListener("click", stopSpeaking);
+    $("#stop-voice-button").addEventListener("click", stopCurrentOperation);
 
     $$('[data-command]').forEach((button) => {
       button.addEventListener("click", () => void runLocalCommand(button.dataset.command));
@@ -1530,7 +3174,11 @@
     $("#ambient-restore-button").addEventListener("click", () => void toggleCompact());
     $("#clear-chat-button").addEventListener("click", () => {
       state.messages = [];
+      state.conversationContext = defaultConversationContext();
+      state.pendingRobloxAction = null;
       elements.messageStream.innerHTML = "";
+      $("#conversation-panel").style.height = "";
+      persistConversationMemory();
       logActivity("Conversation display cleared");
     });
 
@@ -1549,7 +3197,7 @@
     });
     window.addEventListener("keydown", (event) => {
       if (event.key === "Escape") {
-        if (stopSpeaking()) {
+        if (stopCurrentOperation()) {
           event.preventDefault();
           return;
         }
@@ -1559,6 +3207,10 @@
         }
         if (state.compact) {
           void toggleCompact();
+          return;
+        }
+        if ($("#roblox-panel")?.classList.contains("open")) {
+          closeRobloxPanel();
           return;
         }
         closePermissions();
@@ -1624,6 +3276,10 @@
   }
 
   function initialize() {
+    if (restoredConversation.messages.length) {
+      elements.messageStream.innerHTML = "";
+      for (const message of state.messages) appendMessage(message.role, message.content);
+    }
     elements.voiceSpeed.value = String(state.speechRate);
     elements.voiceSpeedValue.textContent = `${state.speechRate.toFixed(2)}×`;
     $("#coding-coach-mode").checked = state.codingCoachMode;
@@ -1632,6 +3288,9 @@
     bindEvents();
     bindAuthentication();
     bindComputerControl();
+    void bindAgentPanel();
+    void bindRobloxPanel();
+    bindBusinessPanel();
     createParticleField();
     loadVoiceProfiles();
     if ("speechSynthesis" in window) window.speechSynthesis.addEventListener("voiceschanged", loadVoiceProfiles);

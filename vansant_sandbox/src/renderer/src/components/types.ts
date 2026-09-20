@@ -24,6 +24,7 @@ export type TrashEntry = {
 };
 
 export type RunResult = {
+  filePath?: string;
   ok: boolean;
   command: string;
   stdout: string;
@@ -36,6 +37,22 @@ export type PracticeLanguage = 'javascript' | 'typescript' | 'python' | 'powersh
 export type DiagnosticSummary = {
   errors: number;
   warnings: number;
+};
+
+export type Problem = {
+  file?: string;
+  line?: number;
+  column?: number;
+  endLine?: number;
+  endColumn?: number;
+  severity: 'error' | 'warning' | 'info';
+  message: string;
+  source?: string;
+  code?: string;
+};
+
+export type FileDiagnostics = DiagnosticSummary & {
+  problems: Problem[];
 };
 
 export type GitStatus = {
